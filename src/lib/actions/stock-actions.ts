@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { CATEGORY_ROUTES, A_ENCAISSER_PATH } from "@/lib/category-routes";
 
 export type StockCoreField =
   | "dateAchat"
@@ -15,15 +16,6 @@ export type StockCoreField =
   | "tauxTvaAchat"
   | "compteEmail"
   | "notes";
-
-const SALE_ROUTE: Record<string, string> = {
-  "cat-billets": "/billets",
-  "cat-prestations": "/prestations",
-  "cat-merch": "/merch",
-  "cat-perso-billets": "/perso/billets",
-  "cat-perso-prestations": "/perso/prestations",
-  "cat-perso-merch": "/perso/merch",
-};
 
 function toDate(value: string | null) {
   return value ? new Date(`${value}T00:00:00.000Z`) : null;
@@ -149,7 +141,8 @@ export async function updateStockDate(
   }
 
   revalidatePath(path);
-  const saleRoute = SALE_ROUTE[item.categoryId];
+  revalidatePath(A_ENCAISSER_PATH);
+  const saleRoute = CATEGORY_ROUTES[item.categoryId];
   if (saleRoute) revalidatePath(saleRoute);
 }
 
@@ -164,21 +157,25 @@ export async function markStockEncaisseToday(id: string, path: string) {
 export async function deleteStockItem(id: string, path: string) {
   await prisma.stockItem.update({ where: { id }, data: { deletedAt: new Date() } });
   revalidatePath(path);
+  revalidatePath(A_ENCAISSER_PATH);
 }
 
 export async function restoreStockItem(id: string, path: string) {
   await prisma.stockItem.update({ where: { id }, data: { deletedAt: null } });
   revalidatePath(path);
+  revalidatePath(A_ENCAISSER_PATH);
 }
 
 export async function bulkDeleteStockItems(ids: string[], path: string) {
   await prisma.stockItem.updateMany({ where: { id: { in: ids } }, data: { deletedAt: new Date() } });
   revalidatePath(path);
+  revalidatePath(A_ENCAISSER_PATH);
 }
 
 export async function bulkRestoreStockItems(ids: string[], path: string) {
   await prisma.stockItem.updateMany({ where: { id: { in: ids } }, data: { deletedAt: null } });
   revalidatePath(path);
+  revalidatePath(A_ENCAISSER_PATH);
 }
 
 export async function duplicateStockItem(id: string, path: string) {

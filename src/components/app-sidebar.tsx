@@ -10,6 +10,8 @@ import {
   Receipt,
   Landmark,
   BookOpen,
+  Wallet,
+  CalendarDays,
 } from "lucide-react";
 import {
   Sidebar,
@@ -26,6 +28,8 @@ import {
 
 const navMain = [
   { href: "/", label: "Tableau de bord", icon: LayoutDashboard, color: undefined },
+  { href: "/a-encaisser", label: "À encaisser", icon: Wallet, color: "#059669" },
+  { href: "/calendrier", label: "Calendrier", icon: CalendarDays, color: undefined },
   { href: "/billets", label: "Billets", icon: Ticket, color: "#6366f1" },
   { href: "/prestations", label: "Prestations", icon: Wrench, color: "#10b981" },
   { href: "/merch", label: "Sneakers / Merch", icon: ShoppingBag, color: "#f59e0b" },

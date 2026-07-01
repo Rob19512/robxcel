@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { A_ENCAISSER_PATH } from "@/lib/category-routes";
 
 export type SaleCoreField =
   | "dateVente"
@@ -72,6 +73,7 @@ export async function updateSaleField(
 
   await prisma.sale.update({ where: { id }, data });
   revalidatePath(path);
+  if (field === "dateEncaissement" || field === "statut") revalidatePath(A_ENCAISSER_PATH);
 }
 
 export async function updateSaleCustomValue(
@@ -94,21 +96,25 @@ export async function updateSaleEventId(id: string, path: string, eventId: strin
 export async function deleteSale(id: string, path: string) {
   await prisma.sale.update({ where: { id }, data: { deletedAt: new Date() } });
   revalidatePath(path);
+  revalidatePath(A_ENCAISSER_PATH);
 }
 
 export async function restoreSale(id: string, path: string) {
   await prisma.sale.update({ where: { id }, data: { deletedAt: null } });
   revalidatePath(path);
+  revalidatePath(A_ENCAISSER_PATH);
 }
 
 export async function bulkDeleteSales(ids: string[], path: string) {
   await prisma.sale.updateMany({ where: { id: { in: ids } }, data: { deletedAt: new Date() } });
   revalidatePath(path);
+  revalidatePath(A_ENCAISSER_PATH);
 }
 
 export async function bulkRestoreSales(ids: string[], path: string) {
   await prisma.sale.updateMany({ where: { id: { in: ids } }, data: { deletedAt: null } });
   revalidatePath(path);
+  revalidatePath(A_ENCAISSER_PATH);
 }
 
 export async function duplicateSale(id: string, path: string) {
@@ -140,4 +146,5 @@ export async function markSaleEncaisseToday(id: string, path: string) {
     data: { dateEncaissement: new Date(), statut: "ENCAISSE" },
   });
   revalidatePath(path);
+  revalidatePath(A_ENCAISSER_PATH);
 }
