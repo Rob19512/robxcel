@@ -36,6 +36,11 @@ yarn-error.log*
 # vercel
 .vercel
 
+# données perso (CSV Excel export, pas dans le repo)
+/raw-data
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+/src/generated/prisma
