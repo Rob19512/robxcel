@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Ticket, Wrench, ShoppingBag } from "lucide-react";
+import { EvolutionChart, type SaleForChart } from "@/components/evolution-chart";
 
 const SEUIL_BIEN = 85000;
 const SEUIL_SERVICE = 37500;
@@ -27,13 +28,14 @@ export default async function DashboardPage() {
   const now = new Date();
   const startOfYear = new Date(now.getFullYear(), 0, 1);
 
-  const [categories, sales] = await Promise.all([
+  const [categories, allSales] = await Promise.all([
     prisma.category.findMany({ orderBy: { sortOrder: "asc" } }),
-    prisma.sale.findMany({
-      where: { dateEncaissement: { gte: startOfYear } },
-      include: { category: true },
-    }),
+    prisma.sale.findMany({ include: { category: true } }),
   ]);
+
+  const sales = allSales.filter(
+    (s) => s.dateEncaissement && s.dateEncaissement >= startOfYear
+  );
 
   const salesByCategory = new Map<string, typeof sales>();
   for (const s of sales) {
@@ -58,6 +60,15 @@ export default async function DashboardPage() {
       caEnAttente += total;
     }
   }
+
+  const chartSales: SaleForChart[] = allSales.map((s) => ({
+    dateVente: s.dateVente.toISOString().slice(0, 10),
+    dateEncaissement: s.dateEncaissement ? s.dateEncaissement.toISOString().slice(0, 10) : null,
+    statut: s.statut,
+    qty: s.qty,
+    prixVenteUnit: Number(s.prixVenteUnit),
+    coutAchatUnit: Number(s.coutAchatUnit),
+  }));
 
   const pctBien = Math.min(100, (caBienEncaisse / SEUIL_BIEN) * 100);
   const pctService = Math.min(100, (caServiceEncaisse / SEUIL_SERVICE) * 100);
@@ -107,6 +118,8 @@ export default async function DashboardPage() {
           </CardHeader>
         </Card>
       </div>
+
+      <EvolutionChart sales={chartSales} />
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
