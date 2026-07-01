@@ -14,7 +14,7 @@ export default function LoginPage() {
   );
 
   return (
-    <div className="flex flex-1 items-center justify-center bg-zinc-50 px-4 dark:bg-black">
+    <div className="flex flex-1 items-center justify-center bg-background px-4">
       <Card className="w-full max-w-sm">
         <CardHeader>
           <CardTitle className="text-xl">Robxcel</CardTitle>

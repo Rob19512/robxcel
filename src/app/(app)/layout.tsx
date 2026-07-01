@@ -7,6 +7,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { LogOut } from "lucide-react";
 
 export default async function AppLayout({
@@ -26,6 +27,7 @@ export default async function AppLayout({
           <div className="flex-1 text-sm text-muted-foreground">
             {session?.user?.email}
           </div>
+          <ThemeToggle />
           <form
             action={async () => {
               "use server";
@@ -38,7 +40,7 @@ export default async function AppLayout({
             </Button>
           </form>
         </header>
-        <main className="flex flex-1 flex-col gap-6 bg-zinc-50/60 p-4 dark:bg-zinc-950/40 sm:p-6">
+        <main className="flex flex-1 flex-col gap-6 bg-background p-4 sm:p-6">
           {children}
         </main>
       </SidebarInset>

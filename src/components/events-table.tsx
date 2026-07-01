@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Plus, MoreVertical, Trash2 } from "lucide-react";
+import { Plus, MoreVertical, Trash2, Eye } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -12,8 +12,16 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -53,6 +61,7 @@ export function EventsTable({
   sales: SaleRow[];
 }) {
   const [search, setSearch] = useState("");
+  const [detailEventId, setDetailEventId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const filtered = initialEvents.filter((e) => {
@@ -157,7 +166,17 @@ export function EventsTable({
                       <InlineText value={e.notes ?? ""} onSave={saveField(e.id, "notes")} />
                     </TableCell>
                     <TableCell>
-                      <RowMenu onDelete={() => handleDelete(e.id)} />
+                      <div className="flex items-center">
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          title="Voir les tickets"
+                          onClick={() => setDetailEventId(e.id)}
+                        >
+                          <Eye />
+                        </Button>
+                        <RowMenu onDelete={() => handleDelete(e.id)} />
+                      </div>
                     </TableCell>
                   </TableRow>
                 );
@@ -187,7 +206,17 @@ export function EventsTable({
                     onSave={saveField(e.id, "name")}
                     className="text-base font-medium"
                   />
-                  <RowMenu onDelete={() => handleDelete(e.id)} />
+                  <div className="flex items-center">
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      title="Voir les tickets"
+                      onClick={() => setDetailEventId(e.id)}
+                    >
+                      <Eye />
+                    </Button>
+                    <RowMenu onDelete={() => handleDelete(e.id)} />
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <Field label="Date">
@@ -226,7 +255,95 @@ export function EventsTable({
           <p className="py-8 text-center text-sm text-muted-foreground">Aucun événement pour l&apos;instant.</p>
         )}
       </div>
+
+      <EventDetailSheet
+        event={initialEvents.find((e) => e.id === detailEventId) ?? null}
+        stockItems={stockItems.filter((s) => s.eventId === detailEventId)}
+        sales={sales.filter((s) => s.eventId === detailEventId)}
+        onClose={() => setDetailEventId(null)}
+      />
     </div>
+  );
+}
+
+const STOCK_STATUT_LABEL: Record<StockRow["statut"], string> = {
+  EN_STOCK: "📦 En stock",
+  EN_ATTENTE: "⏳ En attente",
+  VENDU: "✅ Vendu",
+};
+
+const SALE_STATUT_LABEL: Record<SaleRow["statut"], string> = {
+  ENCAISSE: "✅ Encaissé",
+  EN_ATTENTE: "⏳ En attente",
+  LITIGE: "⚠️ Litige",
+};
+
+function EventDetailSheet({
+  event,
+  stockItems,
+  sales,
+  onClose,
+}: {
+  event: EventRow | null;
+  stockItems: StockRow[];
+  sales: SaleRow[];
+  onClose: () => void;
+}) {
+  return (
+    <Sheet open={!!event} onOpenChange={(open) => !open && onClose()}>
+      <SheetContent side="right" className="w-full sm:max-w-lg">
+        <SheetHeader>
+          <SheetTitle>{event?.name}</SheetTitle>
+          <SheetDescription>
+            {[event?.dateEvenement, event?.lieuSalle].filter(Boolean).join(" — ") || "Détail des tickets liés"}
+          </SheetDescription>
+        </SheetHeader>
+        <div className="flex flex-col gap-6 overflow-y-auto px-4 pb-4">
+          <div>
+            <h3 className="mb-2 text-sm font-medium text-muted-foreground">
+              Billets achetés (stock) — {stockItems.length}
+            </h3>
+            <div className="flex flex-col gap-2">
+              {stockItems.map((s) => (
+                <div key={s.id} className="flex items-center justify-between rounded-md border p-2 text-sm">
+                  <div className="flex flex-col">
+                    <span className="font-medium">{s.description || "Sans description"}</span>
+                    <span className="text-xs text-muted-foreground">
+                      Qté {s.qty} · Coût {eur.format(s.coutAchatUnit)} · Cible{" "}
+                      {s.prixCibleVente !== null ? eur.format(s.prixCibleVente) : "—"}
+                    </span>
+                  </div>
+                  <Badge variant="secondary">{STOCK_STATUT_LABEL[s.statut]}</Badge>
+                </div>
+              ))}
+              {stockItems.length === 0 && (
+                <p className="text-sm text-muted-foreground">Aucun billet en stock lié.</p>
+              )}
+            </div>
+          </div>
+          <div>
+            <h3 className="mb-2 text-sm font-medium text-muted-foreground">
+              Ventes — {sales.length}
+            </h3>
+            <div className="flex flex-col gap-2">
+              {sales.map((s) => (
+                <div key={s.id} className="flex items-center justify-between rounded-md border p-2 text-sm">
+                  <div className="flex flex-col">
+                    <span className="font-medium">{s.description || "Sans description"}</span>
+                    <span className="text-xs text-muted-foreground">
+                      Qté {s.qty} · Vendu {eur.format(s.prixVenteUnit)} · Vente le{" "}
+                      {s.dateVente.split("-").reverse().join("/")}
+                    </span>
+                  </div>
+                  <Badge variant="secondary">{SALE_STATUT_LABEL[s.statut]}</Badge>
+                </div>
+              ))}
+              {sales.length === 0 && <p className="text-sm text-muted-foreground">Aucune vente liée.</p>}
+            </div>
+          </div>
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 }
 
