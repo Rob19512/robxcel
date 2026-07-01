@@ -113,7 +113,7 @@ model StockItem {
   notes            String?
   customValues     Json         @default("{}")
   saleId           String?      @unique
-  sale             Sale?        @relation(fields: [saleId], references: [id])
+  sale             Sale?        @relation(fields: [saleId], references: [id], onDelete: SetNull)
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
 }
