@@ -1,0 +1,206 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { eur } from "@/lib/format";
+
+export type CategoryLite = { id: string; name: string };
+
+export type SaleLite = {
+  categoryId: string;
+  dateVente: string;
+  dateEncaissement: string | null;
+  statut: "EN_ATTENTE" | "ENCAISSE" | "LITIGE";
+  qty: number;
+  prixVenteUnit: number;
+  coutAchatUnit: number;
+  tauxTvaVente: number;
+  tauxTvaAchat: number;
+  hasStockOrigin: boolean;
+};
+
+export type StockLite = {
+  dateAchat: string;
+  qty: number;
+  coutAchatUnit: number;
+  tauxTvaAchat: number;
+};
+
+export type AchatProLite = {
+  dateAchat: string;
+  qty: number;
+  montantHt: number;
+  tauxTva: number;
+};
+
+const DEADLINES = [
+  "T1 : à déposer avant le 30/04",
+  "T2 : à déposer avant le 31/07",
+  "T3 : à déposer avant le 31/10",
+  "T4 : à déposer avant le 31/01 (année suivante)",
+];
+
+function tvaFromTtc(montant: number, taux: number) {
+  return taux > 0 ? montant * (taux / (100 + taux)) : 0;
+}
+
+function inQuarter(dateStr: string, year: number, quarter: number) {
+  const d = new Date(`${dateStr}T00:00:00.000Z`);
+  if (d.getFullYear() !== year) return false;
+  const q = Math.floor(d.getMonth() / 3);
+  return q === quarter;
+}
+
+export function TvaQuarterly({
+  categories,
+  sales,
+  stockItems,
+  achatsPro,
+}: {
+  categories: CategoryLite[];
+  sales: SaleLite[];
+  stockItems: StockLite[];
+  achatsPro: AchatProLite[];
+}) {
+  const now = new Date();
+  const [year, setYear] = useState(now.getFullYear());
+
+  const years = useMemo(() => {
+    const set = new Set<number>([now.getFullYear()]);
+    for (const s of sales) set.add(new Date(`${s.dateVente}T00:00:00.000Z`).getFullYear());
+    return Array.from(set).sort((a, b) => b - a);
+  }, [sales, now]);
+
+  const categoryById = useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories]);
+
+  const quarters = [0, 1, 2, 3].map((q) => {
+    const quarterSales = sales.filter(
+      (s) => s.statut === "ENCAISSE" && s.dateEncaissement && inQuarter(s.dateEncaissement, year, q)
+    );
+
+    const parCategorie = new Map<string, { caHt: number; tvaCollectee: number }>();
+    let totalTvaCollectee = 0;
+
+    for (const s of quarterSales) {
+      const total = s.qty * s.prixVenteUnit;
+      const tva = tvaFromTtc(total, s.tauxTvaVente);
+      const caHt = total - tva;
+      const cat = categoryById.get(s.categoryId);
+      const key = cat?.name ?? "Autre";
+      const entry = parCategorie.get(key) ?? { caHt: 0, tvaCollectee: 0 };
+      entry.caHt += caHt;
+      entry.tvaCollectee += tva;
+      parCategorie.set(key, entry);
+      totalTvaCollectee += tva;
+    }
+
+    const stockDeductible = stockItems
+      .filter((s) => inQuarter(s.dateAchat, year, q))
+      .reduce((sum, s) => sum + tvaFromTtc(s.qty * s.coutAchatUnit, s.tauxTvaAchat), 0);
+
+    const saleAchatDeductible = sales
+      .filter((s) => !s.hasStockOrigin && inQuarter(s.dateVente, year, q))
+      .reduce((sum, s) => sum + tvaFromTtc(s.qty * s.coutAchatUnit, s.tauxTvaAchat), 0);
+
+    const achatProDeductible = achatsPro
+      .filter((a) => inQuarter(a.dateAchat, year, q))
+      .reduce((sum, a) => sum + tvaFromTtc(a.qty * a.montantHt, a.tauxTva), 0);
+
+    const tvaDeductible = stockDeductible + saleAchatDeductible + achatProDeductible;
+
+    return {
+      quarter: q,
+      parCategorie: Array.from(parCategorie.entries()),
+      totalTvaCollectee,
+      tvaDeductible,
+      stockDeductible,
+      saleAchatDeductible,
+      achatProDeductible,
+      tvaNette: totalTvaCollectee - tvaDeductible,
+    };
+  });
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">TVA trimestrielle</h1>
+          <p className="text-sm text-muted-foreground">
+            Sur les encaissements, Pro uniquement — année {year}.
+          </p>
+        </div>
+        <Select value={String(year)} onValueChange={(v) => v && setYear(Number(v))} items={years.map((y) => ({ value: String(y), label: String(y) }))}>
+          <SelectTrigger className="h-8 w-28">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {years.map((y) => (
+              <SelectItem key={y} value={String(y)}>
+                {y}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        {quarters.map((q) => (
+          <Card key={q.quarter}>
+            <CardHeader>
+              <CardTitle className="text-base">T{q.quarter + 1} {year}</CardTitle>
+              <CardDescription>{DEADLINES[q.quarter]}</CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3">
+              <div className="flex flex-col gap-1">
+                {q.parCategorie.length === 0 && (
+                  <p className="text-sm text-muted-foreground">Aucun encaissement ce trimestre.</p>
+                )}
+                {q.parCategorie.map(([name, v]) => (
+                  <div key={name} className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">{name} — CA HT {eur.format(v.caHt)}</span>
+                    <span className="tabular-nums">{eur.format(v.tvaCollectee)}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="flex items-center justify-between border-t pt-2 text-sm">
+                <span className="text-muted-foreground">TVA collectée</span>
+                <span className="font-medium tabular-nums">{eur.format(q.totalTvaCollectee)}</span>
+              </div>
+              <div className="flex flex-col gap-1 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">TVA déductible (stock)</span>
+                  <span className="tabular-nums">{eur.format(q.stockDeductible)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">TVA déductible (ventes directes)</span>
+                  <span className="tabular-nums">{eur.format(q.saleAchatDeductible)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">TVA déductible (achats pro)</span>
+                  <span className="tabular-nums">{eur.format(q.achatProDeductible)}</span>
+                </div>
+              </div>
+              <div className="flex items-center justify-between rounded-md bg-muted px-3 py-2">
+                <span className="text-sm font-medium">TVA nette à reverser</span>
+                <span className="text-lg font-semibold tabular-nums">{eur.format(q.tvaNette)}</span>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
