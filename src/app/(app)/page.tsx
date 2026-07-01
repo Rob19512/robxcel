@@ -13,6 +13,7 @@ export default async function DashboardPage() {
     kind: c.kind,
     scope: c.scope,
     hasStock: c.hasStock,
+    color: c.color,
   }));
 
   const salesLite: SaleLite[] = sales.map((s) => ({

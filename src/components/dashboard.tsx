@@ -44,6 +44,7 @@ export type CategoryLite = {
   kind: "BIEN" | "SERVICE";
   scope: "PRO" | "PERSO";
   hasStock: boolean;
+  color: string | null;
 };
 
 export type SaleLite = {
@@ -272,10 +273,14 @@ export function Dashboard({
               const encaisse = periodSales
                 .filter((s) => s.categoryId === c.id && s.statut === "ENCAISSE")
                 .reduce((sum, s) => sum + s.qty * s.prixVenteUnit, 0);
+              const color = c.color;
               return (
                 <Card key={c.id}>
                   <CardHeader className="flex flex-row items-center gap-3 space-y-0">
-                    <div className="flex size-9 items-center justify-center rounded-lg bg-accent text-accent-foreground">
+                    <div
+                      className="flex size-9 items-center justify-center rounded-lg bg-accent text-accent-foreground"
+                      style={color ? { backgroundColor: `${color}1a`, color } : undefined}
+                    >
                       <Icon className="size-4.5" />
                     </div>
                     <div>

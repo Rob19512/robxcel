@@ -25,19 +25,19 @@ import {
 } from "@/components/ui/sidebar";
 
 const navMain = [
-  { href: "/", label: "Tableau de bord", icon: LayoutDashboard },
-  { href: "/billets", label: "Billets", icon: Ticket },
-  { href: "/prestations", label: "Prestations", icon: Wrench },
-  { href: "/merch", label: "Sneakers / Merch", icon: ShoppingBag },
+  { href: "/", label: "Tableau de bord", icon: LayoutDashboard, color: undefined },
+  { href: "/billets", label: "Billets", icon: Ticket, color: "#6366f1" },
+  { href: "/prestations", label: "Prestations", icon: Wrench, color: "#10b981" },
+  { href: "/merch", label: "Sneakers / Merch", icon: ShoppingBag, color: "#f59e0b" },
 ];
 
 const navPerso = [
-  { href: "/perso/billets", label: "Billets", icon: Ticket },
-  { href: "/perso/prestations", label: "Prestations", icon: Wrench },
-  { href: "/perso/merch", label: "Merch", icon: ShoppingBag },
+  { href: "/perso/billets", label: "Billets", icon: Ticket, color: "#8b5cf6" },
+  { href: "/perso/prestations", label: "Prestations", icon: Wrench, color: "#8b5cf6" },
+  { href: "/perso/merch", label: "Merch", icon: ShoppingBag, color: "#8b5cf6" },
 ];
 
-const navGestion = [
+const navGestion: { href: string; label: string; icon: typeof Receipt; color?: string }[] = [
   { href: "/achats-pro", label: "Achats pro", icon: Receipt },
   { href: "/tva", label: "TVA trimestrielle", icon: Landmark },
   { href: "/aide", label: "Mode d'emploi", icon: BookOpen },
@@ -70,7 +70,7 @@ export function AppSidebar({ userEmail }: { userEmail?: string | null }) {
                     isActive={pathname === item.href}
                     tooltip={item.label}
                   >
-                    <item.icon />
+                    <item.icon color={item.color} />
                     <span>{item.label}</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -89,7 +89,7 @@ export function AppSidebar({ userEmail }: { userEmail?: string | null }) {
                     isActive={pathname === item.href}
                     tooltip={item.label}
                   >
-                    <item.icon />
+                    <item.icon color={item.color} />
                     <span>{item.label}</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -108,7 +108,7 @@ export function AppSidebar({ userEmail }: { userEmail?: string | null }) {
                     isActive={pathname === item.href}
                     tooltip={item.label}
                   >
-                    <item.icon />
+                    <item.icon color={item.color} />
                     <span>{item.label}</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
