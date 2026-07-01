@@ -215,7 +215,7 @@ export function SalesTable({
                     {f.label}
                   </TableHead>
                 ))}
-                <TableHead className="w-20">Qté</TableHead>
+                <TableHead className="min-w-16">Qté</TableHead>
                 <TableHead className="min-w-28">Prix vente unit.</TableHead>
                 <TableHead className="min-w-28">Coût achat unit.</TableHead>
                 <TableHead className="min-w-28">Total encaissé</TableHead>

@@ -77,7 +77,10 @@ export function InlineNumber({
       onChange={(e) => setValue(e.target.value)}
       onBlur={(e) => save(e.target.value)}
       data-testid={testId}
-      className={cn("h-8 border-transparent bg-transparent text-right tabular-nums hover:border-input focus:border-input", className)}
+      className={cn(
+        "h-8 border-transparent bg-transparent text-right tabular-nums hover:border-input focus:border-input [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none",
+        className
+      )}
     />
   );
 }
