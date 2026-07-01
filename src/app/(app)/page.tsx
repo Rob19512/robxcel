@@ -4,7 +4,7 @@ import { Dashboard, type CategoryLite, type SaleLite } from "@/components/dashbo
 export default async function DashboardPage() {
   const [categories, sales] = await Promise.all([
     prisma.category.findMany({ orderBy: { sortOrder: "asc" } }),
-    prisma.sale.findMany(),
+    prisma.sale.findMany({ where: { deletedAt: null } }),
   ]);
 
   const categoriesLite: CategoryLite[] = categories.map((c) => ({

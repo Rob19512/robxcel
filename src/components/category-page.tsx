@@ -20,9 +20,9 @@ export async function CategoryPageContent({
   });
 
   const [sales, stockItems, events] = await Promise.all([
-    prisma.sale.findMany({ where: { categoryId }, orderBy: { dateVente: "desc" } }),
+    prisma.sale.findMany({ where: { categoryId, deletedAt: null }, orderBy: { dateVente: "desc" } }),
     category.hasStock
-      ? prisma.stockItem.findMany({ where: { categoryId }, orderBy: { dateAchat: "desc" } })
+      ? prisma.stockItem.findMany({ where: { categoryId, deletedAt: null }, orderBy: { dateAchat: "desc" } })
       : Promise.resolve([]),
     category.trackEvents
       ? prisma.event.findMany({ where: { categoryId }, orderBy: { dateEvenement: "desc" } })

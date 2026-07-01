@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { BulkDeleteButton } from "@/components/bulk-delete-button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,6 +34,9 @@ import {
   updateStockDate,
   updateStockEventId,
   deleteStockItem,
+  restoreStockItem,
+  bulkDeleteStockItems,
+  bulkRestoreStockItems,
   duplicateStockItem,
   markStockVenduToday,
   markStockEncaisseToday,
@@ -107,6 +111,7 @@ export function StockTable({
   const [search, setSearch] = useState("");
   const [showSold, setShowSold] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
 
   function toggleExpanded(id: string) {
@@ -140,10 +145,59 @@ export function StockTable({
     });
   }
 
+  function toggleSelected(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    setSelectedIds((prev) =>
+      prev.size === filtered.length ? new Set() : new Set(filtered.map((it) => it.id))
+    );
+  }
+
+  function handleBulkDelete() {
+    const ids = Array.from(selectedIds);
+    startTransition(async () => {
+      try {
+        await bulkDeleteStockItems(ids, path);
+        setSelectedIds(new Set());
+        toast.success(`${ids.length} article${ids.length > 1 ? "s" : ""} supprimé${ids.length > 1 ? "s" : ""}`, {
+          action: {
+            label: "Annuler",
+            onClick: () => {
+              startTransition(async () => {
+                await bulkRestoreStockItems(ids, path);
+                toast.success("Restauré");
+              });
+            },
+          },
+        });
+      } catch {
+        toast.error("Impossible de supprimer");
+      }
+    });
+  }
+
   function handleDelete(id: string) {
     startTransition(async () => {
       try {
         await deleteStockItem(id, path);
+        toast.success("Article supprimé", {
+          action: {
+            label: "Annuler",
+            onClick: () => {
+              startTransition(async () => {
+                await restoreStockItem(id, path);
+                toast.success("Restauré");
+              });
+            },
+          },
+        });
       } catch {
         toast.error("Impossible de supprimer");
       }
@@ -249,6 +303,7 @@ export function StockTable({
           <Download />
           Exporter CSV
         </Button>
+        <BulkDeleteButton count={selectedIds.size} onConfirm={handleBulkDelete} />
         <span className="ml-auto text-xs text-muted-foreground">
           {filtered.length} article{filtered.length > 1 ? "s" : ""}
         </span>
@@ -260,6 +315,12 @@ export function StockTable({
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10">
+                  <Checkbox
+                    checked={filtered.length > 0 && selectedIds.size === filtered.length}
+                    onCheckedChange={toggleSelectAll}
+                  />
+                </TableHead>
                 <TableHead className="min-w-32">Date achat</TableHead>
                 <TableHead className="min-w-48">Description</TableHead>
                 <TableHead className="min-w-36">Source cible</TableHead>
@@ -294,7 +355,10 @@ export function StockTable({
                     ? it.qty * it.coutAchatUnit * (it.tauxTvaAchat / (100 + it.tauxTvaAchat))
                     : 0;
                 return (
-                  <TableRow key={it.id}>
+                  <TableRow key={it.id} data-state={selectedIds.has(it.id) ? "selected" : undefined}>
+                    <TableCell>
+                      <Checkbox checked={selectedIds.has(it.id)} onCheckedChange={() => toggleSelected(it.id)} />
+                    </TableCell>
                     <TableCell>
                       <InlineDate value={it.dateAchat} onSave={saveField(it.id, "dateAchat")} />
                     </TableCell>
@@ -425,7 +489,7 @@ export function StockTable({
               {filtered.length === 0 && (
                 <TableRow>
                   <TableCell
-                    colSpan={16 + fields.length + (trackPriorite ? 1 : 0) + (trackRecu ? 1 : 0) + (events ? 1 : 0)}
+                    colSpan={17 + fields.length + (trackPriorite ? 1 : 0) + (trackRecu ? 1 : 0) + (events ? 1 : 0)}
                     className="py-8 text-center text-sm text-muted-foreground"
                   >
                     Aucun article en stock.
@@ -450,35 +514,42 @@ export function StockTable({
 
           return (
             <Card key={it.id} className="py-0">
-              <button
-                type="button"
-                onClick={() => toggleExpanded(it.id)}
-                className="flex w-full items-center gap-2.5 p-3 text-left"
-              >
-                {prioriteEmoji && <span className="shrink-0 text-base leading-none">{prioriteEmoji}</span>}
-                <div className="flex min-w-0 flex-1 flex-col">
-                  <span className="truncate text-sm font-medium">
-                    {it.description || "Sans description"}
-                  </span>
-                  <span className="truncate text-xs text-muted-foreground">
-                    {STATUT_LABEL[it.statut]}
-                    {eventLabel ? ` · ${eventLabel}` : ""}
-                  </span>
-                </div>
-                <div className="flex shrink-0 flex-col items-end">
-                  <span className="text-sm font-semibold tabular-nums">
-                    {it.prixCibleVente !== null ? eur.format(it.prixCibleVente) : "—"}
-                  </span>
-                  {margeCible !== null && (
-                    <span className="text-xs text-muted-foreground tabular-nums">
-                      +{eur.format(margeCible)}
-                    </span>
-                  )}
-                </div>
-                <ChevronDown
-                  className={cn("size-4 shrink-0 text-muted-foreground transition-transform", isOpen && "rotate-180")}
+              <div className="flex w-full items-center gap-1 p-3">
+                <Checkbox
+                  checked={selectedIds.has(it.id)}
+                  onCheckedChange={() => toggleSelected(it.id)}
+                  className="mr-1 shrink-0"
                 />
-              </button>
+                <button
+                  type="button"
+                  onClick={() => toggleExpanded(it.id)}
+                  className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
+                >
+                  {prioriteEmoji && <span className="shrink-0 text-base leading-none">{prioriteEmoji}</span>}
+                  <div className="flex min-w-0 flex-1 flex-col">
+                    <span className="truncate text-sm font-medium">
+                      {it.description || "Sans description"}
+                    </span>
+                    <span className="truncate text-xs text-muted-foreground">
+                      {STATUT_LABEL[it.statut]}
+                      {eventLabel ? ` · ${eventLabel}` : ""}
+                    </span>
+                  </div>
+                  <div className="flex shrink-0 flex-col items-end">
+                    <span className="text-sm font-semibold tabular-nums">
+                      {it.prixCibleVente !== null ? eur.format(it.prixCibleVente) : "—"}
+                    </span>
+                    {margeCible !== null && (
+                      <span className="text-xs text-muted-foreground tabular-nums">
+                        +{eur.format(margeCible)}
+                      </span>
+                    )}
+                  </div>
+                  <ChevronDown
+                    className={cn("size-4 shrink-0 text-muted-foreground transition-transform", isOpen && "rotate-180")}
+                  />
+                </button>
+              </div>
 
               {isOpen && (
                 <CardContent className="flex flex-col gap-3 border-t pt-3">

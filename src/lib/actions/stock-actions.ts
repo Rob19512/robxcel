@@ -135,7 +135,7 @@ export async function updateStockDate(
       await prisma.sale.update({ where: { id: item.saleId }, data: { dateEncaissement: date } });
       await prisma.stockItem.update({ where: { id }, data: { dateEncaissement: date } });
     } else if (!date && item.saleId) {
-      await prisma.sale.delete({ where: { id: item.saleId } });
+      await prisma.sale.update({ where: { id: item.saleId }, data: { deletedAt: new Date() } });
       await prisma.stockItem.update({
         where: { id },
         data: { dateEncaissement: null, saleId: null, statut: item.dateVente ? "EN_ATTENTE" : "EN_STOCK" },
@@ -162,7 +162,22 @@ export async function markStockEncaisseToday(id: string, path: string) {
 }
 
 export async function deleteStockItem(id: string, path: string) {
-  await prisma.stockItem.delete({ where: { id } });
+  await prisma.stockItem.update({ where: { id }, data: { deletedAt: new Date() } });
+  revalidatePath(path);
+}
+
+export async function restoreStockItem(id: string, path: string) {
+  await prisma.stockItem.update({ where: { id }, data: { deletedAt: null } });
+  revalidatePath(path);
+}
+
+export async function bulkDeleteStockItems(ids: string[], path: string) {
+  await prisma.stockItem.updateMany({ where: { id: { in: ids } }, data: { deletedAt: new Date() } });
+  revalidatePath(path);
+}
+
+export async function bulkRestoreStockItems(ids: string[], path: string) {
+  await prisma.stockItem.updateMany({ where: { id: { in: ids } }, data: { deletedAt: null } });
   revalidatePath(path);
 }
 

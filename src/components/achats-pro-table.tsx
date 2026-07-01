@@ -14,6 +14,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { BulkDeleteButton } from "@/components/bulk-delete-button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,6 +29,9 @@ import {
   createAchatPro,
   updateAchatProField,
   deleteAchatPro,
+  restoreAchatPro,
+  bulkDeleteAchatsPro,
+  bulkRestoreAchatsPro,
   duplicateAchatPro,
   type AchatProField,
 } from "@/lib/actions/achat-pro-actions";
@@ -58,6 +63,7 @@ const tvaOptions = TVA_RATES.map((r) => ({ value: String(r), label: r === 0 ? "0
 
 export function AchatsProTable({ path, initialItems }: { path: string; initialItems: AchatProRow[] }) {
   const [search, setSearch] = useState("");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
 
   const filtered = initialItems.filter((it) => {
@@ -76,10 +82,59 @@ export function AchatsProTable({ path, initialItems }: { path: string; initialIt
     });
   }
 
+  function toggleSelected(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    setSelectedIds((prev) =>
+      prev.size === filtered.length ? new Set() : new Set(filtered.map((it) => it.id))
+    );
+  }
+
+  function handleBulkDelete() {
+    const ids = Array.from(selectedIds);
+    startTransition(async () => {
+      try {
+        await bulkDeleteAchatsPro(ids, path);
+        setSelectedIds(new Set());
+        toast.success(`${ids.length} ligne${ids.length > 1 ? "s" : ""} supprimée${ids.length > 1 ? "s" : ""}`, {
+          action: {
+            label: "Annuler",
+            onClick: () => {
+              startTransition(async () => {
+                await bulkRestoreAchatsPro(ids, path);
+                toast.success("Restauré");
+              });
+            },
+          },
+        });
+      } catch {
+        toast.error("Impossible de supprimer");
+      }
+    });
+  }
+
   function handleDelete(id: string) {
     startTransition(async () => {
       try {
         await deleteAchatPro(id, path);
+        toast.success("Ligne supprimée", {
+          action: {
+            label: "Annuler",
+            onClick: () => {
+              startTransition(async () => {
+                await restoreAchatPro(id, path);
+                toast.success("Restauré");
+              });
+            },
+          },
+        });
       } catch {
         toast.error("Impossible de supprimer");
       }
@@ -137,6 +192,7 @@ export function AchatsProTable({ path, initialItems }: { path: string; initialIt
           <Download />
           Exporter CSV
         </Button>
+        <BulkDeleteButton count={selectedIds.size} onConfirm={handleBulkDelete} />
         <span className="ml-auto text-xs text-muted-foreground">
           {filtered.length} ligne{filtered.length > 1 ? "s" : ""}
         </span>
@@ -148,6 +204,12 @@ export function AchatsProTable({ path, initialItems }: { path: string; initialIt
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10">
+                  <Checkbox
+                    checked={filtered.length > 0 && selectedIds.size === filtered.length}
+                    onCheckedChange={toggleSelectAll}
+                  />
+                </TableHead>
                 <TableHead className="min-w-32">Date achat</TableHead>
                 <TableHead className="min-w-56">Description / Fournisseur</TableHead>
                 <TableHead className="min-w-48">Catégorie</TableHead>
@@ -164,7 +226,10 @@ export function AchatsProTable({ path, initialItems }: { path: string; initialIt
                 const total = it.qty * it.montantHt;
                 const tvaDed = it.tauxTva > 0 ? total * (it.tauxTva / (100 + it.tauxTva)) : 0;
                 return (
-                  <TableRow key={it.id}>
+                  <TableRow key={it.id} data-state={selectedIds.has(it.id) ? "selected" : undefined}>
+                    <TableCell>
+                      <Checkbox checked={selectedIds.has(it.id)} onCheckedChange={() => toggleSelected(it.id)} />
+                    </TableCell>
                     <TableCell>
                       <InlineDate value={it.dateAchat} onSave={saveField(it.id, "dateAchat")} />
                     </TableCell>
@@ -204,7 +269,7 @@ export function AchatsProTable({ path, initialItems }: { path: string; initialIt
               })}
               {filtered.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={9} className="py-8 text-center text-sm text-muted-foreground">
+                  <TableCell colSpan={10} className="py-8 text-center text-sm text-muted-foreground">
                     Aucun achat pro pour l&apos;instant.
                   </TableCell>
                 </TableRow>
@@ -223,7 +288,10 @@ export function AchatsProTable({ path, initialItems }: { path: string; initialIt
             <Card key={it.id}>
               <CardContent className="flex flex-col gap-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-semibold tabular-nums">{eur.format(total)}</span>
+                  <div className="flex items-center gap-2">
+                    <Checkbox checked={selectedIds.has(it.id)} onCheckedChange={() => toggleSelected(it.id)} />
+                    <span className="text-sm font-semibold tabular-nums">{eur.format(total)}</span>
+                  </div>
                   <RowMenu onDuplicate={() => handleDuplicate(it.id)} onDelete={() => handleDelete(it.id)} />
                 </div>
                 <InlineText

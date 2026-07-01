@@ -3,7 +3,10 @@ import { serializeAchatPro } from "@/lib/serialize";
 import { AchatsProTable } from "@/components/achats-pro-table";
 
 export default async function AchatsProPage() {
-  const items = await prisma.achatPro.findMany({ orderBy: { dateAchat: "desc" } });
+  const items = await prisma.achatPro.findMany({
+    where: { deletedAt: null },
+    orderBy: { dateAchat: "desc" },
+  });
 
   return (
     <div className="flex flex-col gap-6">

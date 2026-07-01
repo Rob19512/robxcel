@@ -52,7 +52,22 @@ export async function updateAchatProField(
 }
 
 export async function deleteAchatPro(id: string, path: string) {
-  await prisma.achatPro.delete({ where: { id } });
+  await prisma.achatPro.update({ where: { id }, data: { deletedAt: new Date() } });
+  revalidatePath(path);
+}
+
+export async function restoreAchatPro(id: string, path: string) {
+  await prisma.achatPro.update({ where: { id }, data: { deletedAt: null } });
+  revalidatePath(path);
+}
+
+export async function bulkDeleteAchatsPro(ids: string[], path: string) {
+  await prisma.achatPro.updateMany({ where: { id: { in: ids } }, data: { deletedAt: new Date() } });
+  revalidatePath(path);
+}
+
+export async function bulkRestoreAchatsPro(ids: string[], path: string) {
+  await prisma.achatPro.updateMany({ where: { id: { in: ids } }, data: { deletedAt: null } });
   revalidatePath(path);
 }
 

@@ -29,6 +29,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { InlineText, InlineNumber, InlineDate, InlineSelect } from "@/components/inline-field";
+import { Checkbox } from "@/components/ui/checkbox";
+import { BulkDeleteButton } from "@/components/bulk-delete-button";
 import { eur, TVA_RATES } from "@/lib/format";
 import { computeSale } from "@/lib/calc";
 import { downloadCsv } from "@/lib/export-csv";
@@ -38,6 +40,9 @@ import {
   updateSaleCustomValue,
   updateSaleEventId,
   deleteSale,
+  restoreSale,
+  bulkDeleteSales,
+  bulkRestoreSales,
   duplicateSale,
   markSaleEncaisseToday,
   type SaleCoreField,
@@ -101,6 +106,7 @@ export function SalesTable({
   const [sales, setSales] = useState(initialSales);
   const [search, setSearch] = useState("");
   const [statutFilter, setStatutFilter] = useState<string>("ALL");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
 
   useMemo(() => setSales(initialSales), [initialSales]);
@@ -131,10 +137,59 @@ export function SalesTable({
     });
   }
 
+  function toggleSelected(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    setSelectedIds((prev) =>
+      prev.size === filtered.length ? new Set() : new Set(filtered.map((s) => s.id))
+    );
+  }
+
+  function handleBulkDelete() {
+    const ids = Array.from(selectedIds);
+    startTransition(async () => {
+      try {
+        await bulkDeleteSales(ids, path);
+        setSelectedIds(new Set());
+        toast.success(`${ids.length} ligne${ids.length > 1 ? "s" : ""} supprimée${ids.length > 1 ? "s" : ""}`, {
+          action: {
+            label: "Annuler",
+            onClick: () => {
+              startTransition(async () => {
+                await bulkRestoreSales(ids, path);
+                toast.success("Restauré");
+              });
+            },
+          },
+        });
+      } catch {
+        toast.error("Impossible de supprimer");
+      }
+    });
+  }
+
   function handleDelete(id: string) {
     startTransition(async () => {
       try {
         await deleteSale(id, path);
+        toast.success("Ligne supprimée", {
+          action: {
+            label: "Annuler",
+            onClick: () => {
+              startTransition(async () => {
+                await restoreSale(id, path);
+                toast.success("Restauré");
+              });
+            },
+          },
+        });
       } catch {
         toast.error("Impossible de supprimer");
       }
@@ -242,6 +297,7 @@ export function SalesTable({
           <Download />
           Exporter CSV
         </Button>
+        <BulkDeleteButton count={selectedIds.size} onConfirm={handleBulkDelete} />
         <span className="ml-auto text-xs text-muted-foreground">
           {filtered.length} ligne{filtered.length > 1 ? "s" : ""}
         </span>
@@ -253,6 +309,12 @@ export function SalesTable({
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10">
+                  <Checkbox
+                    checked={filtered.length > 0 && selectedIds.size === filtered.length}
+                    onCheckedChange={toggleSelectAll}
+                  />
+                </TableHead>
                 <TableHead className="min-w-32">Date vente</TableHead>
                 <TableHead className="min-w-32">Date encaissement</TableHead>
                 <TableHead className="min-w-36">Statut</TableHead>
@@ -282,7 +344,10 @@ export function SalesTable({
               {filtered.map((s) => {
                 const calc = computeSale(s);
                 return (
-                  <TableRow key={s.id}>
+                  <TableRow key={s.id} data-state={selectedIds.has(s.id) ? "selected" : undefined}>
+                    <TableCell>
+                      <Checkbox checked={selectedIds.has(s.id)} onCheckedChange={() => toggleSelected(s.id)} />
+                    </TableCell>
                     <TableCell>
                       <InlineDate value={s.dateVente} onSave={saveField(s.id, "dateVente")} />
                     </TableCell>
@@ -408,7 +473,7 @@ export function SalesTable({
               })}
               {filtered.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={16 + fields.length + (events ? 1 : 0)} className="py-8 text-center text-sm text-muted-foreground">
+                  <TableCell colSpan={17 + fields.length + (events ? 1 : 0)} className="py-8 text-center text-sm text-muted-foreground">
                     Aucune vente pour l&apos;instant.
                   </TableCell>
                 </TableRow>
@@ -426,9 +491,12 @@ export function SalesTable({
             <Card key={s.id}>
               <CardContent className="flex flex-col gap-3">
                 <div className="flex items-center justify-between">
-                  <Badge className={statutBadgeVariant[s.statut]}>
-                    {STATUT_OPTIONS.find((o) => o.value === s.statut)?.label}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Checkbox checked={selectedIds.has(s.id)} onCheckedChange={() => toggleSelected(s.id)} />
+                    <Badge className={statutBadgeVariant[s.statut]}>
+                      {STATUT_OPTIONS.find((o) => o.value === s.statut)?.label}
+                    </Badge>
+                  </div>
                   <div className="flex items-center gap-1">
                     <span className="text-sm font-semibold tabular-nums">
                       {eur.format(calc.totalEncaisse)}

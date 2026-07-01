@@ -92,7 +92,22 @@ export async function updateSaleEventId(id: string, path: string, eventId: strin
 }
 
 export async function deleteSale(id: string, path: string) {
-  await prisma.sale.delete({ where: { id } });
+  await prisma.sale.update({ where: { id }, data: { deletedAt: new Date() } });
+  revalidatePath(path);
+}
+
+export async function restoreSale(id: string, path: string) {
+  await prisma.sale.update({ where: { id }, data: { deletedAt: null } });
+  revalidatePath(path);
+}
+
+export async function bulkDeleteSales(ids: string[], path: string) {
+  await prisma.sale.updateMany({ where: { id: { in: ids } }, data: { deletedAt: new Date() } });
+  revalidatePath(path);
+}
+
+export async function bulkRestoreSales(ids: string[], path: string) {
+  await prisma.sale.updateMany({ where: { id: { in: ids } }, data: { deletedAt: null } });
   revalidatePath(path);
 }
 

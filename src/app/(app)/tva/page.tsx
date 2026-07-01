@@ -10,9 +10,12 @@ import {
 export default async function TvaPage() {
   const [categories, sales, stockItems, achatsPro] = await Promise.all([
     prisma.category.findMany({ where: { scope: "PRO" } }),
-    prisma.sale.findMany({ where: { category: { scope: "PRO" } }, include: { stockItem: true } }),
-    prisma.stockItem.findMany({ where: { category: { scope: "PRO" } } }),
-    prisma.achatPro.findMany(),
+    prisma.sale.findMany({
+      where: { category: { scope: "PRO" }, deletedAt: null },
+      include: { stockItem: true },
+    }),
+    prisma.stockItem.findMany({ where: { category: { scope: "PRO" }, deletedAt: null } }),
+    prisma.achatPro.findMany({ where: { deletedAt: null } }),
   ]);
 
   const categoriesLite: CategoryLite[] = categories.map((c) => ({ id: c.id, name: c.name }));
