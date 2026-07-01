@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Plus, MoreVertical, Copy, Trash2, PackageCheck, CheckCircle2, Download } from "lucide-react";
+import { Plus, MoreVertical, Copy, Trash2, PackageCheck, CheckCircle2, Download, ChevronDown } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -25,6 +25,7 @@ import {
 import { InlineText, InlineNumber, InlineDate, InlineSelect } from "@/components/inline-field";
 import { eur, TVA_RATES } from "@/lib/format";
 import { downloadCsv } from "@/lib/export-csv";
+import { cn } from "@/lib/utils";
 import {
   createStockItem,
   updateStockField,
@@ -105,7 +106,17 @@ export function StockTable({
 }) {
   const [search, setSearch] = useState("");
   const [showSold, setShowSold] = useState(false);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
+
+  function toggleExpanded(id: string) {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   const items = initialItems;
   const sourceOptions = sources.map((s) => ({ value: s, label: s }));
@@ -426,132 +437,165 @@ export function StockTable({
         </div>
       </Card>
 
-      {/* Mobile cards */}
-      <div className="flex flex-col gap-3 md:hidden">
+      {/* Mobile cards : repliées par défaut pour un coup d'œil rapide sur le stock */}
+      <div className="flex flex-col gap-2 md:hidden">
         {filtered.map((it) => {
           const margeCible =
             it.prixCibleVente !== null ? it.qty * (it.prixCibleVente - it.coutAchatUnit) : null;
+          const isOpen = expanded.has(it.id);
+          const prioriteEmoji = trackPriorite
+            ? (PRIORITE_OPTIONS.find((o) => o.value === it.priorite)?.label ?? "🟡 Normal").split(" ")[0]
+            : null;
+          const eventLabel = it.eventId ? eventOptions.find((e) => e.value === it.eventId)?.label : null;
+
           return (
-            <Card key={it.id}>
-              <CardContent className="flex flex-col gap-3">
-                <div className="flex items-center justify-between">
-                  <Badge className={statutBadgeVariant[it.statut]}>{STATUT_LABEL[it.statut]}</Badge>
-                  <div className="flex items-center gap-1">
-                    <span className="text-sm font-semibold tabular-nums">
-                      {margeCible !== null ? eur.format(margeCible) : "—"}
+            <Card key={it.id} className="py-0">
+              <button
+                type="button"
+                onClick={() => toggleExpanded(it.id)}
+                className="flex w-full items-center gap-2.5 p-3 text-left"
+              >
+                {prioriteEmoji && <span className="shrink-0 text-base leading-none">{prioriteEmoji}</span>}
+                <div className="flex min-w-0 flex-1 flex-col">
+                  <span className="truncate text-sm font-medium">
+                    {it.description || "Sans description"}
+                  </span>
+                  <span className="truncate text-xs text-muted-foreground">
+                    {STATUT_LABEL[it.statut]}
+                    {eventLabel ? ` · ${eventLabel}` : ""}
+                  </span>
+                </div>
+                <div className="flex shrink-0 flex-col items-end">
+                  <span className="text-sm font-semibold tabular-nums">
+                    {it.prixCibleVente !== null ? eur.format(it.prixCibleVente) : "—"}
+                  </span>
+                  {margeCible !== null && (
+                    <span className="text-xs text-muted-foreground tabular-nums">
+                      +{eur.format(margeCible)}
                     </span>
+                  )}
+                </div>
+                <ChevronDown
+                  className={cn("size-4 shrink-0 text-muted-foreground transition-transform", isOpen && "rotate-180")}
+                />
+              </button>
+
+              {isOpen && (
+                <CardContent className="flex flex-col gap-3 border-t pt-3">
+                  <div className="flex items-center justify-between">
+                    <Badge className={statutBadgeVariant[it.statut]}>{STATUT_LABEL[it.statut]}</Badge>
                     <RowMenu onDuplicate={() => handleDuplicate(it.id)} onDelete={() => handleDelete(it.id)} />
                   </div>
-                </div>
-                <InlineText
-                  value={it.description ?? ""}
-                  placeholder="Description"
-                  onSave={saveField(it.id, "description")}
-                  className="text-base font-medium"
-                />
-                <div className="grid grid-cols-2 gap-2">
-                  <Field label="Date achat">
-                    <InlineDate value={it.dateAchat} onSave={saveField(it.id, "dateAchat")} />
-                  </Field>
-                  <Field label="Source cible">
-                    <InlineSelect
-                      value={it.source ?? ""}
-                      options={sourceOptions}
-                      placeholder="Source"
-                      onSave={saveField(it.id, "source")}
-                    />
-                  </Field>
-                  {events && (
-                    <Field label="Événement">
+                  <InlineText
+                    value={it.description ?? ""}
+                    placeholder="Description"
+                    onSave={saveField(it.id, "description")}
+                    className="text-base font-medium"
+                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <Field label="Date achat">
+                      <InlineDate value={it.dateAchat} onSave={saveField(it.id, "dateAchat")} />
+                    </Field>
+                    <Field label="Source cible">
                       <InlineSelect
-                        value={it.eventId ?? ""}
-                        options={eventOptions}
-                        placeholder="Événement"
-                        onSave={saveEvent(it.id)}
+                        value={it.source ?? ""}
+                        options={sourceOptions}
+                        placeholder="Source"
+                        onSave={saveField(it.id, "source")}
                       />
                     </Field>
-                  )}
-                  <Field label="Qté">
-                    <InlineNumber value={it.qty} step="1" onSave={saveField(it.id, "qty")} />
-                  </Field>
-                  <Field label="Coût achat unit.">
-                    <InlineNumber value={it.coutAchatUnit} onSave={saveField(it.id, "coutAchatUnit")} />
-                  </Field>
-                  <Field label="Prix cible vente">
-                    <InlineNumber value={it.prixCibleVente ?? 0} onSave={saveField(it.id, "prixCibleVente")} />
-                  </Field>
-                  {fields.map((f) => (
-                    <Field key={f.id} label={f.label}>
-                      {f.fieldType === "DATE" ? (
-                        <InlineDate value={it.customValues?.[f.key] ?? ""} onSave={saveCustom(it.id, f.key)} />
-                      ) : f.fieldType === "NUMBER" ? (
-                        <InlineNumber
-                          value={Number(it.customValues?.[f.key] ?? 0)}
-                          onSave={saveCustom(it.id, f.key)}
+                    {events && (
+                      <Field label="Événement">
+                        <InlineSelect
+                          value={it.eventId ?? ""}
+                          options={eventOptions}
+                          placeholder="Événement"
+                          onSave={saveEvent(it.id)}
                         />
-                      ) : (
-                        <InlineText value={it.customValues?.[f.key] ?? ""} onSave={saveCustom(it.id, f.key)} />
-                      )}
+                      </Field>
+                    )}
+                    <Field label="Qté">
+                      <InlineNumber value={it.qty} step="1" onSave={saveField(it.id, "qty")} />
                     </Field>
-                  ))}
-                  {trackPriorite && (
-                    <Field label="Priorité">
+                    <Field label="Coût achat unit.">
+                      <InlineNumber value={it.coutAchatUnit} onSave={saveField(it.id, "coutAchatUnit")} />
+                    </Field>
+                    <Field label="Prix cible vente">
+                      <InlineNumber value={it.prixCibleVente ?? 0} onSave={saveField(it.id, "prixCibleVente")} />
+                    </Field>
+                    {fields.map((f) => (
+                      <Field key={f.id} label={f.label}>
+                        {f.fieldType === "DATE" ? (
+                          <InlineDate value={it.customValues?.[f.key] ?? ""} onSave={saveCustom(it.id, f.key)} />
+                        ) : f.fieldType === "NUMBER" ? (
+                          <InlineNumber
+                            value={Number(it.customValues?.[f.key] ?? 0)}
+                            onSave={saveCustom(it.id, f.key)}
+                          />
+                        ) : (
+                          <InlineText value={it.customValues?.[f.key] ?? ""} onSave={saveCustom(it.id, f.key)} />
+                        )}
+                      </Field>
+                    ))}
+                    {trackPriorite && (
+                      <Field label="Priorité">
+                        <InlineSelect
+                          value={it.priorite ?? "NORMAL"}
+                          options={PRIORITE_OPTIONS}
+                          onSave={saveField(it.id, "priorite")}
+                        />
+                      </Field>
+                    )}
+                    {trackRecu && (
+                      <Field label="Reçu">
+                        <InlineSelect
+                          value={String(it.recu ?? false)}
+                          options={RECU_OPTIONS}
+                          onSave={saveField(it.id, "recu")}
+                        />
+                      </Field>
+                    )}
+                    <Field label="TVA achat">
                       <InlineSelect
-                        value={it.priorite ?? "NORMAL"}
-                        options={PRIORITE_OPTIONS}
-                        onSave={saveField(it.id, "priorite")}
+                        value={String(it.tauxTvaAchat)}
+                        options={tvaOptions}
+                        onSave={saveField(it.id, "tauxTvaAchat")}
                       />
                     </Field>
-                  )}
-                  {trackRecu && (
-                    <Field label="Reçu">
-                      <InlineSelect
-                        value={String(it.recu ?? false)}
-                        options={RECU_OPTIONS}
-                        onSave={saveField(it.id, "recu")}
-                      />
+                    <Field label="Compte (email)">
+                      <InlineText value={it.compteEmail ?? ""} onSave={saveField(it.id, "compteEmail")} />
                     </Field>
-                  )}
-                  <Field label="TVA achat">
-                    <InlineSelect
-                      value={String(it.tauxTvaAchat)}
-                      options={tvaOptions}
-                      onSave={saveField(it.id, "tauxTvaAchat")}
-                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 rounded-md bg-muted p-2">
+                    <Field label="Date de vente">
+                      <div className="flex items-center gap-1">
+                        <InlineDate value={it.dateVente ?? ""} onSave={saveDate(it.id, "dateVente")} />
+                        {!it.dateVente && (
+                          <Button variant="ghost" size="icon-sm" onClick={() => handleMarkVendu(it.id)}>
+                            <PackageCheck className="text-amber-600" />
+                          </Button>
+                        )}
+                      </div>
+                    </Field>
+                    <Field label="Date encaissement">
+                      <div className="flex items-center gap-1">
+                        <InlineDate
+                          value={it.dateEncaissement ?? ""}
+                          onSave={saveDate(it.id, "dateEncaissement")}
+                        />
+                        {it.dateVente && !it.dateEncaissement && (
+                          <Button variant="ghost" size="icon-sm" onClick={() => handleMarkEncaisse(it.id)}>
+                            <CheckCircle2 className="text-emerald-600" />
+                          </Button>
+                        )}
+                      </div>
+                    </Field>
+                  </div>
+                  <Field label="Notes">
+                    <InlineText value={it.notes ?? ""} onSave={saveField(it.id, "notes")} />
                   </Field>
-                  <Field label="Compte (email)">
-                    <InlineText value={it.compteEmail ?? ""} onSave={saveField(it.id, "compteEmail")} />
-                  </Field>
-                </div>
-                <div className="grid grid-cols-2 gap-2 rounded-md bg-muted p-2">
-                  <Field label="Date de vente">
-                    <div className="flex items-center gap-1">
-                      <InlineDate value={it.dateVente ?? ""} onSave={saveDate(it.id, "dateVente")} />
-                      {!it.dateVente && (
-                        <Button variant="ghost" size="icon-sm" onClick={() => handleMarkVendu(it.id)}>
-                          <PackageCheck className="text-amber-600" />
-                        </Button>
-                      )}
-                    </div>
-                  </Field>
-                  <Field label="Date encaissement">
-                    <div className="flex items-center gap-1">
-                      <InlineDate
-                        value={it.dateEncaissement ?? ""}
-                        onSave={saveDate(it.id, "dateEncaissement")}
-                      />
-                      {it.dateVente && !it.dateEncaissement && (
-                        <Button variant="ghost" size="icon-sm" onClick={() => handleMarkEncaisse(it.id)}>
-                          <CheckCircle2 className="text-emerald-600" />
-                        </Button>
-                      )}
-                    </div>
-                  </Field>
-                </div>
-                <Field label="Notes">
-                  <InlineText value={it.notes ?? ""} onSave={saveField(it.id, "notes")} />
-                </Field>
-              </CardContent>
+                </CardContent>
+              )}
             </Card>
           );
         })}

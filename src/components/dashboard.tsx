@@ -72,7 +72,7 @@ export function Dashboard({
   const now = new Date();
   const [scope, setScope] = useState<"PRO" | "PERSO" | "ALL">("PRO");
   const [year, setYear] = useState(now.getFullYear());
-  const [month, setMonth] = useState<number | null>(null);
+  const [month, setMonth] = useState<number | null>(now.getMonth());
 
   const categoryById = useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories]);
 
