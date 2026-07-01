@@ -168,7 +168,7 @@ export function AchatsProTable({ path, initialItems }: { path: string; initialIt
                         onSave={saveField(it.id, "tauxTva")}
                       />
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">{eur.format(tvaDed)}</TableCell>
+                    <TableCell className="text-center tabular-nums">{eur.format(tvaDed)}</TableCell>
                     <TableCell>
                       <InlineText value={it.notes ?? ""} onSave={saveField(it.id, "notes")} />
                     </TableCell>

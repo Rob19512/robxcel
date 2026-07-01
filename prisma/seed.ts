@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 import { prisma } from "../src/lib/prisma";
+import type { CategoryKind, CategoryScope, FieldType } from "../src/generated/prisma/client";
 
 async function seedAdminUser() {
   const email = process.env.ADMIN_EMAIL;
@@ -20,117 +21,175 @@ async function seedAdminUser() {
   console.log(`Compte admin prêt : ${email}`);
 }
 
-async function seedCategories() {
-  const billets = await prisma.category.upsert({
-    where: { id: "cat-billets" },
-    update: {},
+type FieldSpec = { key: string; label: string; fieldType: FieldType; sortOrder: number; showInStock?: boolean; showInSale?: boolean };
+type CategorySpec = {
+  id: string;
+  name: string;
+  emoji: string;
+  color: string;
+  kind: CategoryKind;
+  scope: CategoryScope;
+  hasStock: boolean;
+  trackPriorite?: boolean;
+  trackRecu?: boolean;
+  trackEvents?: boolean;
+  sortOrder: number;
+  fields: FieldSpec[];
+  sources: { label: string; appliesToStock?: boolean; appliesToSale?: boolean }[];
+};
+
+async function upsertCategory(spec: CategorySpec) {
+  const category = await prisma.category.upsert({
+    where: { id: spec.id },
+    update: {
+      trackPriorite: spec.trackPriorite ?? false,
+      trackRecu: spec.trackRecu ?? false,
+      trackEvents: spec.trackEvents ?? false,
+      scope: spec.scope,
+    },
     create: {
-      id: "cat-billets",
-      name: "Billets",
-      emoji: "🎫",
-      color: "#6366f1",
-      kind: "BIEN",
-      hasStock: true,
-      trackPriorite: true,
+      id: spec.id,
+      name: spec.name,
+      emoji: spec.emoji,
+      color: spec.color,
+      kind: spec.kind,
+      scope: spec.scope,
+      hasStock: spec.hasStock,
+      trackPriorite: spec.trackPriorite ?? false,
+      trackRecu: spec.trackRecu ?? false,
+      trackEvents: spec.trackEvents ?? false,
       isBuiltin: true,
-      sortOrder: 0,
+      sortOrder: spec.sortOrder,
     },
   });
 
-  const prestations = await prisma.category.upsert({
-    where: { id: "cat-prestations" },
-    update: {},
-    create: {
-      id: "cat-prestations",
-      name: "Prestations",
-      emoji: "🛠️",
-      color: "#10b981",
-      kind: "SERVICE",
-      hasStock: false,
-      isBuiltin: true,
-      sortOrder: 1,
-    },
-  });
-
-  const merch = await prisma.category.upsert({
-    where: { id: "cat-merch" },
-    update: {},
-    create: {
-      id: "cat-merch",
-      name: "Sneakers / Merch",
-      emoji: "👟",
-      color: "#f59e0b",
-      kind: "BIEN",
-      hasStock: true,
-      trackRecu: true,
-      isBuiltin: true,
-      sortOrder: 2,
-    },
-  });
-
-  // Champs personnalisés des catégories builtin (mécanisme générique utilisé aussi pour les futures catégories custom)
-  const billetsFields = [
-    { key: "evenement", label: "Événement", fieldType: "TEXT" as const, sortOrder: 0 },
-    { key: "dateEvenement", label: "Date événement", fieldType: "DATE" as const, sortOrder: 1 },
-    { key: "lieuSalle", label: "Lieu / Salle", fieldType: "TEXT" as const, sortOrder: 2 },
-    { key: "categoriePlacement", label: "Catégorie / Placement", fieldType: "TEXT" as const, sortOrder: 3 },
-    { key: "infosVente", label: "Infos vente", fieldType: "TEXT" as const, sortOrder: 4 },
-  ];
-
-  for (const f of billetsFields) {
+  for (const f of spec.fields) {
     await prisma.categoryField.upsert({
-      where: { categoryId_key: { categoryId: billets.id, key: f.key } },
+      where: { categoryId_key: { categoryId: category.id, key: f.key } },
       update: {},
-      create: { categoryId: billets.id, ...f, showInStock: true, showInSale: true },
+      create: {
+        categoryId: category.id,
+        key: f.key,
+        label: f.label,
+        fieldType: f.fieldType,
+        sortOrder: f.sortOrder,
+        showInStock: f.showInStock ?? true,
+        showInSale: f.showInSale ?? true,
+      },
     });
   }
 
-  await prisma.categoryField.upsert({
-    where: { categoryId_key: { categoryId: merch.id, key: "infosVente" } },
-    update: {},
-    create: {
-      categoryId: merch.id,
-      key: "infosVente",
-      label: "Infos vente",
-      fieldType: "TEXT",
-      showInStock: false,
-      showInSale: true,
-      sortOrder: 0,
-    },
+  for (const [i, s] of spec.sources.entries()) {
+    await prisma.categorySource.upsert({
+      where: { categoryId_label: { categoryId: category.id, label: s.label } },
+      update: {},
+      create: {
+        categoryId: category.id,
+        label: s.label,
+        sortOrder: i,
+        appliesToStock: s.appliesToStock ?? true,
+        appliesToSale: s.appliesToSale ?? true,
+      },
+    });
+  }
+
+  return category;
+}
+
+const billetsFields: FieldSpec[] = [
+  { key: "categoriePlacement", label: "Catégorie / Placement", fieldType: "TEXT", sortOrder: 0 },
+  { key: "infosVente", label: "Infos vente", fieldType: "TEXT", sortOrder: 1 },
+];
+
+const billetsSources = ["Viagogo", "Welist", "Seatiks", "Client direct", "Lysted"];
+const merchSources = ["StockX", "Hypeboost", "Vinted", "Autre vente"];
+
+async function seedCategories() {
+  await upsertCategory({
+    id: "cat-billets",
+    name: "Billets",
+    emoji: "🎫",
+    color: "#6366f1",
+    kind: "BIEN",
+    scope: "PRO",
+    hasStock: true,
+    trackPriorite: true,
+    trackEvents: true,
+    sortOrder: 0,
+    fields: billetsFields,
+    sources: billetsSources.map((label) => ({ label })),
   });
 
-  // Sources par défaut
-  const billetsSources = ["Viagogo", "Welist", "Seatiks", "Client direct", "Lysted"];
-  for (const [i, label] of billetsSources.entries()) {
-    await prisma.categorySource.upsert({
-      where: { categoryId_label: { categoryId: billets.id, label } },
-      update: {},
-      create: { categoryId: billets.id, label, sortOrder: i, appliesToStock: true, appliesToSale: true },
-    });
-  }
-
-  await prisma.categorySource.upsert({
-    where: { categoryId_label: { categoryId: prestations.id, label: "Prestation commerciale" } },
-    update: {},
-    create: {
-      categoryId: prestations.id,
-      label: "Prestation commerciale",
-      sortOrder: 0,
-      appliesToStock: false,
-      appliesToSale: true,
-    },
+  await upsertCategory({
+    id: "cat-prestations",
+    name: "Prestations",
+    emoji: "🛠️",
+    color: "#10b981",
+    kind: "SERVICE",
+    scope: "PRO",
+    hasStock: false,
+    sortOrder: 1,
+    fields: [],
+    sources: [{ label: "Prestation commerciale", appliesToStock: false, appliesToSale: true }],
   });
 
-  const merchSources = ["StockX", "Hypeboost", "Vinted", "Autre vente"];
-  for (const [i, label] of merchSources.entries()) {
-    await prisma.categorySource.upsert({
-      where: { categoryId_label: { categoryId: merch.id, label } },
-      update: {},
-      create: { categoryId: merch.id, label, sortOrder: i, appliesToStock: true, appliesToSale: true },
-    });
-  }
+  await upsertCategory({
+    id: "cat-merch",
+    name: "Sneakers / Merch",
+    emoji: "👟",
+    color: "#f59e0b",
+    kind: "BIEN",
+    scope: "PRO",
+    hasStock: true,
+    trackRecu: true,
+    sortOrder: 2,
+    fields: [{ key: "infosVente", label: "Infos vente", fieldType: "TEXT", sortOrder: 0, showInStock: false }],
+    sources: merchSources.map((label) => ({ label })),
+  });
 
-  console.log("Catégories Billets / Prestations / Merch prêtes.");
+  await upsertCategory({
+    id: "cat-perso-billets",
+    name: "Perso · Billets",
+    emoji: "🎫",
+    color: "#8b5cf6",
+    kind: "BIEN",
+    scope: "PERSO",
+    hasStock: true,
+    trackPriorite: true,
+    trackEvents: true,
+    sortOrder: 10,
+    fields: billetsFields,
+    sources: billetsSources.map((label) => ({ label })),
+  });
+
+  await upsertCategory({
+    id: "cat-perso-prestations",
+    name: "Perso · Prestations",
+    emoji: "🛠️",
+    color: "#8b5cf6",
+    kind: "SERVICE",
+    scope: "PERSO",
+    hasStock: false,
+    sortOrder: 11,
+    fields: [],
+    sources: [{ label: "Prestation", appliesToStock: false, appliesToSale: true }],
+  });
+
+  await upsertCategory({
+    id: "cat-perso-merch",
+    name: "Perso · Merch",
+    emoji: "👟",
+    color: "#8b5cf6",
+    kind: "BIEN",
+    scope: "PERSO",
+    hasStock: true,
+    trackRecu: true,
+    sortOrder: 12,
+    fields: [],
+    sources: merchSources.map((label) => ({ label })),
+  });
+
+  console.log("Catégories Pro (Billets/Prestations/Merch) et Perso prêtes.");
 }
 
 async function main() {

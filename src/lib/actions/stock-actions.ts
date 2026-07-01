@@ -20,6 +20,9 @@ const SALE_ROUTE: Record<string, string> = {
   "cat-billets": "/billets",
   "cat-prestations": "/prestations",
   "cat-merch": "/merch",
+  "cat-perso-billets": "/perso/billets",
+  "cat-perso-prestations": "/perso/prestations",
+  "cat-perso-merch": "/perso/merch",
 };
 
 function toDate(value: string | null) {
@@ -76,6 +79,11 @@ export async function updateStockField(
   revalidatePath(path);
 }
 
+export async function updateStockEventId(id: string, path: string, eventId: string | null) {
+  await prisma.stockItem.update({ where: { id }, data: { eventId } });
+  revalidatePath(path);
+}
+
 export async function updateStockCustomValue(
   id: string,
   path: string,
@@ -108,6 +116,7 @@ export async function updateStockDate(
           dateVente: item.dateVente ?? date,
           dateEncaissement: date,
           source: item.source,
+          eventId: item.eventId,
           statut: "ENCAISSE",
           description: item.description,
           qty: item.qty,
@@ -165,6 +174,7 @@ export async function duplicateStockItem(id: string, path: string) {
       dateAchat: item.dateAchat,
       description: item.description,
       source: item.source,
+      eventId: item.eventId,
       qty: item.qty,
       coutAchatUnit: item.coutAchatUnit,
       prixCibleVente: item.prixCibleVente,

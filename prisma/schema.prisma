@@ -39,6 +39,11 @@ enum Priority {
   PAS_PRESSE
 }
 
+enum CategoryScope {
+  PRO
+  PERSO
+}
+
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
@@ -52,9 +57,11 @@ model Category {
   emoji      String?
   color      String?
   kind       CategoryKind
+  scope      CategoryScope @default(PRO)
   hasStock   Boolean  @default(true)
   trackPriorite Boolean @default(false)
   trackRecu     Boolean @default(false)
+  trackEvents   Boolean @default(false)
   isBuiltin  Boolean  @default(false)
   sortOrder  Int      @default(0)
   createdAt  DateTime @default(now())
@@ -62,6 +69,22 @@ model Category {
 
   fields     CategoryField[]
   sources    CategorySource[]
+  stockItems StockItem[]
+  sales      Sale[]
+  events     Event[]
+}
+
+model Event {
+  id            String    @id @default(cuid())
+  categoryId    String
+  category      Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  name          String
+  dateEvenement DateTime?
+  lieuSalle     String?
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
   stockItems StockItem[]
   sales      Sale[]
 }
@@ -100,6 +123,8 @@ model StockItem {
   dateAchat        DateTime
   description      String?
   source           String?
+  eventId          String?
+  event            Event?       @relation(fields: [eventId], references: [id], onDelete: SetNull)
   qty              Int          @default(1)
   coutAchatUnit    Decimal      @db.Decimal(12, 2)
   prixCibleVente   Decimal?     @db.Decimal(12, 2)
@@ -125,6 +150,8 @@ model Sale {
   dateVente        DateTime
   dateEncaissement DateTime?
   source           String?
+  eventId          String?
+  event            Event?      @relation(fields: [eventId], references: [id], onDelete: SetNull)
   statut           SaleStatus  @default(ENCAISSE)
   description      String?
   qty              Int         @default(1)

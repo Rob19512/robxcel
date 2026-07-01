@@ -35,6 +35,7 @@ import {
   createSale,
   updateSaleField,
   updateSaleCustomValue,
+  updateSaleEventId,
   deleteSale,
   duplicateSale,
   markSaleEncaisseToday,
@@ -46,6 +47,7 @@ export type SaleRow = {
   dateVente: string;
   dateEncaissement: string | null;
   source: string | null;
+  eventId: string | null;
   statut: "EN_ATTENTE" | "ENCAISSE" | "LITIGE";
   description: string | null;
   qty: number;
@@ -78,18 +80,22 @@ const statutBadgeVariant: Record<SaleRow["statut"], string> = {
 
 const tvaOptions = TVA_RATES.map((r) => ({ value: String(r), label: r === 0 ? "0 % (exo)" : `${r} %` }));
 
+export type EventOption = { id: string; label: string };
+
 export function SalesTable({
   categoryId,
   path,
   initialSales,
   fields,
   sources,
+  events,
 }: {
   categoryId: string;
   path: string;
   initialSales: SaleRow[];
   fields: CategoryFieldDef[];
   sources: string[];
+  events?: EventOption[];
 }) {
   const [sales, setSales] = useState(initialSales);
   const [search, setSearch] = useState("");
@@ -164,6 +170,12 @@ export function SalesTable({
     return (value: string) => updateSaleCustomValue(id, path, key, value);
   }
 
+  function saveEvent(id: string) {
+    return (value: string) => updateSaleEventId(id, path, value || null);
+  }
+
+  const eventOptions = (events ?? []).map((e) => ({ value: e.id, label: e.label }));
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-2">
@@ -209,6 +221,7 @@ export function SalesTable({
                 <TableHead className="min-w-32">Date encaissement</TableHead>
                 <TableHead className="min-w-36">Statut</TableHead>
                 <TableHead className="min-w-36">Source</TableHead>
+                {events && <TableHead className="min-w-48">Événement</TableHead>}
                 <TableHead className="min-w-48">Description</TableHead>
                 {fields.map((f) => (
                   <TableHead key={f.id} className="min-w-36">
@@ -270,6 +283,16 @@ export function SalesTable({
                         onSave={saveField(s.id, "source")}
                       />
                     </TableCell>
+                    {events && (
+                      <TableCell>
+                        <InlineSelect
+                          value={s.eventId ?? ""}
+                          options={eventOptions}
+                          placeholder="Événement"
+                          onSave={saveEvent(s.id)}
+                        />
+                      </TableCell>
+                    )}
                     <TableCell>
                       <InlineText
                         value={s.description ?? ""}
@@ -306,10 +329,10 @@ export function SalesTable({
                     <TableCell>
                       <InlineNumber value={s.coutAchatUnit} onSave={saveField(s.id, "coutAchatUnit")} />
                     </TableCell>
-                    <TableCell className="text-right tabular-nums font-medium">
+                    <TableCell className="text-center tabular-nums font-medium">
                       {eur.format(calc.totalEncaisse)}
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">
+                    <TableCell className="text-center tabular-nums">
                       {eur.format(calc.margeBrute)}
                     </TableCell>
                     <TableCell>
@@ -319,7 +342,7 @@ export function SalesTable({
                         onSave={saveField(s.id, "tauxTvaVente")}
                       />
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">
+                    <TableCell className="text-center tabular-nums">
                       {eur.format(calc.tvaCollectee)}
                     </TableCell>
                     <TableCell>
@@ -329,10 +352,10 @@ export function SalesTable({
                         onSave={saveField(s.id, "tauxTvaAchat")}
                       />
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">
+                    <TableCell className="text-center tabular-nums">
                       {eur.format(calc.tvaDeductibleAchat)}
                     </TableCell>
-                    <TableCell className="text-right tabular-nums font-medium">
+                    <TableCell className="text-center tabular-nums font-medium">
                       {eur.format(calc.beneficeNetApresTva)}
                     </TableCell>
                     <TableCell>
@@ -349,7 +372,7 @@ export function SalesTable({
               })}
               {filtered.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={16 + fields.length} className="py-8 text-center text-sm text-muted-foreground">
+                  <TableCell colSpan={16 + fields.length + (events ? 1 : 0)} className="py-8 text-center text-sm text-muted-foreground">
                     Aucune vente pour l&apos;instant.
                   </TableCell>
                 </TableRow>
@@ -415,6 +438,16 @@ export function SalesTable({
                       onSave={saveField(s.id, "source")}
                     />
                   </Field>
+                  {events && (
+                    <Field label="Événement">
+                      <InlineSelect
+                        value={s.eventId ?? ""}
+                        options={eventOptions}
+                        placeholder="Événement"
+                        onSave={saveEvent(s.id)}
+                      />
+                    </Field>
+                  )}
                   <Field label="Qté">
                     <InlineNumber value={s.qty} step="1" onSave={saveField(s.id, "qty")} />
                   </Field>

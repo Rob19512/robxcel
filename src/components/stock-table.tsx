@@ -29,19 +29,21 @@ import {
   updateStockField,
   updateStockCustomValue,
   updateStockDate,
+  updateStockEventId,
   deleteStockItem,
   duplicateStockItem,
   markStockVenduToday,
   markStockEncaisseToday,
   type StockCoreField,
 } from "@/lib/actions/stock-actions";
-import type { CategoryFieldDef } from "@/components/sales-table";
+import type { CategoryFieldDef, EventOption } from "@/components/sales-table";
 
 export type StockRow = {
   id: string;
   dateAchat: string;
   description: string | null;
   source: string | null;
+  eventId: string | null;
   qty: number;
   coutAchatUnit: number;
   prixCibleVente: number | null;
@@ -89,6 +91,7 @@ export function StockTable({
   sources,
   trackPriorite,
   trackRecu,
+  events,
 }: {
   categoryId: string;
   path: string;
@@ -97,6 +100,7 @@ export function StockTable({
   sources: string[];
   trackPriorite: boolean;
   trackRecu: boolean;
+  events?: EventOption[];
 }) {
   const [search, setSearch] = useState("");
   const [showSold, setShowSold] = useState(false);
@@ -178,6 +182,12 @@ export function StockTable({
     return (value: string) => updateStockCustomValue(id, path, key, value);
   }
 
+  function saveEvent(id: string) {
+    return (value: string) => updateStockEventId(id, path, value || null);
+  }
+
+  const eventOptions = (events ?? []).map((e) => ({ value: e.id, label: e.label }));
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-2">
@@ -209,6 +219,7 @@ export function StockTable({
                 <TableHead className="min-w-32">Date achat</TableHead>
                 <TableHead className="min-w-48">Description</TableHead>
                 <TableHead className="min-w-36">Source cible</TableHead>
+                {events && <TableHead className="min-w-48">Événement</TableHead>}
                 {fields.map((f) => (
                   <TableHead key={f.id} className="min-w-36">
                     {f.label}
@@ -254,6 +265,16 @@ export function StockTable({
                         onSave={saveField(it.id, "source")}
                       />
                     </TableCell>
+                    {events && (
+                      <TableCell>
+                        <InlineSelect
+                          value={it.eventId ?? ""}
+                          options={eventOptions}
+                          placeholder="Événement"
+                          onSave={saveEvent(it.id)}
+                        />
+                      </TableCell>
+                    )}
                     {fields.map((f) => (
                       <TableCell key={f.id}>
                         {f.fieldType === "DATE" ? (
@@ -280,7 +301,7 @@ export function StockTable({
                         onSave={saveField(it.id, "prixCibleVente")}
                       />
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">
+                    <TableCell className="text-center tabular-nums">
                       {margeCible !== null ? eur.format(margeCible) : "—"}
                     </TableCell>
                     {trackPriorite && (
@@ -308,7 +329,7 @@ export function StockTable({
                         onSave={saveField(it.id, "tauxTvaAchat")}
                       />
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">{eur.format(tvaDed)}</TableCell>
+                    <TableCell className="text-center tabular-nums">{eur.format(tvaDed)}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
                         <InlineDate value={it.dateVente ?? ""} onSave={saveDate(it.id, "dateVente")} />
@@ -360,7 +381,7 @@ export function StockTable({
               {filtered.length === 0 && (
                 <TableRow>
                   <TableCell
-                    colSpan={16 + fields.length + (trackPriorite ? 1 : 0) + (trackRecu ? 1 : 0)}
+                    colSpan={16 + fields.length + (trackPriorite ? 1 : 0) + (trackRecu ? 1 : 0) + (events ? 1 : 0)}
                     className="py-8 text-center text-sm text-muted-foreground"
                   >
                     Aucun article en stock.
@@ -407,6 +428,16 @@ export function StockTable({
                       onSave={saveField(it.id, "source")}
                     />
                   </Field>
+                  {events && (
+                    <Field label="Événement">
+                      <InlineSelect
+                        value={it.eventId ?? ""}
+                        options={eventOptions}
+                        placeholder="Événement"
+                        onSave={saveEvent(it.id)}
+                      />
+                    </Field>
+                  )}
                   <Field label="Qté">
                     <InlineNumber value={it.qty} step="1" onSave={saveField(it.id, "qty")} />
                   </Field>

@@ -86,6 +86,11 @@ export async function updateSaleCustomValue(
   revalidatePath(path);
 }
 
+export async function updateSaleEventId(id: string, path: string, eventId: string | null) {
+  await prisma.sale.update({ where: { id }, data: { eventId } });
+  revalidatePath(path);
+}
+
 export async function deleteSale(id: string, path: string) {
   await prisma.sale.delete({ where: { id } });
   revalidatePath(path);
@@ -99,6 +104,7 @@ export async function duplicateSale(id: string, path: string) {
       dateVente: sale.dateVente,
       dateEncaissement: sale.dateEncaissement,
       source: sale.source,
+      eventId: sale.eventId,
       statut: sale.statut,
       description: sale.description,
       qty: sale.qty,

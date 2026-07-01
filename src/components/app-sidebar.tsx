@@ -31,6 +31,12 @@ const navMain = [
   { href: "/merch", label: "Sneakers / Merch", icon: ShoppingBag },
 ];
 
+const navPerso = [
+  { href: "/perso/billets", label: "Billets", icon: Ticket },
+  { href: "/perso/prestations", label: "Prestations", icon: Wrench },
+  { href: "/perso/merch", label: "Merch", icon: ShoppingBag },
+];
+
 const navGestion = [
   { href: "/achats-pro", label: "Achats pro", icon: Receipt },
   { href: "/tva", label: "TVA trimestrielle", icon: Landmark },
@@ -58,6 +64,25 @@ export function AppSidebar({ userEmail }: { userEmail?: string | null }) {
           <SidebarGroupContent>
             <SidebarMenu>
               {navMain.map((item) => (
+                <SidebarMenuItem key={item.href}>
+                  <SidebarMenuButton
+                    render={<Link href={item.href} />}
+                    isActive={pathname === item.href}
+                    tooltip={item.label}
+                  >
+                    <item.icon />
+                    <span>{item.label}</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+        <SidebarGroup>
+          <SidebarGroupLabel>Perso</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {navPerso.map((item) => (
                 <SidebarMenuItem key={item.href}>
                   <SidebarMenuButton
                     render={<Link href={item.href} />}
