@@ -9,6 +9,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -91,16 +92,20 @@ export function Dashboard({
     });
   }, [sales, categoryById, scope]);
 
-  const periodSales = useMemo(() => {
-    return scopedSales.filter((s) => {
-      const ymVente = yearMonthOf(s.dateVente);
-      const ymEnc = s.dateEncaissement ? yearMonthOf(s.dateEncaissement) : null;
-      const refYm = s.statut === "ENCAISSE" && ymEnc ? ymEnc : ymVente;
-      if (refYm.year !== year) return false;
-      if (month !== null && refYm.month !== month) return false;
-      return true;
-    });
-  }, [scopedSales, year, month]);
+  function inPeriod(s: SaleLite) {
+    const ymVente = yearMonthOf(s.dateVente);
+    const ymEnc = s.dateEncaissement ? yearMonthOf(s.dateEncaissement) : null;
+    const refYm = s.statut === "ENCAISSE" && ymEnc ? ymEnc : ymVente;
+    if (refYm.year !== year) return false;
+    if (month !== null && refYm.month !== month) return false;
+    return true;
+  }
+
+  const periodSales = useMemo(() => scopedSales.filter(inPeriod), [scopedSales, year, month]);
+
+  // Toutes catégories confondues (indépendant du filtre Pro/Perso), pour que chaque section
+  // reste visible avec son propre bénéfice quel que soit le filtre choisi en haut.
+  const periodSalesAllScopes = useMemo(() => sales.filter(inPeriod), [sales, year, month]);
 
   let caBienEncaisse = 0;
   let caServiceEncaisse = 0;
@@ -264,40 +269,56 @@ export function Dashboard({
       </div>
 
       <div>
-        <h2 className="mb-3 text-sm font-medium text-muted-foreground">Catégories</h2>
+        <h2 className="mb-3 text-sm font-medium text-muted-foreground">
+          Catégories (toutes, quel que soit le filtre Pro/Perso ci-dessus)
+        </h2>
         <div className="grid gap-4 sm:grid-cols-3">
-          {categories
-            .filter((c) => scope === "ALL" || c.scope === scope)
-            .map((c) => {
-              const Icon = categoryIcons[c.id] ?? Ticket;
-              const encaisse = periodSales
-                .filter((s) => s.categoryId === c.id && s.statut === "ENCAISSE")
-                .reduce((sum, s) => sum + s.qty * s.prixVenteUnit, 0);
-              const color = c.color;
-              return (
-                <Card key={c.id}>
-                  <CardHeader className="flex flex-row items-center gap-3 space-y-0">
-                    <div
-                      className="flex size-9 items-center justify-center rounded-lg bg-accent text-accent-foreground"
-                      style={color ? { backgroundColor: `${color}1a`, color } : undefined}
-                    >
-                      <Icon className="size-4.5" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-base">{c.name}</CardTitle>
-                      <CardDescription>
-                        {c.kind === "BIEN" ? "Bien" : "Service"}
-                        {c.hasStock ? " · avec stock" : ""}
-                      </CardDescription>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
+          {categories.map((c) => {
+            const Icon = categoryIcons[c.id] ?? Ticket;
+            const catSales = periodSalesAllScopes.filter(
+              (s) => s.categoryId === c.id && s.statut === "ENCAISSE"
+            );
+            const encaisse = catSales.reduce((sum, s) => sum + s.qty * s.prixVenteUnit, 0);
+            const benefice = catSales.reduce(
+              (sum, s) => sum + (s.qty * s.prixVenteUnit - s.qty * s.coutAchatUnit),
+              0
+            );
+            const color = c.color;
+            return (
+              <Card key={c.id}>
+                <CardHeader className="flex flex-row items-center gap-3 space-y-0">
+                  <div
+                    className="flex size-9 items-center justify-center rounded-lg bg-accent text-accent-foreground"
+                    style={color ? { backgroundColor: `${color}1a`, color } : undefined}
+                  >
+                    <Icon className="size-4.5" />
+                  </div>
+                  <div className="flex-1">
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      {c.name}
+                      <Badge variant="secondary" className="text-[10px]">
+                        {c.scope === "PRO" ? "Pro" : "Perso"}
+                      </Badge>
+                    </CardTitle>
+                    <CardDescription>
+                      {c.kind === "BIEN" ? "Bien" : "Service"}
+                      {c.hasStock ? " · avec stock" : ""}
+                    </CardDescription>
+                  </div>
+                </CardHeader>
+                <CardContent className="flex items-end justify-between gap-2">
+                  <div>
                     <p className="text-lg font-semibold tabular-nums">{eur.format(encaisse)}</p>
-                    <p className="text-xs text-muted-foreground">encaissé sur la période</p>
-                  </CardContent>
-                </Card>
-              );
-            })}
+                    <p className="text-xs text-muted-foreground">CA encaissé</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-lg font-semibold tabular-nums">{eur.format(benefice)}</p>
+                    <p className="text-xs text-muted-foreground">Bénéfice</p>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       </div>
     </div>
