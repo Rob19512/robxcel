@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Plus, MoreVertical, Copy, Trash2, PackageCheck, CheckCircle2 } from "lucide-react";
+import { Plus, MoreVertical, Copy, Trash2, PackageCheck, CheckCircle2, Download } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { InlineText, InlineNumber, InlineDate, InlineSelect } from "@/components/inline-field";
 import { eur, TVA_RATES } from "@/lib/format";
+import { downloadCsv } from "@/lib/export-csv";
 import {
   createStockItem,
   updateStockField,
@@ -188,6 +189,34 @@ export function StockTable({
 
   const eventOptions = (events ?? []).map((e) => ({ value: e.id, label: e.label }));
 
+  function handleExport() {
+    downloadCsv(
+      `stock-${path.replaceAll("/", "-").slice(1)}.csv`,
+      filtered.map((it) => {
+        const margeCible = it.prixCibleVente !== null ? it.qty * (it.prixCibleVente - it.coutAchatUnit) : "";
+        const row: Record<string, unknown> = {
+          "Date achat": it.dateAchat,
+          Description: it.description ?? "",
+          "Source cible": it.source ?? "",
+        };
+        for (const f of fields) row[f.label] = it.customValues?.[f.key] ?? "";
+        Object.assign(row, {
+          "Qté": it.qty,
+          "Coût achat unit.": it.coutAchatUnit,
+          "Prix cible vente": it.prixCibleVente ?? "",
+          "Marge cible": margeCible,
+          "Taux TVA achat": it.tauxTvaAchat,
+          "Date de vente": it.dateVente ?? "",
+          "Date encaissement": it.dateEncaissement ?? "",
+          Statut: it.statut,
+          "Compte (email)": it.compteEmail ?? "",
+          Notes: it.notes ?? "",
+        });
+        return row;
+      })
+    );
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-2">
@@ -205,6 +234,10 @@ export function StockTable({
           <Checkbox checked={showSold} onCheckedChange={(v) => setShowSold(!!v)} />
           Afficher les vendus
         </label>
+        <Button variant="outline" size="sm" onClick={handleExport}>
+          <Download />
+          Exporter CSV
+        </Button>
         <span className="ml-auto text-xs text-muted-foreground">
           {filtered.length} article{filtered.length > 1 ? "s" : ""}
         </span>

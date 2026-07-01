@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Plus, MoreVertical, Copy, Trash2, CheckCircle2 } from "lucide-react";
+import { Plus, MoreVertical, Copy, Trash2, CheckCircle2, Download } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -31,6 +31,7 @@ import {
 import { InlineText, InlineNumber, InlineDate, InlineSelect } from "@/components/inline-field";
 import { eur, TVA_RATES } from "@/lib/format";
 import { computeSale } from "@/lib/calc";
+import { downloadCsv } from "@/lib/export-csv";
 import {
   createSale,
   updateSaleField,
@@ -166,6 +167,37 @@ export function SalesTable({
     return (value: string) => updateSaleField(id, path, field, value);
   }
 
+  function handleExport() {
+    downloadCsv(
+      `ventes-${path.replaceAll("/", "-").slice(1)}.csv`,
+      filtered.map((s) => {
+        const calc = computeSale(s);
+        const row: Record<string, unknown> = {
+          "Date vente": s.dateVente,
+          "Date encaissement": s.dateEncaissement ?? "",
+          Statut: s.statut,
+          Source: s.source ?? "",
+          Description: s.description ?? "",
+        };
+        for (const f of fields) row[f.label] = s.customValues?.[f.key] ?? "";
+        Object.assign(row, {
+          "Qté": s.qty,
+          "Prix vente unit.": s.prixVenteUnit,
+          "Coût achat unit.": s.coutAchatUnit,
+          "Total encaissé": calc.totalEncaisse,
+          "Marge brute": calc.margeBrute,
+          "Taux TVA vente": s.tauxTvaVente,
+          "TVA collectée": calc.tvaCollectee,
+          "Taux TVA achat": s.tauxTvaAchat,
+          "TVA déductible achat": calc.tvaDeductibleAchat,
+          "Bénéf. net après TVA": calc.beneficeNetApresTva,
+          Notes: s.notes ?? "",
+        });
+        return row;
+      })
+    );
+  }
+
   function saveCustom(id: string, key: string) {
     return (value: string) => updateSaleCustomValue(id, path, key, value);
   }
@@ -206,6 +238,10 @@ export function SalesTable({
             ))}
           </SelectContent>
         </Select>
+        <Button variant="outline" size="sm" onClick={handleExport}>
+          <Download />
+          Exporter CSV
+        </Button>
         <span className="ml-auto text-xs text-muted-foreground">
           {filtered.length} ligne{filtered.length > 1 ? "s" : ""}
         </span>

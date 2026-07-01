@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Plus, MoreVertical, Copy, Trash2 } from "lucide-react";
+import { Plus, MoreVertical, Copy, Trash2, Download } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { InlineText, InlineNumber, InlineDate, InlineSelect } from "@/components/inline-field";
 import { eur, TVA_RATES } from "@/lib/format";
+import { downloadCsv } from "@/lib/export-csv";
 import {
   createAchatPro,
   updateAchatProField,
@@ -100,6 +101,25 @@ export function AchatsProTable({ path, initialItems }: { path: string; initialIt
     return (value: string) => updateAchatProField(id, path, field, value);
   }
 
+  function handleExport() {
+    downloadCsv(
+      "achats-pro.csv",
+      filtered.map((it) => {
+        const tvaDed = it.tauxTva > 0 ? it.qty * it.montantHt * (it.tauxTva / (100 + it.tauxTva)) : 0;
+        return {
+          "Date achat": it.dateAchat,
+          "Description / Fournisseur": it.description,
+          Catégorie: it.categorie ?? "",
+          "Qté": it.qty,
+          "Montant HT": it.montantHt,
+          "Taux TVA": it.tauxTva,
+          "TVA déductible": tvaDed,
+          Notes: it.notes ?? "",
+        };
+      })
+    );
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-2">
@@ -113,6 +133,10 @@ export function AchatsProTable({ path, initialItems }: { path: string; initialIt
           onChange={(e) => setSearch(e.target.value)}
           className="h-8 w-48"
         />
+        <Button variant="outline" size="sm" onClick={handleExport}>
+          <Download />
+          Exporter CSV
+        </Button>
         <span className="ml-auto text-xs text-muted-foreground">
           {filtered.length} ligne{filtered.length > 1 ? "s" : ""}
         </span>
