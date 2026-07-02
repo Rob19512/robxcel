@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/encaissement-reminder",
+      "schedule": "0 8 * * 1"
+    }
+  ]
+}
