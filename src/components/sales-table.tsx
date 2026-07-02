@@ -444,7 +444,7 @@ export function SalesTable({
                     )}
                     {showDescription && (
                       <TableCell>
-                        <InlineText
+                        <InlineTextArea
                           value={s.description ?? ""}
                           onSave={saveField(s.id, "description")}
                           testId="sale-description"
@@ -570,7 +570,7 @@ export function SalesTable({
                   </div>
                 </div>
                 {showDescription && (
-                  <InlineText
+                  <InlineTextArea
                     value={s.description ?? ""}
                     placeholder="Description"
                     onSave={saveField(s.id, "description")}

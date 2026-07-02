@@ -434,7 +434,7 @@ export function StockTable({
                     </TableCell>
                     {showDescription && (
                       <TableCell>
-                        <InlineText value={it.description ?? ""} onSave={saveField(it.id, "description")} testId="stock-description" />
+                        <InlineTextArea value={it.description ?? ""} onSave={saveField(it.id, "description")} testId="stock-description" />
                       </TableCell>
                     )}
                     <TableCell>
@@ -649,7 +649,7 @@ export function StockTable({
                     <RowMenu onDuplicate={() => handleDuplicate(it.id)} onDelete={() => handleDelete(it.id)} />
                   </div>
                   {showDescription && (
-                    <InlineText
+                    <InlineTextArea
                       value={it.description ?? ""}
                       placeholder="Description"
                       onSave={saveField(it.id, "description")}
