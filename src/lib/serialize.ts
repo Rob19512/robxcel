@@ -1,7 +1,8 @@
-import type { Sale, StockItem, AchatPro, Event } from "@/generated/prisma/client";
+import type { Sale, StockItem, AchatPro, ChargePerso, Event } from "@/generated/prisma/client";
 import type { SaleRow } from "@/components/sales-table";
 import type { StockRow } from "@/components/stock-table";
 import type { AchatProRow } from "@/components/achats-pro-table";
+import type { ChargePersoRow } from "@/components/charges-perso-table";
 import type { EventRow } from "@/components/events-table";
 
 function toDateString(date: Date | null) {
@@ -59,6 +60,18 @@ export function serializeAchatPro(item: AchatPro): AchatProRow {
     qty: item.qty,
     montantHt: Number(item.montantHt),
     tauxTva: Number(item.tauxTva),
+    notes: item.notes,
+  };
+}
+
+export function serializeChargePerso(item: ChargePerso): ChargePersoRow {
+  return {
+    id: item.id,
+    date: toDateString(item.date) ?? "",
+    description: item.description,
+    categorie: item.categorie,
+    qty: item.qty,
+    montant: Number(item.montant),
     notes: item.notes,
   };
 }

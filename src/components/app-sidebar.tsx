@@ -13,6 +13,7 @@ import {
   Wallet,
   CalendarDays,
   Layers,
+  CreditCard,
 } from "lucide-react";
 import {
   Sidebar,
@@ -119,7 +120,19 @@ export function AppSidebar({
         <SidebarGroup>
           <SidebarGroupLabel>Perso</SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>{persoCategories.map(renderCategoryItem)}</SidebarMenu>
+            <SidebarMenu>
+              {persoCategories.map(renderCategoryItem)}
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  render={<Link href="/perso/charges" />}
+                  isActive={pathname === "/perso/charges"}
+                  tooltip="Charges"
+                >
+                  <CreditCard />
+                  <span>Charges</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
         <SidebarGroup>

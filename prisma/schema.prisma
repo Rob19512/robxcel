@@ -183,3 +183,18 @@ model AchatPro {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
+
+// Dépenses personnelles (hors SASU) : modèle séparé d'AchatPro pour garantir que
+// rien ici ne peut jamais se retrouver dans les calculs de TVA/IS (Pro uniquement).
+model ChargePerso {
+  id          String    @id @default(cuid())
+  date        DateTime
+  description String
+  categorie   String?
+  qty         Int       @default(1)
+  montant     Decimal   @db.Decimal(12, 2)
+  notes       String?
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}

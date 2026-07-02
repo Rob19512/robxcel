@@ -6,7 +6,9 @@ import { prisma } from "@/lib/prisma";
 export type AchatProField = "dateAchat" | "description" | "categorie" | "qty" | "montantHt" | "tauxTva" | "notes";
 
 function toDate(value: string | null) {
-  return value ? new Date(`${value}T00:00:00.000Z`) : new Date();
+  if (!value) return null;
+  const d = new Date(`${value}T00:00:00.000Z`);
+  return Number.isNaN(d.getTime()) ? null : d;
 }
 
 export async function createAchatPro(path: string) {
@@ -31,7 +33,8 @@ export async function updateAchatProField(
 
   switch (field) {
     case "dateAchat":
-      data.dateAchat = toDate(value);
+      if (value && !toDate(value)) return; // date invalide reçue du client : on ignore plutôt que d'écraser la vraie date
+      data.dateAchat = toDate(value) ?? new Date();
       break;
     case "qty":
       data.qty = Math.max(1, Number(value) || 1);
