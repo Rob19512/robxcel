@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { CATEGORY_ROUTES } from "@/lib/category-routes";
+import { categoryRoute } from "@/lib/category-routes";
 import { AEncaisserList, type AttenteRow } from "@/components/a-encaisser";
 
 export default async function AEncaisserPage() {
@@ -28,7 +28,7 @@ export default async function AEncaisserPage() {
       source: s.source,
       dateVente: s.dateVente!.toISOString().slice(0, 10),
       montant: s.qty * Number(s.prixCibleVente ?? 0),
-      path: CATEGORY_ROUTES[s.categoryId] ?? "/",
+      path: categoryRoute(s.categoryId),
     })),
     ...sales.map((s) => ({
       id: s.id,
@@ -43,7 +43,7 @@ export default async function AEncaisserPage() {
       source: s.source,
       dateVente: s.dateVente.toISOString().slice(0, 10),
       montant: s.qty * Number(s.prixVenteUnit),
-      path: CATEGORY_ROUTES[s.categoryId] ?? "/",
+      path: categoryRoute(s.categoryId),
     })),
   ];
 

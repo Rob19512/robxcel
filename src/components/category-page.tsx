@@ -3,6 +3,7 @@ import { serializeSale, serializeStockItem, serializeEvent } from "@/lib/seriali
 import { SalesTable } from "@/components/sales-table";
 import { StockTable } from "@/components/stock-table";
 import { EventsTable } from "@/components/events-table";
+import { CategorySettings } from "@/components/category-settings";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export async function CategoryPageContent({
@@ -12,7 +13,7 @@ export async function CategoryPageContent({
 }: {
   categoryId: string;
   path: string;
-  title: string;
+  title?: string;
 }) {
   const category = await prisma.category.findUniqueOrThrow({
     where: { id: categoryId },
@@ -44,7 +45,10 @@ export async function CategoryPageContent({
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">
+          {category.emoji ? `${category.emoji} ` : ""}
+          {title ?? category.name}
+        </h1>
         <p className="text-sm text-muted-foreground">
           {sales.length} vente{sales.length > 1 ? "s" : ""}
           {category.hasStock ? ` · ${stockItems.length} en stock` : ""}
@@ -56,6 +60,7 @@ export async function CategoryPageContent({
           <TabsTrigger value="ventes">Ventes</TabsTrigger>
           {category.hasStock && <TabsTrigger value="stock">Stock</TabsTrigger>}
           {category.trackEvents && <TabsTrigger value="evenements">Événements</TabsTrigger>}
+          {!category.isBuiltin && <TabsTrigger value="parametres">Paramètres</TabsTrigger>}
         </TabsList>
         <TabsContent value="ventes">
           <SalesTable
@@ -89,6 +94,27 @@ export async function CategoryPageContent({
               initialEvents={events.map(serializeEvent)}
               stockItems={serializedStock}
               sales={serializedSales}
+            />
+          </TabsContent>
+        )}
+        {!category.isBuiltin && (
+          <TabsContent value="parametres">
+            <CategorySettings
+              path={path}
+              category={{
+                id: category.id,
+                name: category.name,
+                emoji: category.emoji,
+                color: category.color,
+                kind: category.kind,
+                scope: category.scope,
+                hasStock: category.hasStock,
+                trackPriorite: category.trackPriorite,
+                trackRecu: category.trackRecu,
+                trackEvents: category.trackEvents,
+                fields: category.fields.map((f) => ({ id: f.id, label: f.label, fieldType: f.fieldType })),
+                sources: category.sources.map((s) => ({ id: s.id, label: s.label })),
+              }}
             />
           </TabsContent>
         )}

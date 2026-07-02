@@ -9,17 +9,24 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { LogOut } from "lucide-react";
+import { prisma } from "@/lib/prisma";
 
 export default async function AppLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const session = await auth();
+  const [session, categories] = await Promise.all([
+    auth(),
+    prisma.category.findMany({
+      orderBy: { sortOrder: "asc" },
+      select: { id: true, name: true, emoji: true, color: true, scope: true, isBuiltin: true },
+    }),
+  ]);
 
   return (
     <SidebarProvider>
-      <AppSidebar userEmail={session?.user?.email} />
+      <AppSidebar userEmail={session?.user?.email} categories={categories} />
       <SidebarInset>
         <header className="flex h-14 shrink-0 items-center gap-2 border-b bg-background/80 px-4 backdrop-blur">
           <SidebarTrigger className="-ml-1" />

@@ -12,6 +12,7 @@ import {
   BookOpen,
   Wallet,
   CalendarDays,
+  Layers,
 } from "lucide-react";
 import {
   Sidebar,
@@ -25,30 +26,62 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
+import { categoryRoute } from "@/lib/category-routes";
+
+export type SidebarCategory = {
+  id: string;
+  name: string;
+  emoji: string | null;
+  color: string | null;
+  scope: "PRO" | "PERSO";
+  isBuiltin: boolean;
+};
 
 const navMain = [
   { href: "/", label: "Tableau de bord", icon: LayoutDashboard, color: undefined },
   { href: "/a-encaisser", label: "À encaisser", icon: Wallet, color: "#059669" },
   { href: "/calendrier", label: "Calendrier", icon: CalendarDays, color: undefined },
-  { href: "/billets", label: "Billets", icon: Ticket, color: "#6366f1" },
-  { href: "/prestations", label: "Prestations", icon: Wrench, color: "#10b981" },
-  { href: "/merch", label: "Sneakers / Merch", icon: ShoppingBag, color: "#f59e0b" },
-];
-
-const navPerso = [
-  { href: "/perso/billets", label: "Billets", icon: Ticket, color: "#8b5cf6" },
-  { href: "/perso/prestations", label: "Prestations", icon: Wrench, color: "#8b5cf6" },
-  { href: "/perso/merch", label: "Merch", icon: ShoppingBag, color: "#8b5cf6" },
 ];
 
 const navGestion: { href: string; label: string; icon: typeof Receipt; color?: string }[] = [
+  { href: "/categories", label: "Catégories", icon: Layers },
   { href: "/achats-pro", label: "Achats pro", icon: Receipt },
   { href: "/tva", label: "TVA trimestrielle", icon: Landmark },
   { href: "/aide", label: "Mode d'emploi", icon: BookOpen },
 ];
 
-export function AppSidebar({ userEmail }: { userEmail?: string | null }) {
+const BUILTIN_ICONS: Record<string, typeof Ticket> = {
+  "cat-billets": Ticket,
+  "cat-prestations": Wrench,
+  "cat-merch": ShoppingBag,
+  "cat-perso-billets": Ticket,
+  "cat-perso-prestations": Wrench,
+  "cat-perso-merch": ShoppingBag,
+};
+
+export function AppSidebar({
+  userEmail,
+  categories,
+}: {
+  userEmail?: string | null;
+  categories: SidebarCategory[];
+}) {
   const pathname = usePathname();
+  const proCategories = categories.filter((c) => c.scope === "PRO");
+  const persoCategories = categories.filter((c) => c.scope === "PERSO");
+
+  function renderCategoryItem(c: SidebarCategory) {
+    const href = categoryRoute(c.id);
+    const Icon = BUILTIN_ICONS[c.id];
+    return (
+      <SidebarMenuItem key={c.id}>
+        <SidebarMenuButton render={<Link href={href} />} isActive={pathname === href} tooltip={c.name}>
+          {Icon ? <Icon color={c.color ?? undefined} /> : <span className="w-4 text-center">{c.emoji}</span>}
+          <span>{c.name}</span>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+    );
+  }
 
   return (
     <Sidebar collapsible="icon">
@@ -79,26 +112,14 @@ export function AppSidebar({ userEmail }: { userEmail?: string | null }) {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+              {proCategories.map(renderCategoryItem)}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
         <SidebarGroup>
           <SidebarGroupLabel>Perso</SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
-              {navPerso.map((item) => (
-                <SidebarMenuItem key={item.href}>
-                  <SidebarMenuButton
-                    render={<Link href={item.href} />}
-                    isActive={pathname === item.href}
-                    tooltip={item.label}
-                  >
-                    <item.icon color={item.color} />
-                    <span>{item.label}</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
+            <SidebarMenu>{persoCategories.map(renderCategoryItem)}</SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
         <SidebarGroup>

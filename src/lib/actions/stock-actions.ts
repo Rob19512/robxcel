@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { CATEGORY_ROUTES, A_ENCAISSER_PATH } from "@/lib/category-routes";
+import { categoryRoute, A_ENCAISSER_PATH } from "@/lib/category-routes";
 
 export type StockCoreField =
   | "dateAchat"
@@ -142,8 +142,7 @@ export async function updateStockDate(
 
   revalidatePath(path);
   revalidatePath(A_ENCAISSER_PATH);
-  const saleRoute = CATEGORY_ROUTES[item.categoryId];
-  if (saleRoute) revalidatePath(saleRoute);
+  revalidatePath(categoryRoute(item.categoryId));
 }
 
 export async function markStockVenduToday(id: string, path: string) {

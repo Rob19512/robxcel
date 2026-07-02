@@ -8,3 +8,7 @@ export const CATEGORY_ROUTES: Record<string, string> = {
 };
 
 export const A_ENCAISSER_PATH = "/a-encaisser";
+
+export function categoryRoute(categoryId: string) {
+  return CATEGORY_ROUTES[categoryId] ?? `/categories/${categoryId}`;
+}
