@@ -64,6 +64,12 @@ export type ChargeLite = {
   montant: number;
 };
 
+export type AchatProLite = {
+  date: string;
+  qty: number;
+  montant: number;
+};
+
 function DualStat({
   vendu,
   encaisse,
@@ -121,10 +127,12 @@ export function Dashboard({
   categories,
   sales,
   charges,
+  achatsPro,
 }: {
   categories: CategoryLite[];
   sales: SaleLite[];
   charges: ChargeLite[];
+  achatsPro: AchatProLite[];
 }) {
   const now = new Date();
   const [scope, setScope] = useState<"PRO" | "PERSO" | "ALL">("PRO");
@@ -232,12 +240,37 @@ export function Dashboard({
       .reduce((sum, c) => sum + c.qty * c.montant, 0);
   }, [charges, year, month]);
 
+  // Achats pro : dépenses déductibles de la SASU (mêmes montants HT que pour l'IS), à
+  // soustraire du bénéfice net — uniquement quand la vue inclut le Pro.
+  const totalAchatsPro = useMemo(() => {
+    return achatsPro
+      .filter((a) => {
+        const ym = yearMonthOf(a.date);
+        if (ym.year !== year) return false;
+        if (month !== null && ym.month !== month) return false;
+        return true;
+      })
+      .reduce((sum, a) => sum + a.qty * a.montant, 0);
+  }, [achatsPro, year, month]);
+
+  const achatsProDeduction = scope !== "PERSO" ? totalAchatsPro : 0;
+  const beneficeVenduNet = beneficeVendu - achatsProDeduction;
+  const beneficeNetTotalNet = beneficeNetTotal - achatsProDeduction;
+
   const pctBien = Math.min(100, (caBienProAnnee / SEUIL_BIEN) * 100);
   const pctService = Math.min(100, (caServiceProAnnee / SEUIL_SERVICE) * 100);
 
   // Récap mensuel : combien vendu (performance) vs combien réellement encaissé (ce qui compte
   // pour la TVA/impôts), mois par mois sur l'année sélectionnée — indépendant du filtre mois ci-dessus.
   const monthlyRecap = useMemo(() => {
+    const achatsProByMonth = new Map<number, number>();
+    if (scope !== "PERSO") {
+      for (const a of achatsPro) {
+        const ym = yearMonthOf(a.date);
+        if (ym.year !== year) continue;
+        achatsProByMonth.set(ym.month, (achatsProByMonth.get(ym.month) ?? 0) + a.qty * a.montant);
+      }
+    }
     return MONTHS.map((label, m) => {
       let venduCA = 0;
       let venduBenefice = 0;
@@ -259,9 +292,12 @@ export function Dashboard({
           }
         }
       }
+      const achatsProMonth = achatsProByMonth.get(m) ?? 0;
+      venduBenefice -= achatsProMonth;
+      encaisseBenefice -= achatsProMonth;
       return { label, venduCA, venduBenefice, encaisseCA, encaisseBenefice };
     });
-  }, [scopedSales, year]);
+  }, [scopedSales, achatsPro, year, scope]);
 
   const monthlyTotals = monthlyRecap.reduce(
     (acc, m) => ({
@@ -350,8 +386,8 @@ export function Dashboard({
           </CardHeader>
           <CardContent>
             <DualStat
-              vendu={beneficeVendu}
-              encaisse={beneficeNetTotal}
+              vendu={beneficeVenduNet}
+              encaisse={beneficeNetTotalNet}
               showVendu={showVendu}
               showEncaisse={showEncaisse}
               valueClassName={BENEFICE_COLOR}
@@ -382,6 +418,16 @@ export function Dashboard({
             </CardTitle>
           </CardHeader>
         </Card>
+        {scope !== "PERSO" && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription>Achats pro</CardDescription>
+              <CardTitle className={cn("text-2xl font-semibold tabular-nums", CHARGE_COLOR)}>
+                {eur.format(totalAchatsPro)}
+              </CardTitle>
+            </CardHeader>
+          </Card>
+        )}
         {scope !== "PRO" && (
           <Card>
             <CardHeader className="pb-2">
@@ -397,6 +443,11 @@ export function Dashboard({
         <p className="-mt-3 text-xs text-muted-foreground">
           <strong className="text-foreground">Vendu</strong> = toutes les ventes de la période, encaissées ou pas ·{" "}
           <strong className="text-foreground">Encaissé</strong> = argent réellement arrivé sur la période.
+        </p>
+      )}
+      {scope !== "PERSO" && (
+        <p className="-mt-3 text-xs text-muted-foreground">
+          Le bénéfice net ci-dessus est déjà net des achats pro ({eur.format(totalAchatsPro)} déduits sur la période).
         </p>
       )}
 
