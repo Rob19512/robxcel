@@ -167,7 +167,7 @@ async function seedCategories() {
     hasStock: true,
     trackPriorite: true,
     trackEvents: true,
-    showDescription: false,
+    showDescription: true,
     showCompteEmail: false,
     sortOrder: 10,
     fields: billetsFields,
