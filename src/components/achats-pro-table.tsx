@@ -28,7 +28,7 @@ import {
 import { InlineText, InlineNumber, InlineDate, InlineSelect } from "@/components/inline-field";
 import { eur, TVA_RATES } from "@/lib/format";
 import { downloadCsv } from "@/lib/export-csv";
-import { cn, STICKY_COL } from "@/lib/utils";
+import { cn, STICKY_COL, normalizeForSearch } from "@/lib/utils";
 import {
   createAchatPro,
   updateAchatProField,
@@ -73,8 +73,8 @@ export function AchatsProTable({ path, initialItems }: { path: string; initialIt
 
   const filtered = initialItems.filter((it) => {
     if (!search.trim()) return true;
-    const haystack = [it.description, it.categorie, it.notes].join(" ").toLowerCase();
-    return haystack.includes(search.toLowerCase());
+    const haystack = normalizeForSearch([it.description, it.categorie, it.notes].join(" "));
+    return haystack.includes(normalizeForSearch(search));
   });
 
   function handleAdd() {

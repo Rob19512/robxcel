@@ -39,7 +39,7 @@ import { TablePagination } from "@/components/table-pagination";
 import { eur, TVA_RATES } from "@/lib/format";
 import { computeSale } from "@/lib/calc";
 import { downloadCsv } from "@/lib/export-csv";
-import { cn, STICKY_COL } from "@/lib/utils";
+import { cn, STICKY_COL, normalizeForSearch } from "@/lib/utils";
 import {
   createSale,
   updateSaleField,
@@ -129,16 +129,17 @@ export function SalesTable({
     const result = sales.filter((s) => {
       if (statutFilter !== "ALL" && s.statut !== statutFilter) return false;
       if (!search.trim()) return true;
-      const haystack = [
-        s.description,
-        s.source,
-        s.notes,
-        s.eventId ? eventLabelById.get(s.eventId) : null,
-        ...Object.values(s.customValues ?? {}),
-      ]
-        .join(" ")
-        .toLowerCase();
-      return haystack.includes(search.toLowerCase());
+      const haystack = normalizeForSearch(
+        [
+          s.description,
+          s.source,
+          s.notes,
+          s.eventId ? eventLabelById.get(s.eventId) : null,
+          ...Object.values(s.customValues ?? {}),
+        ]
+          .join(" ")
+      );
+      return haystack.includes(normalizeForSearch(search));
     });
 
     if (events && sortMode === "evenement") {

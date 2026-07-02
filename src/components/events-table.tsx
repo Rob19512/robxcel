@@ -35,7 +35,7 @@ import { InlineText, InlineDate } from "@/components/inline-field";
 import { Checkbox } from "@/components/ui/checkbox";
 import { BulkDeleteButton } from "@/components/bulk-delete-button";
 import { eur } from "@/lib/format";
-import { cn, STICKY_COL } from "@/lib/utils";
+import { cn, STICKY_COL, normalizeForSearch } from "@/lib/utils";
 import {
   createEvent,
   updateEventField,
@@ -75,7 +75,7 @@ export function EventsTable({
 
   const filtered = initialEvents.filter((e) => {
     if (!search.trim()) return true;
-    return [e.name, e.lieuSalle, e.notes].join(" ").toLowerCase().includes(search.toLowerCase());
+    return normalizeForSearch([e.name, e.lieuSalle, e.notes].join(" ")).includes(normalizeForSearch(search));
   });
 
   function handleAdd() {

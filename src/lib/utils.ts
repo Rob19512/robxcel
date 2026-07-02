@@ -5,6 +5,15 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+// Pour une recherche insensible aux accents ("celine" doit trouver "Céline" et vice-versa) :
+// décompose en base + diacritique (NFD) puis retire les diacritiques (U+0300 à U+036F).
+export function normalizeForSearch(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase();
+}
+
 // Colonne figée à gauche d'un tableau large (1re colonne identifiante, ex Date/Nom) pour
 // garder la ligne repérable en scrollant horizontalement vers les colonnes de droite.
 // À utiliser via StickyTableHead/StickyTableCell (table.tsx) : le sticky + fond doivent

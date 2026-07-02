@@ -32,7 +32,7 @@ import { BulkAddStockDialog } from "@/components/bulk-add-stock-dialog";
 import { TablePagination } from "@/components/table-pagination";
 import { eur, TVA_RATES } from "@/lib/format";
 import { downloadCsv } from "@/lib/export-csv";
-import { cn, STICKY_COL } from "@/lib/utils";
+import { cn, STICKY_COL, normalizeForSearch } from "@/lib/utils";
 import {
   createStockItem,
   updateStockField,
@@ -147,17 +147,18 @@ export function StockTable({
     const result = items.filter((it) => {
       if (!showSold && it.statut === "VENDU") return false;
       if (!search.trim()) return true;
-      const haystack = [
-        it.description,
-        it.source,
-        it.notes,
-        it.compteEmail,
-        it.eventId ? eventLabelById.get(it.eventId) : null,
-        ...Object.values(it.customValues ?? {}),
-      ]
-        .join(" ")
-        .toLowerCase();
-      return haystack.includes(search.toLowerCase());
+      const haystack = normalizeForSearch(
+        [
+          it.description,
+          it.source,
+          it.notes,
+          it.compteEmail,
+          it.eventId ? eventLabelById.get(it.eventId) : null,
+          ...Object.values(it.customValues ?? {}),
+        ]
+          .join(" ")
+      );
+      return haystack.includes(normalizeForSearch(search));
     });
 
     if (events && sortMode === "evenement") {

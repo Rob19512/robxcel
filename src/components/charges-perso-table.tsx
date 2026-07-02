@@ -28,7 +28,7 @@ import {
 import { InlineText, InlineNumber, InlineDate } from "@/components/inline-field";
 import { eur } from "@/lib/format";
 import { downloadCsv } from "@/lib/export-csv";
-import { cn, STICKY_COL } from "@/lib/utils";
+import { cn, STICKY_COL, normalizeForSearch } from "@/lib/utils";
 import {
   createChargePerso,
   updateChargePersoField,
@@ -58,8 +58,8 @@ export function ChargesPersoTable({ path, initialItems }: { path: string; initia
 
   const filtered = initialItems.filter((it) => {
     if (!search.trim()) return true;
-    const haystack = [it.description, it.categorie, it.notes].join(" ").toLowerCase();
-    return haystack.includes(search.toLowerCase());
+    const haystack = normalizeForSearch([it.description, it.categorie, it.notes].join(" "));
+    return haystack.includes(normalizeForSearch(search));
   });
 
   const total = filtered.reduce((sum, it) => sum + it.qty * it.montant, 0);
