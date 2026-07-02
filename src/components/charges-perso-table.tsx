@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useHorizontalWheelScroll } from "@/lib/use-horizontal-wheel-scroll";
 import { toast } from "sonner";
 import { Plus, MoreVertical, Copy, Trash2, Download } from "lucide-react";
 import {
@@ -50,6 +51,7 @@ export function ChargesPersoTable({ path, initialItems }: { path: string; initia
   const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
+  const scrollRef = useHorizontalWheelScroll<HTMLDivElement>();
 
   const filtered = initialItems.filter((it) => {
     if (!search.trim()) return true;
@@ -182,8 +184,7 @@ export function ChargesPersoTable({ path, initialItems }: { path: string; initia
 
       {/* Desktop table */}
       <Card className="hidden overflow-hidden py-0 md:block">
-        <div className="overflow-x-auto">
-          <Table>
+        <Table containerRef={scrollRef}>
             <TableHeader>
               <TableRow>
                 <TableHead className="w-10">
@@ -239,7 +240,6 @@ export function ChargesPersoTable({ path, initialItems }: { path: string; initia
               )}
             </TableBody>
           </Table>
-        </div>
       </Card>
 
       {/* Mobile cards */}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useHorizontalWheelScroll } from "@/lib/use-horizontal-wheel-scroll";
 import { toast } from "sonner";
 import { Plus, MoreVertical, Trash2, Eye } from "lucide-react";
 import {
@@ -67,6 +68,7 @@ export function EventsTable({
   const [detailEventId, setDetailEventId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
+  const scrollRef = useHorizontalWheelScroll<HTMLDivElement>();
 
   const filtered = initialEvents.filter((e) => {
     if (!search.trim()) return true;
@@ -162,8 +164,7 @@ export function EventsTable({
 
       {/* Desktop table */}
       <Card className="hidden overflow-hidden py-0 md:block">
-        <div className="overflow-x-auto">
-          <Table>
+        <Table containerRef={scrollRef}>
             <TableHeader>
               <TableRow>
                 <TableHead className="w-10">
@@ -234,7 +235,6 @@ export function EventsTable({
               )}
             </TableBody>
           </Table>
-        </div>
       </Card>
 
       {/* Mobile cards */}

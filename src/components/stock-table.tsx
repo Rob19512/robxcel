@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
+import { useHorizontalWheelScroll } from "@/lib/use-horizontal-wheel-scroll";
 import { toast } from "sonner";
 import { Plus, MoreVertical, Copy, Trash2, PackageCheck, CheckCircle2, Download, ChevronDown } from "lucide-react";
 import {
@@ -125,6 +126,7 @@ export function StockTable({
   const [page, setPage] = useState(0);
   const [isPending, startTransition] = useTransition();
   const PAGE_SIZE = 50;
+  const scrollRef = useHorizontalWheelScroll<HTMLDivElement>();
 
   function toggleExpanded(id: string) {
     setExpanded((prev) => {
@@ -381,8 +383,7 @@ export function StockTable({
 
       {/* Desktop table */}
       <Card className="hidden overflow-hidden py-0 md:block">
-        <div className="overflow-x-auto">
-          <Table>
+        <Table containerRef={scrollRef}>
             <TableHeader>
               <TableRow>
                 <TableHead className="w-10">
@@ -580,7 +581,6 @@ export function StockTable({
               )}
             </TableBody>
           </Table>
-        </div>
         <div className="border-t p-3">
           <TablePagination
             page={currentPage}

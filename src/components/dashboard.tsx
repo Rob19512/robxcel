@@ -23,6 +23,7 @@ import { EvolutionChart, type SaleForChart } from "@/components/evolution-chart"
 import { eur } from "@/lib/format";
 import { SEUIL_BIEN, SEUIL_SERVICE } from "@/lib/tva-seuils";
 import { cn } from "@/lib/utils";
+import { useHorizontalWheelScroll } from "@/lib/use-horizontal-wheel-scroll";
 
 const MONTHS = [
   "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
@@ -132,6 +133,7 @@ export function Dashboard({
   const [viewMode, setViewMode] = useState<"vendu" | "encaisse" | "both">("both");
   const showVendu = viewMode !== "encaisse";
   const showEncaisse = viewMode !== "vendu";
+  const scrollRef = useHorizontalWheelScroll<HTMLDivElement>();
 
   const categoryById = useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories]);
 
@@ -408,7 +410,7 @@ export function Dashboard({
             (uniquement l&apos;argent réellement arrivé ce mois-là, même si la vente date d&apos;avant).
           </CardDescription>
         </CardHeader>
-        <CardContent className="overflow-x-auto p-0">
+        <CardContent ref={scrollRef} className="overflow-x-auto p-0">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b text-xs text-muted-foreground">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition, type ClipboardEvent } from "react";
+import { useHorizontalWheelScroll } from "@/lib/use-horizontal-wheel-scroll";
 import { toast } from "sonner";
 import { Plus, Trash2, Table2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -91,6 +92,7 @@ export function BulkAddStockDialog({
   const [open, setOpen] = useState(false);
   const [rows, setRows] = useState<DraftRow[]>(() => Array.from({ length: 6 }, emptyRow));
   const [isPending, startTransition] = useTransition();
+  const scrollRef = useHorizontalWheelScroll<HTMLDivElement>();
 
   // Ordre des colonnes "collables" (paste positionnel façon Excel).
   const pasteColumns: Array<{ key: keyof DraftRow; customKey?: string }> = [
@@ -212,7 +214,7 @@ export function BulkAddStockDialog({
             </DialogDescription>
           </DialogHeader>
 
-          <div className="overflow-x-auto rounded-md border">
+          <div ref={scrollRef} className="overflow-x-auto rounded-md border">
             <table className="w-full border-collapse text-sm">
               <thead>
                 <tr className="border-b bg-muted/50">

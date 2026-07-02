@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
+import { useHorizontalWheelScroll } from "@/lib/use-horizontal-wheel-scroll";
 import { toast } from "sonner";
 import { Plus, MoreVertical, Copy, Trash2, CheckCircle2, Download } from "lucide-react";
 import {
@@ -115,6 +116,7 @@ export function SalesTable({
   const [sortMode, setSortMode] = useState<"date" | "evenement">("evenement");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
+  const scrollRef = useHorizontalWheelScroll<HTMLDivElement>();
 
   useMemo(() => setSales(initialSales), [initialSales]);
 
@@ -353,8 +355,7 @@ export function SalesTable({
 
       {/* Desktop table */}
       <Card className="hidden overflow-hidden py-0 md:block">
-        <div className="overflow-x-auto">
-          <Table>
+        <Table containerRef={scrollRef}>
             <TableHeader>
               <TableRow>
                 <TableHead className="w-10">
@@ -533,7 +534,6 @@ export function SalesTable({
               )}
             </TableBody>
           </Table>
-        </div>
         <div className="border-t p-3">
           <TablePagination
             page={currentPage}
