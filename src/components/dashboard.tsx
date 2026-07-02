@@ -57,6 +57,47 @@ export type SaleLite = {
   coutAchatUnit: number;
 };
 
+function DualStat({
+  vendu,
+  encaisse,
+  showVendu,
+  showEncaisse,
+  venduLabel = "Vendu",
+  encaisseLabel = "Encaissé",
+  size = "text-xl",
+}: {
+  vendu: number;
+  encaisse: number;
+  showVendu: boolean;
+  showEncaisse: boolean;
+  venduLabel?: string;
+  encaisseLabel?: string;
+  size?: string;
+}) {
+  if (showVendu && showEncaisse) {
+    return (
+      <div className="flex items-end justify-between gap-2">
+        <div>
+          <p className={cn(size, "font-semibold tabular-nums")}>{eur.format(vendu)}</p>
+          <p className="text-xs text-muted-foreground">{venduLabel}</p>
+        </div>
+        <div className="text-right">
+          <p className={cn(size, "font-semibold tabular-nums text-primary")}>{eur.format(encaisse)}</p>
+          <p className="text-xs text-muted-foreground">{encaisseLabel}</p>
+        </div>
+      </div>
+    );
+  }
+  const value = showVendu ? vendu : encaisse;
+  const label = showVendu ? venduLabel : encaisseLabel;
+  return (
+    <div>
+      <p className={cn(size, "font-semibold tabular-nums", showEncaisse && "text-primary")}>{eur.format(value)}</p>
+      <p className="text-xs text-muted-foreground">{label}</p>
+    </div>
+  );
+}
+
 function yearMonthOf(dateStr: string) {
   const d = new Date(`${dateStr}T00:00:00.000Z`);
   return { year: d.getFullYear(), month: d.getMonth() };
@@ -73,6 +114,9 @@ export function Dashboard({
   const [scope, setScope] = useState<"PRO" | "PERSO" | "ALL">("PRO");
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState<number | null>(now.getMonth());
+  const [viewMode, setViewMode] = useState<"vendu" | "encaisse" | "both">("both");
+  const showVendu = viewMode !== "encaisse";
+  const showEncaisse = viewMode !== "vendu";
 
   const categoryById = useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories]);
 
@@ -224,6 +268,16 @@ export function Dashboard({
             <ToggleGroupItem value="PERSO">Perso</ToggleGroupItem>
             <ToggleGroupItem value="ALL">Tout</ToggleGroupItem>
           </ToggleGroup>
+          <ToggleGroup
+            value={[viewMode]}
+            onValueChange={(v) => v[0] && setViewMode(v[0] as typeof viewMode)}
+            variant="outline"
+            size="sm"
+          >
+            <ToggleGroupItem value="vendu">Vendu</ToggleGroupItem>
+            <ToggleGroupItem value="encaisse">Encaissé</ToggleGroupItem>
+            <ToggleGroupItem value="both">Les deux</ToggleGroupItem>
+          </ToggleGroup>
           <Select
             value={month === null ? "ALL" : String(month)}
             onValueChange={(v) => setMonth(v === "ALL" || !v ? null : Number(v))}
@@ -265,45 +319,24 @@ export function Dashboard({
           <CardHeader className="pb-2">
             <CardDescription>Bénéfice net</CardDescription>
           </CardHeader>
-          <CardContent className="flex items-end justify-between gap-2">
-            <div>
-              <p className="text-xl font-semibold tabular-nums">{eur.format(beneficeVendu)}</p>
-              <p className="text-xs text-muted-foreground">Vendu</p>
-            </div>
-            <div className="text-right">
-              <p className="text-xl font-semibold tabular-nums text-primary">{eur.format(beneficeNetTotal)}</p>
-              <p className="text-xs text-muted-foreground">Encaissé</p>
-            </div>
+          <CardContent>
+            <DualStat vendu={beneficeVendu} encaisse={beneficeNetTotal} showVendu={showVendu} showEncaisse={showEncaisse} />
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>CA biens</CardDescription>
           </CardHeader>
-          <CardContent className="flex items-end justify-between gap-2">
-            <div>
-              <p className="text-xl font-semibold tabular-nums">{eur.format(caBienVendu)}</p>
-              <p className="text-xs text-muted-foreground">Vendu</p>
-            </div>
-            <div className="text-right">
-              <p className="text-xl font-semibold tabular-nums text-primary">{eur.format(caBienEncaisse)}</p>
-              <p className="text-xs text-muted-foreground">Encaissé</p>
-            </div>
+          <CardContent>
+            <DualStat vendu={caBienVendu} encaisse={caBienEncaisse} showVendu={showVendu} showEncaisse={showEncaisse} />
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>CA prestations</CardDescription>
           </CardHeader>
-          <CardContent className="flex items-end justify-between gap-2">
-            <div>
-              <p className="text-xl font-semibold tabular-nums">{eur.format(caServiceVendu)}</p>
-              <p className="text-xs text-muted-foreground">Vendu</p>
-            </div>
-            <div className="text-right">
-              <p className="text-xl font-semibold tabular-nums text-primary">{eur.format(caServiceEncaisse)}</p>
-              <p className="text-xs text-muted-foreground">Encaissé</p>
-            </div>
+          <CardContent>
+            <DualStat vendu={caServiceVendu} encaisse={caServiceEncaisse} showVendu={showVendu} showEncaisse={showEncaisse} />
           </CardContent>
         </Card>
         <Card>
@@ -315,10 +348,12 @@ export function Dashboard({
           </CardHeader>
         </Card>
       </div>
-      <p className="-mt-3 text-xs text-muted-foreground">
-        <strong className="text-foreground">Vendu</strong> = toutes les ventes de la période, encaissées ou pas ·{" "}
-        <strong className="text-foreground">Encaissé</strong> = argent réellement arrivé sur la période.
-      </p>
+      {viewMode === "both" && (
+        <p className="-mt-3 text-xs text-muted-foreground">
+          <strong className="text-foreground">Vendu</strong> = toutes les ventes de la période, encaissées ou pas ·{" "}
+          <strong className="text-foreground">Encaissé</strong> = argent réellement arrivé sur la période.
+        </p>
+      )}
 
       <EvolutionChart sales={chartSales} />
 
@@ -335,10 +370,18 @@ export function Dashboard({
             <thead>
               <tr className="border-b text-xs text-muted-foreground">
                 <th className="px-4 py-2 text-left font-medium">Mois</th>
-                <th className="px-3 py-2 text-right font-medium">CA vendu</th>
-                <th className="px-3 py-2 text-right font-medium">Bénéf. vendu</th>
-                <th className="px-3 py-2 text-right font-medium text-primary">CA encaissé</th>
-                <th className="px-4 py-2 text-right font-medium text-primary">Bénéf. encaissé</th>
+                {showVendu && (
+                  <>
+                    <th className="px-3 py-2 text-right font-medium">CA vendu</th>
+                    <th className="px-3 py-2 text-right font-medium">Bénéf. vendu</th>
+                  </>
+                )}
+                {showEncaisse && (
+                  <>
+                    <th className="px-3 py-2 text-right font-medium text-primary">CA encaissé</th>
+                    <th className="px-4 py-2 text-right font-medium text-primary">Bénéf. encaissé</th>
+                  </>
+                )}
               </tr>
             </thead>
             <tbody>
@@ -348,26 +391,42 @@ export function Dashboard({
                   className={cn("border-b last:border-0", i === month && "bg-accent/50")}
                 >
                   <td className="px-4 py-1.5 font-medium">{m.label}</td>
-                  <td className="px-3 py-1.5 text-right tabular-nums">{eur.format(m.venduCA)}</td>
-                  <td className="px-3 py-1.5 text-right tabular-nums">{eur.format(m.venduBenefice)}</td>
-                  <td className="px-3 py-1.5 text-right tabular-nums text-primary">{eur.format(m.encaisseCA)}</td>
-                  <td className="px-4 py-1.5 text-right tabular-nums text-primary">
-                    {eur.format(m.encaisseBenefice)}
-                  </td>
+                  {showVendu && (
+                    <>
+                      <td className="px-3 py-1.5 text-right tabular-nums">{eur.format(m.venduCA)}</td>
+                      <td className="px-3 py-1.5 text-right tabular-nums">{eur.format(m.venduBenefice)}</td>
+                    </>
+                  )}
+                  {showEncaisse && (
+                    <>
+                      <td className="px-3 py-1.5 text-right tabular-nums text-primary">{eur.format(m.encaisseCA)}</td>
+                      <td className="px-4 py-1.5 text-right tabular-nums text-primary">
+                        {eur.format(m.encaisseBenefice)}
+                      </td>
+                    </>
+                  )}
                 </tr>
               ))}
             </tbody>
             <tfoot>
               <tr className="bg-muted/50 font-semibold">
                 <td className="px-4 py-2">Total {year}</td>
-                <td className="px-3 py-2 text-right tabular-nums">{eur.format(monthlyTotals.venduCA)}</td>
-                <td className="px-3 py-2 text-right tabular-nums">{eur.format(monthlyTotals.venduBenefice)}</td>
-                <td className="px-3 py-2 text-right tabular-nums text-primary">
-                  {eur.format(monthlyTotals.encaisseCA)}
-                </td>
-                <td className="px-4 py-2 text-right tabular-nums text-primary">
-                  {eur.format(monthlyTotals.encaisseBenefice)}
-                </td>
+                {showVendu && (
+                  <>
+                    <td className="px-3 py-2 text-right tabular-nums">{eur.format(monthlyTotals.venduCA)}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">{eur.format(monthlyTotals.venduBenefice)}</td>
+                  </>
+                )}
+                {showEncaisse && (
+                  <>
+                    <td className="px-3 py-2 text-right tabular-nums text-primary">
+                      {eur.format(monthlyTotals.encaisseCA)}
+                    </td>
+                    <td className="px-4 py-2 text-right tabular-nums text-primary">
+                      {eur.format(monthlyTotals.encaisseBenefice)}
+                    </td>
+                  </>
+                )}
               </tr>
             </tfoot>
           </table>
@@ -446,30 +505,34 @@ export function Dashboard({
                   </div>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-2">
-                  <div className="flex items-end justify-between gap-2">
-                    <div>
-                      <p className="text-base font-semibold tabular-nums">{eur.format(caVendu)}</p>
-                      <p className="text-xs text-muted-foreground">CA vendu</p>
+                  {showVendu && (
+                    <div className="flex items-end justify-between gap-2">
+                      <div>
+                        <p className="text-base font-semibold tabular-nums">{eur.format(caVendu)}</p>
+                        <p className="text-xs text-muted-foreground">CA vendu</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-base font-semibold tabular-nums">{eur.format(beneficeVenduCat)}</p>
+                        <p className="text-xs text-muted-foreground">Bénéf. vendu</p>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-base font-semibold tabular-nums">{eur.format(beneficeVenduCat)}</p>
-                      <p className="text-xs text-muted-foreground">Bénéf. vendu</p>
+                  )}
+                  {showEncaisse && (
+                    <div className={cn("flex items-end justify-between gap-2", showVendu && "border-t pt-2")}>
+                      <div>
+                        <p className="text-base font-semibold tabular-nums text-primary">
+                          {eur.format(caEncaisseCat)}
+                        </p>
+                        <p className="text-xs text-muted-foreground">CA encaissé</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-base font-semibold tabular-nums text-primary">
+                          {eur.format(beneficeEncaisseCat)}
+                        </p>
+                        <p className="text-xs text-muted-foreground">Bénéf. encaissé</p>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-end justify-between gap-2 border-t pt-2">
-                    <div>
-                      <p className="text-base font-semibold tabular-nums text-primary">
-                        {eur.format(caEncaisseCat)}
-                      </p>
-                      <p className="text-xs text-muted-foreground">CA encaissé</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-base font-semibold tabular-nums text-primary">
-                        {eur.format(beneficeEncaisseCat)}
-                      </p>
-                      <p className="text-xs text-muted-foreground">Bénéf. encaissé</p>
-                    </div>
-                  </div>
+                  )}
                 </CardContent>
               </Card>
             );

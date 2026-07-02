@@ -139,7 +139,14 @@ export function StockTable({
   const filtered = items.filter((it) => {
     if (!showSold && it.statut === "VENDU") return false;
     if (!search.trim()) return true;
-    const haystack = [it.description, it.source, it.notes, it.compteEmail, ...Object.values(it.customValues ?? {})]
+    const haystack = [
+      it.description,
+      it.source,
+      it.notes,
+      it.compteEmail,
+      it.eventId ? eventLabelById.get(it.eventId) : null,
+      ...Object.values(it.customValues ?? {}),
+    ]
       .join(" ")
       .toLowerCase();
     return haystack.includes(search.toLowerCase());

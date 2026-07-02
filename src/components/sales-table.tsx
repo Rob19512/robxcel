@@ -124,6 +124,7 @@ export function SalesTable({
       s.description,
       s.source,
       s.notes,
+      s.eventId ? eventLabelById.get(s.eventId) : null,
       ...Object.values(s.customValues ?? {}),
     ]
       .join(" ")
