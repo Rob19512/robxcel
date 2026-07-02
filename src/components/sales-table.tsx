@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { InlineText, InlineNumber, InlineDate, InlineSelect } from "@/components/inline-field";
 import { Checkbox } from "@/components/ui/checkbox";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { BulkDeleteButton } from "@/components/bulk-delete-button";
 import { eur, TVA_RATES } from "@/lib/format";
 import { computeSale } from "@/lib/calc";
@@ -106,10 +107,13 @@ export function SalesTable({
   const [sales, setSales] = useState(initialSales);
   const [search, setSearch] = useState("");
   const [statutFilter, setStatutFilter] = useState<string>("ALL");
+  const [sortMode, setSortMode] = useState<"date" | "evenement">("evenement");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
 
   useMemo(() => setSales(initialSales), [initialSales]);
+
+  const eventLabelById = new Map((events ?? []).map((e) => [e.id, e.label]));
 
   const filtered = sales.filter((s) => {
     if (statutFilter !== "ALL" && s.statut !== statutFilter) return false;
@@ -124,6 +128,17 @@ export function SalesTable({
       .toLowerCase();
     return haystack.includes(search.toLowerCase());
   });
+
+  if (events && sortMode === "evenement") {
+    filtered.sort((a, b) => {
+      const la = a.eventId ? eventLabelById.get(a.eventId) ?? "" : "";
+      const lb = b.eventId ? eventLabelById.get(b.eventId) ?? "" : "";
+      if (la === lb) return 0;
+      if (!la) return 1;
+      if (!lb) return -1;
+      return la.localeCompare(lb);
+    });
+  }
 
   const sourceOptions = sources.map((s) => ({ value: s, label: s }));
 
@@ -293,6 +308,17 @@ export function SalesTable({
             ))}
           </SelectContent>
         </Select>
+        {events && (
+          <ToggleGroup
+            value={[sortMode]}
+            onValueChange={(v) => v[0] && setSortMode(v[0] as typeof sortMode)}
+            variant="outline"
+            size="sm"
+          >
+            <ToggleGroupItem value="date">Trier par date</ToggleGroupItem>
+            <ToggleGroupItem value="evenement">Trier par événement</ToggleGroupItem>
+          </ToggleGroup>
+        )}
         <Button variant="outline" size="sm" onClick={handleExport}>
           <Download />
           Exporter CSV

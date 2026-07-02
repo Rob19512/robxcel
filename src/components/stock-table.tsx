@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { BulkDeleteButton } from "@/components/bulk-delete-button";
 import {
   DropdownMenu,
@@ -113,6 +114,7 @@ export function StockTable({
 }) {
   const [search, setSearch] = useState("");
   const [showSold, setShowSold] = useState(false);
+  const [sortMode, setSortMode] = useState<"date" | "evenement">("evenement");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
@@ -128,6 +130,7 @@ export function StockTable({
 
   const items = initialItems;
   const sourceOptions = sources.map((s) => ({ value: s, label: s }));
+  const eventLabelById = new Map((events ?? []).map((e) => [e.id, e.label]));
 
   const filtered = items.filter((it) => {
     if (!showSold && it.statut === "VENDU") return false;
@@ -137,6 +140,17 @@ export function StockTable({
       .toLowerCase();
     return haystack.includes(search.toLowerCase());
   });
+
+  if (events && sortMode === "evenement") {
+    filtered.sort((a, b) => {
+      const la = a.eventId ? eventLabelById.get(a.eventId) ?? "" : "";
+      const lb = b.eventId ? eventLabelById.get(b.eventId) ?? "" : "";
+      if (la === lb) return 0;
+      if (!la) return 1; // sans événement à la fin
+      if (!lb) return -1;
+      return la.localeCompare(lb);
+    });
+  }
 
   function handleAdd() {
     startTransition(async () => {
@@ -314,6 +328,17 @@ export function StockTable({
           <Checkbox checked={showSold} onCheckedChange={(v) => setShowSold(!!v)} />
           Afficher les vendus
         </label>
+        {events && (
+          <ToggleGroup
+            value={[sortMode]}
+            onValueChange={(v) => v[0] && setSortMode(v[0] as typeof sortMode)}
+            variant="outline"
+            size="sm"
+          >
+            <ToggleGroupItem value="date">Trier par date</ToggleGroupItem>
+            <ToggleGroupItem value="evenement">Trier par événement</ToggleGroupItem>
+          </ToggleGroup>
+        )}
         <Button variant="outline" size="sm" onClick={handleExport}>
           <Download />
           Exporter CSV

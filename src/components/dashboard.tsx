@@ -22,6 +22,7 @@ import { Ticket, Wrench, ShoppingBag } from "lucide-react";
 import { EvolutionChart, type SaleForChart } from "@/components/evolution-chart";
 import { eur } from "@/lib/format";
 import { SEUIL_BIEN, SEUIL_SERVICE } from "@/lib/tva-seuils";
+import { cn } from "@/lib/utils";
 
 const MONTHS = [
   "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
@@ -161,6 +162,44 @@ export function Dashboard({
   const pctBien = Math.min(100, (caBienProAnnee / SEUIL_BIEN) * 100);
   const pctService = Math.min(100, (caServiceProAnnee / SEUIL_SERVICE) * 100);
 
+  // Récap mensuel : combien vendu (performance) vs combien réellement encaissé (ce qui compte
+  // pour la TVA/impôts), mois par mois sur l'année sélectionnée — indépendant du filtre mois ci-dessus.
+  const monthlyRecap = useMemo(() => {
+    return MONTHS.map((label, m) => {
+      let venduCA = 0;
+      let venduBenefice = 0;
+      let encaisseCA = 0;
+      let encaisseBenefice = 0;
+      for (const s of scopedSales) {
+        const total = s.qty * s.prixVenteUnit;
+        const cout = s.qty * s.coutAchatUnit;
+        const ymVente = yearMonthOf(s.dateVente);
+        if (ymVente.year === year && ymVente.month === m) {
+          venduCA += total;
+          venduBenefice += total - cout;
+        }
+        if (s.statut === "ENCAISSE" && s.dateEncaissement) {
+          const ymEnc = yearMonthOf(s.dateEncaissement);
+          if (ymEnc.year === year && ymEnc.month === m) {
+            encaisseCA += total;
+            encaisseBenefice += total - cout;
+          }
+        }
+      }
+      return { label, venduCA, venduBenefice, encaisseCA, encaisseBenefice };
+    });
+  }, [scopedSales, year]);
+
+  const monthlyTotals = monthlyRecap.reduce(
+    (acc, m) => ({
+      venduCA: acc.venduCA + m.venduCA,
+      venduBenefice: acc.venduBenefice + m.venduBenefice,
+      encaisseCA: acc.encaisseCA + m.encaisseCA,
+      encaisseBenefice: acc.encaisseBenefice + m.encaisseBenefice,
+    }),
+    { venduCA: 0, venduBenefice: 0, encaisseCA: 0, encaisseBenefice: 0 }
+  );
+
   const chartSales: SaleForChart[] = scopedSales;
 
   const periodLabel = month !== null ? `${MONTHS[month]} ${year}` : `Année ${year}`;
@@ -282,6 +321,58 @@ export function Dashboard({
       </p>
 
       <EvolutionChart sales={chartSales} />
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Récap mensuel {year}</CardTitle>
+          <CardDescription>
+            Vendu = performance commerciale du mois · Encaissé = ce qui compte pour ta TVA/tes impôts
+            (uniquement l&apos;argent réellement arrivé ce mois-là, même si la vente date d&apos;avant).
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="overflow-x-auto p-0">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b text-xs text-muted-foreground">
+                <th className="px-4 py-2 text-left font-medium">Mois</th>
+                <th className="px-3 py-2 text-right font-medium">CA vendu</th>
+                <th className="px-3 py-2 text-right font-medium">Bénéf. vendu</th>
+                <th className="px-3 py-2 text-right font-medium text-primary">CA encaissé</th>
+                <th className="px-4 py-2 text-right font-medium text-primary">Bénéf. encaissé</th>
+              </tr>
+            </thead>
+            <tbody>
+              {monthlyRecap.map((m, i) => (
+                <tr
+                  key={m.label}
+                  className={cn("border-b last:border-0", i === month && "bg-accent/50")}
+                >
+                  <td className="px-4 py-1.5 font-medium">{m.label}</td>
+                  <td className="px-3 py-1.5 text-right tabular-nums">{eur.format(m.venduCA)}</td>
+                  <td className="px-3 py-1.5 text-right tabular-nums">{eur.format(m.venduBenefice)}</td>
+                  <td className="px-3 py-1.5 text-right tabular-nums text-primary">{eur.format(m.encaisseCA)}</td>
+                  <td className="px-4 py-1.5 text-right tabular-nums text-primary">
+                    {eur.format(m.encaisseBenefice)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr className="bg-muted/50 font-semibold">
+                <td className="px-4 py-2">Total {year}</td>
+                <td className="px-3 py-2 text-right tabular-nums">{eur.format(monthlyTotals.venduCA)}</td>
+                <td className="px-3 py-2 text-right tabular-nums">{eur.format(monthlyTotals.venduBenefice)}</td>
+                <td className="px-3 py-2 text-right tabular-nums text-primary">
+                  {eur.format(monthlyTotals.encaisseCA)}
+                </td>
+                <td className="px-4 py-2 text-right tabular-nums text-primary">
+                  {eur.format(monthlyTotals.encaisseBenefice)}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>

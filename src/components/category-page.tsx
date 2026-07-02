@@ -20,10 +20,20 @@ export async function CategoryPageContent({
     include: { fields: { orderBy: { sortOrder: "asc" } }, sources: { orderBy: { sortOrder: "asc" } } },
   });
 
+  // Quand la catégorie suit des événements (Billets), on regroupe les lignes par événement
+  // — tous les tickets d'un même concert restent côte à côte, comme dans l'Excel d'origine —
+  // plutôt que de tout éparpiller par simple date d'achat/vente.
+  const saleOrderBy = category.trackEvents
+    ? [{ event: { dateEvenement: "asc" as const } }, { dateVente: "desc" as const }]
+    : { dateVente: "desc" as const };
+  const stockOrderBy = category.trackEvents
+    ? [{ event: { dateEvenement: "asc" as const } }, { dateAchat: "desc" as const }]
+    : { dateAchat: "desc" as const };
+
   const [sales, stockItems, events] = await Promise.all([
-    prisma.sale.findMany({ where: { categoryId, deletedAt: null }, orderBy: { dateVente: "desc" } }),
+    prisma.sale.findMany({ where: { categoryId, deletedAt: null }, orderBy: saleOrderBy }),
     category.hasStock
-      ? prisma.stockItem.findMany({ where: { categoryId, deletedAt: null }, orderBy: { dateAchat: "desc" } })
+      ? prisma.stockItem.findMany({ where: { categoryId, deletedAt: null }, orderBy: stockOrderBy })
       : Promise.resolve([]),
     category.trackEvents
       ? prisma.event.findMany({ where: { categoryId }, orderBy: { dateEvenement: "desc" } })
