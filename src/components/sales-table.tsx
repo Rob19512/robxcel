@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Plus, MoreVertical, Copy, Trash2, CheckCircle2, Download } from "lucide-react";
 import {
@@ -32,6 +32,7 @@ import { InlineText, InlineTextArea, InlineNumber, InlineDate, InlineSelect } fr
 import { Checkbox } from "@/components/ui/checkbox";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { BulkDeleteButton } from "@/components/bulk-delete-button";
+import { TablePagination } from "@/components/table-pagination";
 import { eur, TVA_RATES } from "@/lib/format";
 import { computeSale } from "@/lib/calc";
 import { downloadCsv } from "@/lib/export-csv";
@@ -109,41 +110,59 @@ export function SalesTable({
   const [sales, setSales] = useState(initialSales);
   const [search, setSearch] = useState("");
   const [statutFilter, setStatutFilter] = useState<string>("ALL");
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 50;
   const [sortMode, setSortMode] = useState<"date" | "evenement">("evenement");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
 
   useMemo(() => setSales(initialSales), [initialSales]);
 
-  const eventLabelById = new Map((events ?? []).map((e) => [e.id, e.label]));
+  const eventLabelById = useMemo(() => new Map((events ?? []).map((e) => [e.id, e.label])), [events]);
 
-  const filtered = sales.filter((s) => {
-    if (statutFilter !== "ALL" && s.statut !== statutFilter) return false;
-    if (!search.trim()) return true;
-    const haystack = [
-      s.description,
-      s.source,
-      s.notes,
-      s.eventId ? eventLabelById.get(s.eventId) : null,
-      ...Object.values(s.customValues ?? {}),
-    ]
-      .join(" ")
-      .toLowerCase();
-    return haystack.includes(search.toLowerCase());
-  });
-
-  if (events && sortMode === "evenement") {
-    filtered.sort((a, b) => {
-      const la = a.eventId ? eventLabelById.get(a.eventId) ?? "" : "";
-      const lb = b.eventId ? eventLabelById.get(b.eventId) ?? "" : "";
-      if (la === lb) return 0;
-      if (!la) return 1;
-      if (!lb) return -1;
-      return la.localeCompare(lb);
+  const filtered = useMemo(() => {
+    const result = sales.filter((s) => {
+      if (statutFilter !== "ALL" && s.statut !== statutFilter) return false;
+      if (!search.trim()) return true;
+      const haystack = [
+        s.description,
+        s.source,
+        s.notes,
+        s.eventId ? eventLabelById.get(s.eventId) : null,
+        ...Object.values(s.customValues ?? {}),
+      ]
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(search.toLowerCase());
     });
-  }
 
-  const sourceOptions = sources.map((s) => ({ value: s, label: s }));
+    if (events && sortMode === "evenement") {
+      result.sort((a, b) => {
+        const la = a.eventId ? eventLabelById.get(a.eventId) ?? "" : "";
+        const lb = b.eventId ? eventLabelById.get(b.eventId) ?? "" : "";
+        if (la === lb) return 0;
+        if (!la) return 1;
+        if (!lb) return -1;
+        return la.localeCompare(lb);
+      });
+    }
+    return result;
+  }, [sales, statutFilter, search, eventLabelById, events, sortMode]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages - 1);
+  const paginated = useMemo(
+    () => filtered.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE),
+    [filtered, currentPage]
+  );
+
+  // Repart à la première page quand le filtre/tri change, pour ne pas rester
+  // coincé au milieu d'un nouveau résultat de recherche.
+  useEffect(() => {
+    setPage(0);
+  }, [search, statutFilter, sortMode]);
+
+  const sourceOptions = useMemo(() => sources.map((s) => ({ value: s, label: s })), [sources]);
 
   function handleAdd() {
     startTransition(async () => {
@@ -370,7 +389,7 @@ export function SalesTable({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map((s) => {
+              {paginated.map((s) => {
                 const calc = computeSale(s);
                 return (
                   <TableRow key={s.id} data-state={selectedIds.has(s.id) ? "selected" : undefined}>
@@ -515,11 +534,20 @@ export function SalesTable({
             </TableBody>
           </Table>
         </div>
+        <div className="border-t p-3">
+          <TablePagination
+            page={currentPage}
+            totalPages={totalPages}
+            total={filtered.length}
+            pageSize={PAGE_SIZE}
+            onPageChange={setPage}
+          />
+        </div>
       </Card>
 
       {/* Mobile cards */}
       <div className="flex flex-col gap-3 md:hidden">
-        {filtered.map((s) => {
+        {paginated.map((s) => {
           const calc = computeSale(s);
           return (
             <Card key={s.id}>
@@ -650,6 +678,13 @@ export function SalesTable({
             Aucune vente pour l&apos;instant.
           </p>
         )}
+        <TablePagination
+          page={currentPage}
+          totalPages={totalPages}
+          total={filtered.length}
+          pageSize={PAGE_SIZE}
+          onPageChange={setPage}
+        />
       </div>
     </div>
   );

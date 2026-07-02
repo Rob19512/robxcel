@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import {
@@ -72,26 +72,23 @@ export function InlineTextArea({
   const { value, setValue, save, isPending } = useSavable(initial, onSave);
   const ref = useRef<HTMLTextAreaElement>(null);
 
-  function resize(el: HTMLTextAreaElement | null) {
+  // Ne recalcule la hauteur que quand le texte change réellement (pas à chaque
+  // re-render du tableau parent) — sinon ça fait un reflow synchrone par ligne.
+  useEffect(() => {
+    const el = ref.current;
     if (!el) return;
     el.style.height = "auto";
     el.style.height = `${el.scrollHeight}px`;
-  }
+  }, [value]);
 
   return (
     <textarea
-      ref={(el) => {
-        ref.current = el;
-        resize(el);
-      }}
+      ref={ref}
       value={value}
       placeholder={placeholder}
       disabled={isPending}
       rows={1}
-      onChange={(e) => {
-        setValue(e.target.value);
-        resize(e.target);
-      }}
+      onChange={(e) => setValue(e.target.value)}
       onBlur={(e) => save(e.target.value)}
       data-testid={testId}
       className={cn(
@@ -127,19 +124,25 @@ export function InlineNumber({
   );
 }
 
+// Non-contrôlé exprès : un <input type="date"> contrôlé (value= + onChange qui
+// remet à jour l'état à chaque segment) fait sauter le curseur au premier
+// segment à chaque frappe, ce qui mélange jour/mois/année en cours de saisie.
+// On ne lit la valeur qu'au blur, et on ne resynchronise l'affichage que quand
+// la valeur confirmée par le serveur change réellement (via key={initial}).
 export function InlineDate({
   value: initial,
   onSave,
   className,
   testId,
 }: BaseProps & { value: string }) {
-  const { value, save, isPending } = useSavable(initial, onSave);
+  const { save, isPending } = useSavable(initial, onSave);
   return (
     <Input
+      key={initial}
       type="date"
-      value={value}
+      defaultValue={initial}
       disabled={isPending}
-      onChange={(e) => save(e.target.value)}
+      onBlur={(e) => save(e.target.value)}
       data-testid={testId}
       className={cn("h-8 border-transparent bg-transparent hover:border-input focus:border-input", className)}
     />

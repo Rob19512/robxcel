@@ -18,7 +18,9 @@ export type StockCoreField =
   | "notes";
 
 function toDate(value: string | null) {
-  return value ? new Date(`${value}T00:00:00.000Z`) : null;
+  if (!value) return null;
+  const d = new Date(`${value}T00:00:00.000Z`);
+  return Number.isNaN(d.getTime()) ? null : d;
 }
 
 export async function createStockItem(categoryId: string, path: string) {
@@ -85,6 +87,7 @@ export async function updateStockField(
 
   switch (field) {
     case "dateAchat":
+      if (value && !toDate(value)) return; // date invalide reçue du client : on ignore plutôt que d'écraser la vraie date
       data.dateAchat = toDate(value) ?? new Date();
       break;
     case "qty":
@@ -136,6 +139,7 @@ export async function updateStockDate(
   field: "dateVente" | "dateEncaissement",
   value: string | null
 ) {
+  if (value && !toDate(value)) return; // date invalide reçue du client : on ignore plutôt que de corrompre le statut
   const item = await prisma.stockItem.findUniqueOrThrow({ where: { id } });
   const date = toDate(value);
 

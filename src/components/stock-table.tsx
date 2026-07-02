@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Plus, MoreVertical, Copy, Trash2, PackageCheck, CheckCircle2, Download, ChevronDown } from "lucide-react";
 import {
@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { InlineText, InlineTextArea, InlineNumber, InlineDate, InlineSelect } from "@/components/inline-field";
 import { BulkAddStockDialog } from "@/components/bulk-add-stock-dialog";
+import { TablePagination } from "@/components/table-pagination";
 import { eur, TVA_RATES } from "@/lib/format";
 import { downloadCsv } from "@/lib/export-csv";
 import { cn } from "@/lib/utils";
@@ -121,7 +122,9 @@ export function StockTable({
   const [sortMode, setSortMode] = useState<"date" | "evenement">("evenement");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [page, setPage] = useState(0);
   const [isPending, startTransition] = useTransition();
+  const PAGE_SIZE = 50;
 
   function toggleExpanded(id: string) {
     setExpanded((prev) => {
@@ -133,35 +136,53 @@ export function StockTable({
   }
 
   const items = initialItems;
-  const sourceOptions = sources.map((s) => ({ value: s, label: s }));
-  const eventLabelById = new Map((events ?? []).map((e) => [e.id, e.label]));
+  const sourceOptions = useMemo(() => sources.map((s) => ({ value: s, label: s })), [sources]);
+  const eventLabelById = useMemo(() => new Map((events ?? []).map((e) => [e.id, e.label])), [events]);
 
-  const filtered = items.filter((it) => {
-    if (!showSold && it.statut === "VENDU") return false;
-    if (!search.trim()) return true;
-    const haystack = [
-      it.description,
-      it.source,
-      it.notes,
-      it.compteEmail,
-      it.eventId ? eventLabelById.get(it.eventId) : null,
-      ...Object.values(it.customValues ?? {}),
-    ]
-      .join(" ")
-      .toLowerCase();
-    return haystack.includes(search.toLowerCase());
-  });
-
-  if (events && sortMode === "evenement") {
-    filtered.sort((a, b) => {
-      const la = a.eventId ? eventLabelById.get(a.eventId) ?? "" : "";
-      const lb = b.eventId ? eventLabelById.get(b.eventId) ?? "" : "";
-      if (la === lb) return 0;
-      if (!la) return 1; // sans événement à la fin
-      if (!lb) return -1;
-      return la.localeCompare(lb);
+  const filtered = useMemo(() => {
+    const result = items.filter((it) => {
+      if (!showSold && it.statut === "VENDU") return false;
+      if (!search.trim()) return true;
+      const haystack = [
+        it.description,
+        it.source,
+        it.notes,
+        it.compteEmail,
+        it.eventId ? eventLabelById.get(it.eventId) : null,
+        ...Object.values(it.customValues ?? {}),
+      ]
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(search.toLowerCase());
     });
-  }
+
+    if (events && sortMode === "evenement") {
+      result.sort((a, b) => {
+        const la = a.eventId ? eventLabelById.get(a.eventId) ?? "" : "";
+        const lb = b.eventId ? eventLabelById.get(b.eventId) ?? "" : "";
+        if (la === lb) return 0;
+        if (!la) return 1; // sans événement à la fin
+        if (!lb) return -1;
+        return la.localeCompare(lb);
+      });
+    }
+    return result;
+  }, [items, showSold, search, eventLabelById, events, sortMode]);
+
+  // Rendre 50 lignes à la fois au lieu de centaines d'un coup évite de monter
+  // des centaines de champs éditables en même temps (lent).
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages - 1);
+
+  // Repart à la première page quand le filtre/tri change, pour ne pas rester
+  // coincé au milieu d'un nouveau résultat de recherche.
+  useEffect(() => {
+    setPage(0);
+  }, [search, showSold, sortMode]);
+  const paginated = useMemo(
+    () => filtered.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE),
+    [filtered, currentPage]
+  );
 
   function handleAdd() {
     startTransition(async () => {
@@ -396,7 +417,7 @@ export function StockTable({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map((it) => {
+              {paginated.map((it) => {
                 const margeCible =
                   it.prixCibleVente !== null ? it.qty * (it.prixCibleVente - it.coutAchatUnit) : null;
                 const tvaDed =
@@ -560,11 +581,20 @@ export function StockTable({
             </TableBody>
           </Table>
         </div>
+        <div className="border-t p-3">
+          <TablePagination
+            page={currentPage}
+            totalPages={totalPages}
+            total={filtered.length}
+            pageSize={PAGE_SIZE}
+            onPageChange={setPage}
+          />
+        </div>
       </Card>
 
       {/* Mobile cards : repliées par défaut pour un coup d'œil rapide sur le stock */}
       <div className="flex flex-col gap-2 md:hidden">
-        {filtered.map((it) => {
+        {paginated.map((it) => {
           const margeCible =
             it.prixCibleVente !== null ? it.qty * (it.prixCibleVente - it.coutAchatUnit) : null;
           const isOpen = expanded.has(it.id);
@@ -738,6 +768,13 @@ export function StockTable({
         {filtered.length === 0 && (
           <p className="py-8 text-center text-sm text-muted-foreground">Aucun article en stock.</p>
         )}
+        <TablePagination
+          page={currentPage}
+          totalPages={totalPages}
+          total={filtered.length}
+          pageSize={PAGE_SIZE}
+          onPageChange={setPage}
+        />
       </div>
     </div>
   );

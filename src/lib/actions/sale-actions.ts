@@ -18,7 +18,9 @@ export type SaleCoreField =
   | "notes";
 
 function toDate(value: string | null) {
-  return value ? new Date(`${value}T00:00:00.000Z`) : null;
+  if (!value) return null;
+  const d = new Date(`${value}T00:00:00.000Z`);
+  return Number.isNaN(d.getTime()) ? null : d;
 }
 
 export async function createSale(categoryId: string, path: string) {
@@ -47,9 +49,11 @@ export async function updateSaleField(
 
   switch (field) {
     case "dateVente":
+      if (value && !toDate(value)) return; // date invalide reçue du client : on ignore plutôt que d'écraser la vraie date
       data.dateVente = toDate(value) ?? new Date();
       break;
     case "dateEncaissement":
+      if (value && !toDate(value)) return;
       data.dateEncaissement = toDate(value);
       break;
     case "qty":
