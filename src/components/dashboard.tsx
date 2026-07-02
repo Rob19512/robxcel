@@ -21,9 +21,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Ticket, Wrench, ShoppingBag } from "lucide-react";
 import { EvolutionChart, type SaleForChart } from "@/components/evolution-chart";
 import { eur } from "@/lib/format";
-
-const SEUIL_BIEN = 85000;
-const SEUIL_SERVICE = 37500;
+import { SEUIL_BIEN, SEUIL_SERVICE } from "@/lib/tva-seuils";
 
 const MONTHS = [
   "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",

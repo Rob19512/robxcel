@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans, Geist_Mono } from "next/font/google";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
@@ -18,6 +18,18 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Robxcel",
   description: "Gestion compta achat-revente",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Robxcel",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f4f4f8" },
+    { media: "(prefers-color-scheme: dark)", color: "#15161d" },
+  ],
 };
 
 export default function RootLayout({

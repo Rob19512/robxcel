@@ -8,20 +8,24 @@ import {
 } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { TvaAlertBanner } from "@/components/tva-alert-banner";
+import { InstallPrompt } from "@/components/install-prompt";
 import { LogOut } from "lucide-react";
 import { prisma } from "@/lib/prisma";
+import { getTvaAlerts } from "@/lib/tva-alert";
 
 export default async function AppLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const [session, categories] = await Promise.all([
+  const [session, categories, tvaAlerts] = await Promise.all([
     auth(),
     prisma.category.findMany({
       orderBy: { sortOrder: "asc" },
       select: { id: true, name: true, emoji: true, color: true, scope: true, isBuiltin: true },
     }),
+    getTvaAlerts(),
   ]);
 
   return (
@@ -47,9 +51,11 @@ export default async function AppLayout({
             </Button>
           </form>
         </header>
+        <TvaAlertBanner alerts={tvaAlerts} />
         <main className="flex flex-1 flex-col gap-6 bg-background p-4 sm:p-6">
           {children}
         </main>
+        <InstallPrompt />
       </SidebarInset>
     </SidebarProvider>
   );
