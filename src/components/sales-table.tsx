@@ -11,6 +11,8 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  StickyTableHead,
+  StickyTableCell,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -37,6 +39,7 @@ import { TablePagination } from "@/components/table-pagination";
 import { eur, TVA_RATES } from "@/lib/format";
 import { computeSale } from "@/lib/calc";
 import { downloadCsv } from "@/lib/export-csv";
+import { cn, STICKY_COL } from "@/lib/utils";
 import {
   createSale,
   updateSaleField,
@@ -364,7 +367,7 @@ export function SalesTable({
                     onCheckedChange={toggleSelectAll}
                   />
                 </TableHead>
-                <TableHead className="min-w-32">Date vente</TableHead>
+                <StickyTableHead className="min-w-32" stickyClassName={STICKY_COL}>Date vente</StickyTableHead>
                 <TableHead className="min-w-32">Date encaissement</TableHead>
                 <TableHead className="min-w-36">Statut</TableHead>
                 <TableHead className="min-w-36">Source</TableHead>
@@ -397,9 +400,9 @@ export function SalesTable({
                     <TableCell>
                       <Checkbox checked={selectedIds.has(s.id)} onCheckedChange={() => toggleSelected(s.id)} />
                     </TableCell>
-                    <TableCell>
+                    <StickyTableCell stickyClassName={STICKY_COL}>
                       <InlineDate value={s.dateVente} onSave={saveField(s.id, "dateVente")} />
-                    </TableCell>
+                    </StickyTableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
                         <InlineDate

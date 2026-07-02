@@ -11,6 +11,8 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  StickyTableHead,
+  StickyTableCell,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -30,7 +32,7 @@ import { BulkAddStockDialog } from "@/components/bulk-add-stock-dialog";
 import { TablePagination } from "@/components/table-pagination";
 import { eur, TVA_RATES } from "@/lib/format";
 import { downloadCsv } from "@/lib/export-csv";
-import { cn } from "@/lib/utils";
+import { cn, STICKY_COL } from "@/lib/utils";
 import {
   createStockItem,
   updateStockField,
@@ -392,7 +394,7 @@ export function StockTable({
                     onCheckedChange={toggleSelectAll}
                   />
                 </TableHead>
-                <TableHead className="min-w-32">Date achat</TableHead>
+                <StickyTableHead className="min-w-32" stickyClassName={STICKY_COL}>Date achat</StickyTableHead>
                 {showDescription && <TableHead className="min-w-48">Description</TableHead>}
                 <TableHead className="min-w-36">Source cible</TableHead>
                 {events && <TableHead className="min-w-48">Événement</TableHead>}
@@ -430,9 +432,9 @@ export function StockTable({
                     <TableCell>
                       <Checkbox checked={selectedIds.has(it.id)} onCheckedChange={() => toggleSelected(it.id)} />
                     </TableCell>
-                    <TableCell>
+                    <StickyTableCell stickyClassName={STICKY_COL}>
                       <InlineDate value={it.dateAchat} onSave={saveField(it.id, "dateAchat")} />
-                    </TableCell>
+                    </StickyTableCell>
                     {showDescription && (
                       <TableCell>
                         <InlineTextArea value={it.description ?? ""} onSave={saveField(it.id, "description")} testId="stock-description" />

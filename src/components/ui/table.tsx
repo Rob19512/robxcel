@@ -17,7 +17,7 @@ function Table({
     >
       <table
         data-slot="table"
-        className={cn("w-full caption-bottom text-sm", className)}
+        className={cn("w-full border-separate border-spacing-0 caption-bottom text-sm", className)}
         {...props}
       />
     </div>
@@ -62,7 +62,7 @@ function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
     <tr
       data-slot="table-row"
       className={cn(
-        "border-b transition-colors hover:bg-muted/50 has-aria-expanded:bg-muted/50 data-[state=selected]:bg-muted",
+        "group border-b transition-colors hover:bg-muted/50 has-aria-expanded:bg-muted/50 data-[state=selected]:bg-muted",
         className
       )}
       {...props}
@@ -96,6 +96,42 @@ function TableCell({ className, ...props }: React.ComponentProps<"td">) {
   )
 }
 
+// Colonne figée à gauche : le sticky (position/left/z-index) doit rester sur le <th>/<td>
+// lui-même — un enfant sticky reste borné par la boîte de son parent, donc le poser sur une
+// div interne casse complètement l'effet de fixation. Par contre le FOND doit être répété
+// sur une <div> interne en plus : les fonds de cellules de tableau ("table cell backgrounds")
+// ont leur propre couche de peinture en CSS et ne masquent pas fiablement le contenu des
+// cellules voisines qui défilent en dessous quand le fond est seulement sur la cellule.
+function StickyTableHead({
+  className,
+  stickyClassName,
+  children,
+  ...props
+}: React.ComponentProps<"th"> & { stickyClassName: string }) {
+  return (
+    <th data-slot="table-head" className={cn("p-0 whitespace-nowrap", stickyClassName, className)} {...props}>
+      <div className="flex h-10 w-full items-center bg-inherit px-2 text-left align-middle font-medium text-foreground">
+        {children}
+      </div>
+    </th>
+  )
+}
+
+function StickyTableCell({
+  className,
+  stickyClassName,
+  children,
+  ...props
+}: React.ComponentProps<"td"> & { stickyClassName: string }) {
+  return (
+    <td data-slot="table-cell" className={cn("p-0 whitespace-nowrap", stickyClassName, className)} {...props}>
+      <div className="flex h-full w-full items-center bg-inherit p-2 align-middle">
+        {children}
+      </div>
+    </td>
+  )
+}
+
 function TableCaption({
   className,
   ...props
@@ -118,4 +154,6 @@ export {
   TableRow,
   TableCell,
   TableCaption,
+  StickyTableHead,
+  StickyTableCell,
 }

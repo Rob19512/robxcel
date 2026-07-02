@@ -11,6 +11,8 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  StickyTableHead,
+  StickyTableCell,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +35,7 @@ import { InlineText, InlineDate } from "@/components/inline-field";
 import { Checkbox } from "@/components/ui/checkbox";
 import { BulkDeleteButton } from "@/components/bulk-delete-button";
 import { eur } from "@/lib/format";
+import { cn, STICKY_COL } from "@/lib/utils";
 import {
   createEvent,
   updateEventField,
@@ -173,7 +176,7 @@ export function EventsTable({
                     onCheckedChange={toggleSelectAll}
                   />
                 </TableHead>
-                <TableHead className="min-w-48">Nom</TableHead>
+                <StickyTableHead className="min-w-48" stickyClassName={STICKY_COL}>Nom</StickyTableHead>
                 <TableHead className="min-w-32">Date</TableHead>
                 <TableHead className="min-w-48">Lieu / Salle</TableHead>
                 <TableHead className="min-w-28">En stock</TableHead>
@@ -192,9 +195,9 @@ export function EventsTable({
                     <TableCell>
                       <Checkbox checked={selectedIds.has(e.id)} onCheckedChange={() => toggleSelected(e.id)} />
                     </TableCell>
-                    <TableCell>
+                    <StickyTableCell stickyClassName={STICKY_COL}>
                       <InlineText value={e.name} onSave={saveField(e.id, "name")} testId="event-name" />
-                    </TableCell>
+                    </StickyTableCell>
                     <TableCell>
                       <InlineDate value={e.dateEvenement ?? ""} onSave={saveField(e.id, "dateEvenement")} />
                     </TableCell>

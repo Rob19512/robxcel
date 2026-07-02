@@ -11,6 +11,8 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  StickyTableHead,
+  StickyTableCell,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -26,6 +28,7 @@ import {
 import { InlineText, InlineNumber, InlineDate } from "@/components/inline-field";
 import { eur } from "@/lib/format";
 import { downloadCsv } from "@/lib/export-csv";
+import { cn, STICKY_COL } from "@/lib/utils";
 import {
   createChargePerso,
   updateChargePersoField,
@@ -193,7 +196,7 @@ export function ChargesPersoTable({ path, initialItems }: { path: string; initia
                     onCheckedChange={toggleSelectAll}
                   />
                 </TableHead>
-                <TableHead className="min-w-32">Date</TableHead>
+                <StickyTableHead className="min-w-32" stickyClassName={STICKY_COL}>Date</StickyTableHead>
                 <TableHead className="min-w-56">Description</TableHead>
                 <TableHead className="min-w-48">Catégorie</TableHead>
                 <TableHead className="min-w-16">Qté</TableHead>
@@ -208,9 +211,9 @@ export function ChargesPersoTable({ path, initialItems }: { path: string; initia
                   <TableCell>
                     <Checkbox checked={selectedIds.has(it.id)} onCheckedChange={() => toggleSelected(it.id)} />
                   </TableCell>
-                  <TableCell>
+                  <StickyTableCell stickyClassName={STICKY_COL}>
                     <InlineDate value={it.date} onSave={saveField(it.id, "date")} />
-                  </TableCell>
+                  </StickyTableCell>
                   <TableCell>
                     <InlineText value={it.description} onSave={saveField(it.id, "description")} testId="charge-description" />
                   </TableCell>
