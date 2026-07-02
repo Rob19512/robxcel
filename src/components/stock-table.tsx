@@ -16,7 +16,6 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { BulkDeleteButton } from "@/components/bulk-delete-button";
 import {
   DropdownMenu,
@@ -100,6 +99,7 @@ export function StockTable({
   trackPriorite,
   trackRecu,
   events,
+  hideAddButtons,
 }: {
   categoryId: string;
   path: string;
@@ -109,10 +109,10 @@ export function StockTable({
   trackPriorite: boolean;
   trackRecu: boolean;
   events?: EventOption[];
+  hideAddButtons?: boolean;
 }) {
   const [search, setSearch] = useState("");
   const [showSold, setShowSold] = useState(false);
-  const [statutFilter, setStatutFilter] = useState<"ALL" | "EN_STOCK" | "EN_ATTENTE">("ALL");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
@@ -131,7 +131,6 @@ export function StockTable({
 
   const filtered = items.filter((it) => {
     if (!showSold && it.statut === "VENDU") return false;
-    if (statutFilter !== "ALL" && it.statut !== statutFilter) return false;
     if (!search.trim()) return true;
     const haystack = [it.description, it.source, it.notes, it.compteEmail, ...Object.values(it.customValues ?? {})]
       .join(" ")
@@ -289,34 +288,28 @@ export function StockTable({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-2">
-        <Button onClick={handleAdd} disabled={isPending} size="sm">
-          <Plus />
-          Ajouter en stock
-        </Button>
-        <BulkAddStockDialog
-          categoryId={categoryId}
-          path={path}
-          fields={fields}
-          trackPriorite={trackPriorite}
-          trackRecu={trackRecu}
-          events={events}
-        />
+        {!hideAddButtons && (
+          <>
+            <Button onClick={handleAdd} disabled={isPending} size="sm">
+              <Plus />
+              Ajouter en stock
+            </Button>
+            <BulkAddStockDialog
+              categoryId={categoryId}
+              path={path}
+              fields={fields}
+              trackPriorite={trackPriorite}
+              trackRecu={trackRecu}
+              events={events}
+            />
+          </>
+        )}
         <Input
           placeholder="Rechercher..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="h-8 w-48"
         />
-        <ToggleGroup
-          value={[statutFilter]}
-          onValueChange={(v) => v[0] && setStatutFilter(v[0] as typeof statutFilter)}
-          variant="outline"
-          size="sm"
-        >
-          <ToggleGroupItem value="ALL">Tout</ToggleGroupItem>
-          <ToggleGroupItem value="EN_STOCK">📦 En stock</ToggleGroupItem>
-          <ToggleGroupItem value="EN_ATTENTE">⏳ En attente d&apos;encaissement</ToggleGroupItem>
-        </ToggleGroup>
         <label className="flex items-center gap-2 text-sm text-muted-foreground">
           <Checkbox checked={showSold} onCheckedChange={(v) => setShowSold(!!v)} />
           Afficher les vendus

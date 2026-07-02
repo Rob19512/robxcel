@@ -37,6 +37,11 @@ export async function CategoryPageContent({
 
   const serializedSales = sales.map(serializeSale);
   const serializedStock = stockItems.map(serializeStockItem);
+  // Un article vendu (date de vente remplie) mais pas encore encaissé reste un StockItem
+  // (statut EN_ATTENTE) tant que l'encaissement n'est pas saisi : on le sort du "Stock"
+  // pur pour ne pas le confondre avec ce qui reste vraiment à vendre.
+  const activeStock = serializedStock.filter((s) => s.statut !== "EN_ATTENTE");
+  const pendingStock = serializedStock.filter((s) => s.statut === "EN_ATTENTE");
   const eventOptions = events.map((e) => ({
     id: e.id,
     label: [e.name, e.dateEvenement?.toLocaleDateString("fr-FR"), e.lieuSalle].filter(Boolean).join(" — "),
@@ -51,7 +56,9 @@ export async function CategoryPageContent({
         </h1>
         <p className="text-sm text-muted-foreground">
           {sales.length} vente{sales.length > 1 ? "s" : ""}
-          {category.hasStock ? ` · ${stockItems.length} en stock` : ""}
+          {category.hasStock
+            ? ` · ${activeStock.length} en stock · ${pendingStock.length} en attente d'encaissement`
+            : ""}
           {category.trackEvents ? ` · ${events.length} événement${events.length > 1 ? "s" : ""}` : ""}
         </p>
       </div>
@@ -59,6 +66,12 @@ export async function CategoryPageContent({
         <TabsList>
           <TabsTrigger value="ventes">Ventes</TabsTrigger>
           {category.hasStock && <TabsTrigger value="stock">Stock</TabsTrigger>}
+          {category.hasStock && (
+            <TabsTrigger value="attente">
+              En attente d&apos;encaissement
+              {pendingStock.length > 0 ? ` (${pendingStock.length})` : ""}
+            </TabsTrigger>
+          )}
           {category.trackEvents && <TabsTrigger value="evenements">Événements</TabsTrigger>}
           {!category.isBuiltin && <TabsTrigger value="parametres">Paramètres</TabsTrigger>}
         </TabsList>
@@ -77,12 +90,27 @@ export async function CategoryPageContent({
             <StockTable
               categoryId={categoryId}
               path={path}
-              initialItems={serializedStock}
+              initialItems={activeStock}
               fields={stockFields}
               sources={stockSources}
               trackPriorite={category.trackPriorite}
               trackRecu={category.trackRecu}
               events={category.trackEvents ? eventOptions : undefined}
+            />
+          </TabsContent>
+        )}
+        {category.hasStock && (
+          <TabsContent value="attente">
+            <StockTable
+              categoryId={categoryId}
+              path={path}
+              initialItems={pendingStock}
+              fields={stockFields}
+              sources={stockSources}
+              trackPriorite={category.trackPriorite}
+              trackRecu={category.trackRecu}
+              events={category.trackEvents ? eventOptions : undefined}
+              hideAddButtons
             />
           </TabsContent>
         )}
