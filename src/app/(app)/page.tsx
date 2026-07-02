@@ -1,14 +1,15 @@
 import { prisma } from "@/lib/prisma";
-import { Dashboard, type CategoryLite, type SaleLite } from "@/components/dashboard";
+import { Dashboard, type CategoryLite, type SaleLite, type ChargeLite } from "@/components/dashboard";
 
 export default async function DashboardPage() {
-  const [categories, sales, pendingStock] = await Promise.all([
+  const [categories, sales, pendingStock, charges] = await Promise.all([
     prisma.category.findMany({ orderBy: { sortOrder: "asc" } }),
     prisma.sale.findMany({ where: { deletedAt: null } }),
     // Articles déjà vendus (date de vente remplie) mais pas encore encaissés : tant que
     // l'encaissement n'est pas saisi, ils n'existent qu'en StockItem, jamais en Sale.
     // Sans ça, le dashboard "Vendu" les ignore complètement.
     prisma.stockItem.findMany({ where: { deletedAt: null, statut: "EN_ATTENTE" } }),
+    prisma.chargePerso.findMany({ where: { deletedAt: null } }),
   ]);
 
   const categoriesLite: CategoryLite[] = categories.map((c) => ({
@@ -41,5 +42,11 @@ export default async function DashboardPage() {
     })),
   ];
 
-  return <Dashboard categories={categoriesLite} sales={salesLite} />;
+  const chargesLite: ChargeLite[] = charges.map((c) => ({
+    date: c.date.toISOString().slice(0, 10),
+    qty: c.qty,
+    montant: Number(c.montant),
+  }));
+
+  return <Dashboard categories={categoriesLite} sales={salesLite} charges={chargesLite} />;
 }

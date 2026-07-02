@@ -57,6 +57,12 @@ export type SaleLite = {
   coutAchatUnit: number;
 };
 
+export type ChargeLite = {
+  date: string;
+  qty: number;
+  montant: number;
+};
+
 function DualStat({
   vendu,
   encaisse,
@@ -65,6 +71,7 @@ function DualStat({
   venduLabel = "Vendu",
   encaisseLabel = "Encaissé",
   size = "text-xl",
+  valueClassName,
 }: {
   vendu: number;
   encaisse: number;
@@ -73,16 +80,17 @@ function DualStat({
   venduLabel?: string;
   encaisseLabel?: string;
   size?: string;
+  valueClassName?: string;
 }) {
   if (showVendu && showEncaisse) {
     return (
       <div className="flex items-end justify-between gap-2">
         <div>
-          <p className={cn(size, "font-semibold tabular-nums")}>{eur.format(vendu)}</p>
+          <p className={cn(size, "font-semibold tabular-nums", valueClassName)}>{eur.format(vendu)}</p>
           <p className="text-xs text-muted-foreground">{venduLabel}</p>
         </div>
         <div className="text-right">
-          <p className={cn(size, "font-semibold tabular-nums text-primary")}>{eur.format(encaisse)}</p>
+          <p className={cn(size, "font-semibold tabular-nums", valueClassName ?? "text-primary")}>{eur.format(encaisse)}</p>
           <p className="text-xs text-muted-foreground">{encaisseLabel}</p>
         </div>
       </div>
@@ -92,11 +100,16 @@ function DualStat({
   const label = showVendu ? venduLabel : encaisseLabel;
   return (
     <div>
-      <p className={cn(size, "font-semibold tabular-nums", showEncaisse && "text-primary")}>{eur.format(value)}</p>
+      <p className={cn(size, "font-semibold tabular-nums", valueClassName ?? (showEncaisse && "text-primary"))}>
+        {eur.format(value)}
+      </p>
       <p className="text-xs text-muted-foreground">{label}</p>
     </div>
   );
 }
+
+const BENEFICE_COLOR = "text-emerald-600 dark:text-emerald-500";
+const CHARGE_COLOR = "text-destructive";
 
 function yearMonthOf(dateStr: string) {
   const d = new Date(`${dateStr}T00:00:00.000Z`);
@@ -106,9 +119,11 @@ function yearMonthOf(dateStr: string) {
 export function Dashboard({
   categories,
   sales,
+  charges,
 }: {
   categories: CategoryLite[];
   sales: SaleLite[];
+  charges: ChargeLite[];
 }) {
   const now = new Date();
   const [scope, setScope] = useState<"PRO" | "PERSO" | "ALL">("PRO");
@@ -202,6 +217,18 @@ export function Dashboard({
     if (cat.kind === "BIEN") caBienProAnnee += total;
     else caServiceProAnnee += total;
   }
+
+  // Charges perso : hors seuils TVA/IS, juste un total dépenses sur la période affichée.
+  const totalCharges = useMemo(() => {
+    return charges
+      .filter((c) => {
+        const ym = yearMonthOf(c.date);
+        if (ym.year !== year) return false;
+        if (month !== null && ym.month !== month) return false;
+        return true;
+      })
+      .reduce((sum, c) => sum + c.qty * c.montant, 0);
+  }, [charges, year, month]);
 
   const pctBien = Math.min(100, (caBienProAnnee / SEUIL_BIEN) * 100);
   const pctService = Math.min(100, (caServiceProAnnee / SEUIL_SERVICE) * 100);
@@ -320,7 +347,13 @@ export function Dashboard({
             <CardDescription>Bénéfice net</CardDescription>
           </CardHeader>
           <CardContent>
-            <DualStat vendu={beneficeVendu} encaisse={beneficeNetTotal} showVendu={showVendu} showEncaisse={showEncaisse} />
+            <DualStat
+              vendu={beneficeVendu}
+              encaisse={beneficeNetTotal}
+              showVendu={showVendu}
+              showEncaisse={showEncaisse}
+              valueClassName={BENEFICE_COLOR}
+            />
           </CardContent>
         </Card>
         <Card>
@@ -347,6 +380,16 @@ export function Dashboard({
             </CardTitle>
           </CardHeader>
         </Card>
+        {scope !== "PRO" && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription>Charges perso</CardDescription>
+              <CardTitle className={cn("text-2xl font-semibold tabular-nums", CHARGE_COLOR)}>
+                {eur.format(totalCharges)}
+              </CardTitle>
+            </CardHeader>
+          </Card>
+        )}
       </div>
       {viewMode === "both" && (
         <p className="-mt-3 text-xs text-muted-foreground">
@@ -373,13 +416,13 @@ export function Dashboard({
                 {showVendu && (
                   <>
                     <th className="px-3 py-2 text-right font-medium">CA vendu</th>
-                    <th className="px-3 py-2 text-right font-medium">Bénéf. vendu</th>
+                    <th className={cn("px-3 py-2 text-right font-medium", BENEFICE_COLOR)}>Bénéf. vendu</th>
                   </>
                 )}
                 {showEncaisse && (
                   <>
                     <th className="px-3 py-2 text-right font-medium text-primary">CA encaissé</th>
-                    <th className="px-4 py-2 text-right font-medium text-primary">Bénéf. encaissé</th>
+                    <th className={cn("px-4 py-2 text-right font-medium", BENEFICE_COLOR)}>Bénéf. encaissé</th>
                   </>
                 )}
               </tr>
@@ -394,13 +437,13 @@ export function Dashboard({
                   {showVendu && (
                     <>
                       <td className="px-3 py-1.5 text-right tabular-nums">{eur.format(m.venduCA)}</td>
-                      <td className="px-3 py-1.5 text-right tabular-nums">{eur.format(m.venduBenefice)}</td>
+                      <td className={cn("px-3 py-1.5 text-right tabular-nums", BENEFICE_COLOR)}>{eur.format(m.venduBenefice)}</td>
                     </>
                   )}
                   {showEncaisse && (
                     <>
                       <td className="px-3 py-1.5 text-right tabular-nums text-primary">{eur.format(m.encaisseCA)}</td>
-                      <td className="px-4 py-1.5 text-right tabular-nums text-primary">
+                      <td className={cn("px-4 py-1.5 text-right tabular-nums", BENEFICE_COLOR)}>
                         {eur.format(m.encaisseBenefice)}
                       </td>
                     </>
@@ -414,7 +457,7 @@ export function Dashboard({
                 {showVendu && (
                   <>
                     <td className="px-3 py-2 text-right tabular-nums">{eur.format(monthlyTotals.venduCA)}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">{eur.format(monthlyTotals.venduBenefice)}</td>
+                    <td className={cn("px-3 py-2 text-right tabular-nums", BENEFICE_COLOR)}>{eur.format(monthlyTotals.venduBenefice)}</td>
                   </>
                 )}
                 {showEncaisse && (
@@ -422,7 +465,7 @@ export function Dashboard({
                     <td className="px-3 py-2 text-right tabular-nums text-primary">
                       {eur.format(monthlyTotals.encaisseCA)}
                     </td>
-                    <td className="px-4 py-2 text-right tabular-nums text-primary">
+                    <td className={cn("px-4 py-2 text-right tabular-nums", BENEFICE_COLOR)}>
                       {eur.format(monthlyTotals.encaisseBenefice)}
                     </td>
                   </>
@@ -512,7 +555,7 @@ export function Dashboard({
                         <p className="text-xs text-muted-foreground">CA vendu</p>
                       </div>
                       <div className="text-right">
-                        <p className="text-base font-semibold tabular-nums">{eur.format(beneficeVenduCat)}</p>
+                        <p className={cn("text-base font-semibold tabular-nums", BENEFICE_COLOR)}>{eur.format(beneficeVenduCat)}</p>
                         <p className="text-xs text-muted-foreground">Bénéf. vendu</p>
                       </div>
                     </div>
@@ -526,7 +569,7 @@ export function Dashboard({
                         <p className="text-xs text-muted-foreground">CA encaissé</p>
                       </div>
                       <div className="text-right">
-                        <p className="text-base font-semibold tabular-nums text-primary">
+                        <p className={cn("text-base font-semibold tabular-nums", BENEFICE_COLOR)}>
                           {eur.format(beneficeEncaisseCat)}
                         </p>
                         <p className="text-xs text-muted-foreground">Bénéf. encaissé</p>
