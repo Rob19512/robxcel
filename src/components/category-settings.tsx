@@ -53,6 +53,7 @@ export type CategorySettingsData = {
   trackPriorite: boolean;
   trackRecu: boolean;
   trackEvents: boolean;
+  showDescription: boolean;
   fields: { id: string; label: string; fieldType: "TEXT" | "NUMBER" | "DATE" }[];
   sources: { id: string; label: string }[];
 };
@@ -241,6 +242,13 @@ export function CategorySettings({ category, path }: { category: CategorySetting
                 onCheckedChange={(v) => saveField("trackEvents")(String(!!v))}
               />
               Rattacher à des événements (nom + date + lieu, ex. concerts)
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox
+                checked={category.showDescription}
+                onCheckedChange={(v) => saveField("showDescription")(String(!!v))}
+              />
+              Garder le champ Description (désactive si tu ne le remplis jamais)
             </label>
           </div>
         </CardContent>

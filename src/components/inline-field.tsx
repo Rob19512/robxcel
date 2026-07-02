@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import {
@@ -56,6 +56,48 @@ export function InlineText({
       onBlur={(e) => save(e.target.value)}
       data-testid={testId}
       className={cn("h-8 border-transparent bg-transparent hover:border-input focus:border-input", className)}
+    />
+  );
+}
+
+// Textarea auto-hauteur : le texte se voit en entier (retour à la ligne) plutôt que d'être
+// coupé sur un <input> à largeur fixe qu'il faudrait scroller horizontalement pour lire.
+export function InlineTextArea({
+  value: initial,
+  onSave,
+  className,
+  placeholder,
+  testId,
+}: BaseProps & { value: string }) {
+  const { value, setValue, save, isPending } = useSavable(initial, onSave);
+  const ref = useRef<HTMLTextAreaElement>(null);
+
+  function resize(el: HTMLTextAreaElement | null) {
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }
+
+  return (
+    <textarea
+      ref={(el) => {
+        ref.current = el;
+        resize(el);
+      }}
+      value={value}
+      placeholder={placeholder}
+      disabled={isPending}
+      rows={1}
+      onChange={(e) => {
+        setValue(e.target.value);
+        resize(e.target);
+      }}
+      onBlur={(e) => save(e.target.value)}
+      data-testid={testId}
+      className={cn(
+        "min-h-8 w-full resize-none overflow-hidden rounded-md border border-transparent bg-transparent px-2.5 py-1.5 text-base leading-tight break-words outline-none hover:border-input focus:border-input",
+        className
+      )}
     />
   );
 }

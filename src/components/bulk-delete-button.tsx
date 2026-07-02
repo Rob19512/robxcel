@@ -13,7 +13,15 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 
-export function BulkDeleteButton({ count, onConfirm }: { count: number; onConfirm: () => void }) {
+export function BulkDeleteButton({
+  count,
+  onConfirm,
+  permanent,
+}: {
+  count: number;
+  onConfirm: () => void;
+  permanent?: boolean;
+}) {
   const [open, setOpen] = useState(false);
 
   if (count === 0) return null;
@@ -31,9 +39,9 @@ export function BulkDeleteButton({ count, onConfirm }: { count: number; onConfir
               Supprimer {count} ligne{count > 1 ? "s" : ""} ?
             </DialogTitle>
             <DialogDescription>
-              Tu pourras annuler juste après via le bouton « Annuler » qui s&apos;affichera. Passé ce
-              délai, les lignes restent récupérables — rien n&apos;est perdu définitivement dans
-              l&apos;immédiat.
+              {permanent
+                ? "Suppression définitive, pas d'annulation possible. Les billets/ventes liés ne sont pas supprimés, juste dé-liés."
+                : "Tu pourras annuler juste après via le bouton « Annuler » qui s'affichera. Passé ce délai, les lignes restent récupérables — rien n'est perdu définitivement dans l'immédiat."}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

@@ -45,3 +45,8 @@ export async function deleteEvent(id: string, path: string) {
   await prisma.event.delete({ where: { id } });
   revalidatePath(path);
 }
+
+export async function bulkDeleteEvents(ids: string[], path: string) {
+  await prisma.event.deleteMany({ where: { id: { in: ids } } });
+  revalidatePath(path);
+}

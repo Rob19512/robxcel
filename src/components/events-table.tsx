@@ -29,11 +29,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { InlineText, InlineDate } from "@/components/inline-field";
+import { Checkbox } from "@/components/ui/checkbox";
+import { BulkDeleteButton } from "@/components/bulk-delete-button";
 import { eur } from "@/lib/format";
 import {
   createEvent,
   updateEventField,
   deleteEvent,
+  bulkDeleteEvents,
   type EventField,
 } from "@/lib/actions/event-actions";
 import type { StockRow } from "@/components/stock-table";
@@ -62,6 +65,7 @@ export function EventsTable({
 }) {
   const [search, setSearch] = useState("");
   const [detailEventId, setDetailEventId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
 
   const filtered = initialEvents.filter((e) => {
@@ -84,6 +88,36 @@ export function EventsTable({
       try {
         await deleteEvent(id, path);
         toast.success("Événement supprimé (les billets liés restent, juste dé-liés)");
+      } catch {
+        toast.error("Impossible de supprimer");
+      }
+    });
+  }
+
+  function toggleSelected(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    setSelectedIds((prev) =>
+      prev.size === filtered.length ? new Set() : new Set(filtered.map((e) => e.id))
+    );
+  }
+
+  function handleBulkDelete() {
+    const ids = Array.from(selectedIds);
+    startTransition(async () => {
+      try {
+        await bulkDeleteEvents(ids, path);
+        setSelectedIds(new Set());
+        toast.success(
+          `${ids.length} événement${ids.length > 1 ? "s" : ""} supprimé${ids.length > 1 ? "s" : ""} (billets liés juste dé-liés)`
+        );
       } catch {
         toast.error("Impossible de supprimer");
       }
@@ -120,6 +154,7 @@ export function EventsTable({
           onChange={(e) => setSearch(e.target.value)}
           className="h-8 w-48"
         />
+        <BulkDeleteButton count={selectedIds.size} onConfirm={handleBulkDelete} permanent />
         <span className="ml-auto text-xs text-muted-foreground">
           {filtered.length} événement{filtered.length > 1 ? "s" : ""}
         </span>
@@ -131,6 +166,12 @@ export function EventsTable({
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10">
+                  <Checkbox
+                    checked={filtered.length > 0 && selectedIds.size === filtered.length}
+                    onCheckedChange={toggleSelectAll}
+                  />
+                </TableHead>
                 <TableHead className="min-w-48">Nom</TableHead>
                 <TableHead className="min-w-32">Date</TableHead>
                 <TableHead className="min-w-48">Lieu / Salle</TableHead>
@@ -146,7 +187,10 @@ export function EventsTable({
               {filtered.map((e) => {
                 const stats = statsFor(e.id);
                 return (
-                  <TableRow key={e.id}>
+                  <TableRow key={e.id} data-state={selectedIds.has(e.id) ? "selected" : undefined}>
+                    <TableCell>
+                      <Checkbox checked={selectedIds.has(e.id)} onCheckedChange={() => toggleSelected(e.id)} />
+                    </TableCell>
                     <TableCell>
                       <InlineText value={e.name} onSave={saveField(e.id, "name")} testId="event-name" />
                     </TableCell>
@@ -183,7 +227,7 @@ export function EventsTable({
               })}
               {filtered.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={9} className="py-8 text-center text-sm text-muted-foreground">
+                  <TableCell colSpan={10} className="py-8 text-center text-sm text-muted-foreground">
                     Aucun événement pour l&apos;instant.
                   </TableCell>
                 </TableRow>
@@ -201,11 +245,14 @@ export function EventsTable({
             <Card key={e.id}>
               <CardContent className="flex flex-col gap-3">
                 <div className="flex items-center justify-between">
-                  <InlineText
-                    value={e.name}
-                    onSave={saveField(e.id, "name")}
-                    className="text-base font-medium"
-                  />
+                  <div className="flex items-center gap-2">
+                    <Checkbox checked={selectedIds.has(e.id)} onCheckedChange={() => toggleSelected(e.id)} />
+                    <InlineText
+                      value={e.name}
+                      onSave={saveField(e.id, "name")}
+                      className="text-base font-medium"
+                    />
+                  </div>
                   <div className="flex items-center">
                     <Button
                       variant="ghost"

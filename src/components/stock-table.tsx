@@ -24,7 +24,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { InlineText, InlineNumber, InlineDate, InlineSelect } from "@/components/inline-field";
+import { InlineText, InlineTextArea, InlineNumber, InlineDate, InlineSelect } from "@/components/inline-field";
 import { BulkAddStockDialog } from "@/components/bulk-add-stock-dialog";
 import { eur, TVA_RATES } from "@/lib/format";
 import { downloadCsv } from "@/lib/export-csv";
@@ -101,6 +101,7 @@ export function StockTable({
   trackRecu,
   events,
   hideAddButtons,
+  showDescription = true,
 }: {
   categoryId: string;
   path: string;
@@ -111,6 +112,7 @@ export function StockTable({
   trackRecu: boolean;
   events?: EventOption[];
   hideAddButtons?: boolean;
+  showDescription?: boolean;
 }) {
   const [search, setSearch] = useState("");
   const [showSold, setShowSold] = useState(false);
@@ -276,11 +278,9 @@ export function StockTable({
       `stock-${path.replaceAll("/", "-").slice(1)}.csv`,
       filtered.map((it) => {
         const margeCible = it.prixCibleVente !== null ? it.qty * (it.prixCibleVente - it.coutAchatUnit) : "";
-        const row: Record<string, unknown> = {
-          "Date achat": it.dateAchat,
-          Description: it.description ?? "",
-          "Source cible": it.source ?? "",
-        };
+        const row: Record<string, unknown> = { "Date achat": it.dateAchat };
+        if (showDescription) row.Description = it.description ?? "";
+        row["Source cible"] = it.source ?? "";
         for (const f of fields) row[f.label] = it.customValues?.[f.key] ?? "";
         Object.assign(row, {
           "Qté": it.qty,
@@ -362,7 +362,7 @@ export function StockTable({
                   />
                 </TableHead>
                 <TableHead className="min-w-32">Date achat</TableHead>
-                <TableHead className="min-w-48">Description</TableHead>
+                {showDescription && <TableHead className="min-w-48">Description</TableHead>}
                 <TableHead className="min-w-36">Source cible</TableHead>
                 {events && <TableHead className="min-w-48">Événement</TableHead>}
                 {fields.map((f) => (
@@ -402,9 +402,11 @@ export function StockTable({
                     <TableCell>
                       <InlineDate value={it.dateAchat} onSave={saveField(it.id, "dateAchat")} />
                     </TableCell>
-                    <TableCell>
-                      <InlineText value={it.description ?? ""} onSave={saveField(it.id, "description")} testId="stock-description" />
-                    </TableCell>
+                    {showDescription && (
+                      <TableCell>
+                        <InlineText value={it.description ?? ""} onSave={saveField(it.id, "description")} testId="stock-description" />
+                      </TableCell>
+                    )}
                     <TableCell>
                       <InlineSelect
                         value={it.source ?? ""}
@@ -433,7 +435,7 @@ export function StockTable({
                             onSave={saveCustom(it.id, f.key)}
                           />
                         ) : (
-                          <InlineText value={it.customValues?.[f.key] ?? ""} onSave={saveCustom(it.id, f.key)} />
+                          <InlineTextArea value={it.customValues?.[f.key] ?? ""} onSave={saveCustom(it.id, f.key)} />
                         )}
                       </TableCell>
                     ))}
@@ -518,7 +520,7 @@ export function StockTable({
                       <InlineText value={it.compteEmail ?? ""} onSave={saveField(it.id, "compteEmail")} />
                     </TableCell>
                     <TableCell>
-                      <InlineText value={it.notes ?? ""} onSave={saveField(it.id, "notes")} />
+                      <InlineTextArea value={it.notes ?? ""} onSave={saveField(it.id, "notes")} />
                     </TableCell>
                     <TableCell>
                       <RowMenu onDuplicate={() => handleDuplicate(it.id)} onDelete={() => handleDelete(it.id)} />
@@ -529,7 +531,14 @@ export function StockTable({
               {filtered.length === 0 && (
                 <TableRow>
                   <TableCell
-                    colSpan={17 + fields.length + (trackPriorite ? 1 : 0) + (trackRecu ? 1 : 0) + (events ? 1 : 0)}
+                    colSpan={
+                      17 +
+                      fields.length +
+                      (trackPriorite ? 1 : 0) +
+                      (trackRecu ? 1 : 0) +
+                      (events ? 1 : 0) +
+                      (showDescription ? 1 : 0)
+                    }
                     className="py-8 text-center text-sm text-muted-foreground"
                   >
                     Aucun article en stock.
@@ -568,11 +577,11 @@ export function StockTable({
                   {prioriteEmoji && <span className="shrink-0 text-base leading-none">{prioriteEmoji}</span>}
                   <div className="flex min-w-0 flex-1 flex-col">
                     <span className="truncate text-sm font-medium">
-                      {it.description || "Sans description"}
+                      {it.description || eventLabel || "Sans description"}
                     </span>
                     <span className="truncate text-xs text-muted-foreground">
                       {STATUT_LABEL[it.statut]}
-                      {eventLabel ? ` · ${eventLabel}` : ""}
+                      {eventLabel && it.description ? ` · ${eventLabel}` : ""}
                     </span>
                   </div>
                   <div className="flex shrink-0 flex-col items-end">
@@ -597,12 +606,14 @@ export function StockTable({
                     <Badge className={statutBadgeVariant[it.statut]}>{STATUT_LABEL[it.statut]}</Badge>
                     <RowMenu onDuplicate={() => handleDuplicate(it.id)} onDelete={() => handleDelete(it.id)} />
                   </div>
-                  <InlineText
-                    value={it.description ?? ""}
-                    placeholder="Description"
-                    onSave={saveField(it.id, "description")}
-                    className="text-base font-medium"
-                  />
+                  {showDescription && (
+                    <InlineText
+                      value={it.description ?? ""}
+                      placeholder="Description"
+                      onSave={saveField(it.id, "description")}
+                      className="text-base font-medium"
+                    />
+                  )}
                   <div className="grid grid-cols-2 gap-2">
                     <Field label="Date achat">
                       <InlineDate value={it.dateAchat} onSave={saveField(it.id, "dateAchat")} />
@@ -644,7 +655,7 @@ export function StockTable({
                             onSave={saveCustom(it.id, f.key)}
                           />
                         ) : (
-                          <InlineText value={it.customValues?.[f.key] ?? ""} onSave={saveCustom(it.id, f.key)} />
+                          <InlineTextArea value={it.customValues?.[f.key] ?? ""} onSave={saveCustom(it.id, f.key)} />
                         )}
                       </Field>
                     ))}
@@ -703,7 +714,7 @@ export function StockTable({
                     </Field>
                   </div>
                   <Field label="Notes">
-                    <InlineText value={it.notes ?? ""} onSave={saveField(it.id, "notes")} />
+                    <InlineTextArea value={it.notes ?? ""} onSave={saveField(it.id, "notes")} />
                   </Field>
                 </CardContent>
               )}

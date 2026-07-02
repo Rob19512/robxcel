@@ -33,6 +33,7 @@ type CategorySpec = {
   trackPriorite?: boolean;
   trackRecu?: boolean;
   trackEvents?: boolean;
+  showDescription?: boolean;
   sortOrder: number;
   fields: FieldSpec[];
   sources: { label: string; appliesToStock?: boolean; appliesToSale?: boolean }[];
@@ -45,6 +46,7 @@ async function upsertCategory(spec: CategorySpec) {
       trackPriorite: spec.trackPriorite ?? false,
       trackRecu: spec.trackRecu ?? false,
       trackEvents: spec.trackEvents ?? false,
+      showDescription: spec.showDescription ?? true,
       scope: spec.scope,
     },
     create: {
@@ -58,6 +60,7 @@ async function upsertCategory(spec: CategorySpec) {
       trackPriorite: spec.trackPriorite ?? false,
       trackRecu: spec.trackRecu ?? false,
       trackEvents: spec.trackEvents ?? false,
+      showDescription: spec.showDescription ?? true,
       isBuiltin: true,
       sortOrder: spec.sortOrder,
     },
@@ -98,7 +101,9 @@ async function upsertCategory(spec: CategorySpec) {
 
 const billetsFields: FieldSpec[] = [
   { key: "categoriePlacement", label: "Catégorie / Placement", fieldType: "TEXT", sortOrder: 0 },
-  { key: "infosVente", label: "Infos vente", fieldType: "TEXT", sortOrder: 1 },
+  { key: "compte", label: "Compte", fieldType: "TEXT", sortOrder: 1 },
+  { key: "numeroCommande", label: "Numéro de commande", fieldType: "TEXT", sortOrder: 2 },
+  { key: "listingSite", label: "Listing site", fieldType: "TEXT", sortOrder: 3 },
 ];
 
 const billetsSources = ["Viagogo", "Welist", "Seatiks", "Client direct", "Lysted"];
@@ -115,6 +120,7 @@ async function seedCategories() {
     hasStock: true,
     trackPriorite: true,
     trackEvents: true,
+    showDescription: false,
     sortOrder: 0,
     fields: billetsFields,
     sources: billetsSources.map((label) => ({ label })),
@@ -157,6 +163,7 @@ async function seedCategories() {
     hasStock: true,
     trackPriorite: true,
     trackEvents: true,
+    showDescription: false,
     sortOrder: 10,
     fields: billetsFields,
     sources: billetsSources.map((label) => ({ label })),

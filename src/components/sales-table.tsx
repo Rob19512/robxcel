@@ -28,7 +28,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { InlineText, InlineNumber, InlineDate, InlineSelect } from "@/components/inline-field";
+import { InlineText, InlineTextArea, InlineNumber, InlineDate, InlineSelect } from "@/components/inline-field";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { BulkDeleteButton } from "@/components/bulk-delete-button";
@@ -96,6 +96,7 @@ export function SalesTable({
   fields,
   sources,
   events,
+  showDescription = true,
 }: {
   categoryId: string;
   path: string;
@@ -103,6 +104,7 @@ export function SalesTable({
   fields: CategoryFieldDef[];
   sources: string[];
   events?: EventOption[];
+  showDescription?: boolean;
 }) {
   const [sales, setSales] = useState(initialSales);
   const [search, setSearch] = useState("");
@@ -247,8 +249,8 @@ export function SalesTable({
           "Date encaissement": s.dateEncaissement ?? "",
           Statut: s.statut,
           Source: s.source ?? "",
-          Description: s.description ?? "",
         };
+        if (showDescription) row.Description = s.description ?? "";
         for (const f of fields) row[f.label] = s.customValues?.[f.key] ?? "";
         Object.assign(row, {
           "Qté": s.qty,
@@ -346,7 +348,7 @@ export function SalesTable({
                 <TableHead className="min-w-36">Statut</TableHead>
                 <TableHead className="min-w-36">Source</TableHead>
                 {events && <TableHead className="min-w-48">Événement</TableHead>}
-                <TableHead className="min-w-48">Description</TableHead>
+                {showDescription && <TableHead className="min-w-48">Description</TableHead>}
                 {fields.map((f) => (
                   <TableHead key={f.id} className="min-w-36">
                     {f.label}
@@ -420,13 +422,15 @@ export function SalesTable({
                         />
                       </TableCell>
                     )}
-                    <TableCell>
-                      <InlineText
-                        value={s.description ?? ""}
-                        onSave={saveField(s.id, "description")}
-                        testId="sale-description"
-                      />
-                    </TableCell>
+                    {showDescription && (
+                      <TableCell>
+                        <InlineText
+                          value={s.description ?? ""}
+                          onSave={saveField(s.id, "description")}
+                          testId="sale-description"
+                        />
+                      </TableCell>
+                    )}
                     {fields.map((f) => (
                       <TableCell key={f.id}>
                         {f.fieldType === "DATE" ? (
@@ -440,7 +444,7 @@ export function SalesTable({
                             onSave={saveCustom(s.id, f.key)}
                           />
                         ) : (
-                          <InlineText
+                          <InlineTextArea
                             value={s.customValues?.[f.key] ?? ""}
                             onSave={saveCustom(s.id, f.key)}
                           />
@@ -486,7 +490,7 @@ export function SalesTable({
                       {eur.format(calc.beneficeNetApresTva)}
                     </TableCell>
                     <TableCell>
-                      <InlineText value={s.notes ?? ""} onSave={saveField(s.id, "notes")} />
+                      <InlineTextArea value={s.notes ?? ""} onSave={saveField(s.id, "notes")} />
                     </TableCell>
                     <TableCell>
                       <RowMenu
@@ -499,7 +503,10 @@ export function SalesTable({
               })}
               {filtered.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={17 + fields.length + (events ? 1 : 0)} className="py-8 text-center text-sm text-muted-foreground">
+                  <TableCell
+                    colSpan={17 + fields.length + (events ? 1 : 0) + (showDescription ? 1 : 0)}
+                    className="py-8 text-center text-sm text-muted-foreground"
+                  >
                     Aucune vente pour l&apos;instant.
                   </TableCell>
                 </TableRow>
@@ -533,12 +540,14 @@ export function SalesTable({
                     />
                   </div>
                 </div>
-                <InlineText
-                  value={s.description ?? ""}
-                  placeholder="Description"
-                  onSave={saveField(s.id, "description")}
-                  className="text-base font-medium"
-                />
+                {showDescription && (
+                  <InlineText
+                    value={s.description ?? ""}
+                    placeholder="Description"
+                    onSave={saveField(s.id, "description")}
+                    className="text-base font-medium"
+                  />
+                )}
                 <div className="grid grid-cols-2 gap-2">
                   <Field label="Date vente">
                     <InlineDate value={s.dateVente} onSave={saveField(s.id, "dateVente")} />
@@ -600,7 +609,7 @@ export function SalesTable({
                           onSave={saveCustom(s.id, f.key)}
                         />
                       ) : (
-                        <InlineText
+                        <InlineTextArea
                           value={s.customValues?.[f.key] ?? ""}
                           onSave={saveCustom(s.id, f.key)}
                         />
@@ -629,7 +638,7 @@ export function SalesTable({
                   </span>
                 </div>
                 <Field label="Notes">
-                  <InlineText value={s.notes ?? ""} onSave={saveField(s.id, "notes")} />
+                  <InlineTextArea value={s.notes ?? ""} onSave={saveField(s.id, "notes")} />
                 </Field>
               </CardContent>
             </Card>

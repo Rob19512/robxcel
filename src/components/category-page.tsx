@@ -93,6 +93,7 @@ export async function CategoryPageContent({
             fields={saleFields}
             sources={saleSources}
             events={category.trackEvents ? eventOptions : undefined}
+            showDescription={category.showDescription}
           />
         </TabsContent>
         {category.hasStock && (
@@ -106,6 +107,7 @@ export async function CategoryPageContent({
               trackPriorite={category.trackPriorite}
               trackRecu={category.trackRecu}
               events={category.trackEvents ? eventOptions : undefined}
+              showDescription={category.showDescription}
             />
           </TabsContent>
         )}
@@ -120,6 +122,7 @@ export async function CategoryPageContent({
               trackPriorite={category.trackPriorite}
               trackRecu={category.trackRecu}
               events={category.trackEvents ? eventOptions : undefined}
+              showDescription={category.showDescription}
               hideAddButtons
             />
           </TabsContent>
@@ -150,6 +153,7 @@ export async function CategoryPageContent({
                 trackPriorite: category.trackPriorite,
                 trackRecu: category.trackRecu,
                 trackEvents: category.trackEvents,
+                showDescription: category.showDescription,
                 fields: category.fields.map((f) => ({ id: f.id, label: f.label, fieldType: f.fieldType })),
                 sources: category.sources.map((s) => ({ id: s.id, label: s.label })),
               }}
