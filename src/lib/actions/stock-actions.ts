@@ -33,6 +33,48 @@ export async function createStockItem(categoryId: string, path: string) {
   revalidatePath(path);
 }
 
+export type BulkStockRowInput = {
+  dateAchat: string;
+  description: string;
+  source: string;
+  eventId: string | null;
+  qty: number;
+  coutAchatUnit: number;
+  prixCibleVente: number | null;
+  priorite: "URGENT" | "NORMAL" | "PAS_PRESSE" | null;
+  recu: boolean | null;
+  compteEmail: string;
+  notes: string;
+  customValues: Record<string, string>;
+};
+
+export async function bulkCreateStockItems(categoryId: string, path: string, rows: BulkStockRowInput[]) {
+  const valid = rows.filter(
+    (r) => r.description.trim() || r.source.trim() || r.coutAchatUnit > 0 || r.prixCibleVente
+  );
+  if (valid.length === 0) return { count: 0 };
+
+  await prisma.stockItem.createMany({
+    data: valid.map((r) => ({
+      categoryId,
+      dateAchat: toDate(r.dateAchat) ?? new Date(),
+      description: r.description.trim() || null,
+      source: r.source.trim() || null,
+      eventId: r.eventId,
+      qty: Math.max(1, r.qty || 1),
+      coutAchatUnit: r.coutAchatUnit || 0,
+      prixCibleVente: r.prixCibleVente,
+      priorite: r.priorite,
+      recu: r.recu,
+      compteEmail: r.compteEmail.trim() || null,
+      notes: r.notes.trim() || null,
+      customValues: r.customValues ?? {},
+    })),
+  });
+  revalidatePath(path);
+  return { count: valid.length };
+}
+
 export async function updateStockField(
   id: string,
   path: string,

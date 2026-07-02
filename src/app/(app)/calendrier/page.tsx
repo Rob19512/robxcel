@@ -6,7 +6,7 @@ export default async function CalendrierPage() {
     where: { dateEvenement: { not: null } },
     include: {
       category: true,
-      stockItems: { where: { deletedAt: null, statut: { not: "VENDU" } } },
+      stockItems: { where: { deletedAt: null, statut: "EN_STOCK" } },
     },
     orderBy: { dateEvenement: "asc" },
   });

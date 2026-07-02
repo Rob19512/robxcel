@@ -90,38 +90,59 @@ export function Dashboard({
     });
   }, [sales, categoryById, scope]);
 
-  function inPeriod(s: SaleLite) {
-    const ymVente = yearMonthOf(s.dateVente);
-    const ymEnc = s.dateEncaissement ? yearMonthOf(s.dateEncaissement) : null;
-    const refYm = s.statut === "ENCAISSE" && ymEnc ? ymEnc : ymVente;
-    if (refYm.year !== year) return false;
-    if (month !== null && refYm.month !== month) return false;
+  // Vendu = toutes les ventes de la période (peu importe si encaissé), performance commerciale.
+  function inVenduPeriod(s: SaleLite) {
+    const ym = yearMonthOf(s.dateVente);
+    if (ym.year !== year) return false;
+    if (month !== null && ym.month !== month) return false;
     return true;
   }
 
-  const periodSales = useMemo(() => scopedSales.filter(inPeriod), [scopedSales, year, month]);
+  // Encaissé = trésorerie réelle : uniquement ce qui est vraiment arrivé sur le compte cette période.
+  function inEncaissePeriod(s: SaleLite) {
+    if (s.statut !== "ENCAISSE" || !s.dateEncaissement) return false;
+    const ym = yearMonthOf(s.dateEncaissement);
+    if (ym.year !== year) return false;
+    if (month !== null && ym.month !== month) return false;
+    return true;
+  }
+
+  const periodSalesVendu = useMemo(() => scopedSales.filter(inVenduPeriod), [scopedSales, year, month]);
+  const periodSalesEncaisse = useMemo(() => scopedSales.filter(inEncaissePeriod), [scopedSales, year, month]);
 
   // Toutes catégories confondues (indépendant du filtre Pro/Perso), pour que chaque section
   // reste visible avec son propre bénéfice quel que soit le filtre choisi en haut.
-  const periodSalesAllScopes = useMemo(() => sales.filter(inPeriod), [sales, year, month]);
+  const periodSalesAllScopesVendu = useMemo(() => sales.filter(inVenduPeriod), [sales, year, month]);
+  const periodSalesAllScopesEncaisse = useMemo(() => sales.filter(inEncaissePeriod), [sales, year, month]);
 
-  let caBienEncaisse = 0;
-  let caServiceEncaisse = 0;
-  let beneficeNetTotal = 0;
+  let caBienVendu = 0;
+  let caServiceVendu = 0;
+  let beneficeVendu = 0;
   let caEnAttente = 0;
 
-  for (const s of periodSales) {
+  for (const s of periodSalesVendu) {
     const cat = categoryById.get(s.categoryId);
     if (!cat) continue;
     const total = s.qty * s.prixVenteUnit;
     const cout = s.qty * s.coutAchatUnit;
-    if (s.statut === "ENCAISSE") {
-      if (cat.kind === "BIEN") caBienEncaisse += total;
-      else caServiceEncaisse += total;
-      beneficeNetTotal += total - cout;
-    } else if (s.statut === "EN_ATTENTE") {
-      caEnAttente += total;
-    }
+    if (cat.kind === "BIEN") caBienVendu += total;
+    else caServiceVendu += total;
+    beneficeVendu += total - cout;
+    if (s.statut === "EN_ATTENTE") caEnAttente += total;
+  }
+
+  let caBienEncaisse = 0;
+  let caServiceEncaisse = 0;
+  let beneficeNetTotal = 0;
+
+  for (const s of periodSalesEncaisse) {
+    const cat = categoryById.get(s.categoryId);
+    if (!cat) continue;
+    const total = s.qty * s.prixVenteUnit;
+    const cout = s.qty * s.coutAchatUnit;
+    if (cat.kind === "BIEN") caBienEncaisse += total;
+    else caServiceEncaisse += total;
+    beneficeNetTotal += total - cout;
   }
 
   // Seuils TVA : toujours Pro uniquement, sur l'année sélectionnée (peu importe le mois/scope choisis ailleurs)
@@ -203,27 +224,48 @@ export function Dashboard({
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Bénéfice net total</CardDescription>
-            <CardTitle className="text-2xl font-semibold tabular-nums">
-              {eur.format(beneficeNetTotal)}
-            </CardTitle>
+            <CardDescription>Bénéfice net</CardDescription>
           </CardHeader>
+          <CardContent className="flex items-end justify-between gap-2">
+            <div>
+              <p className="text-xl font-semibold tabular-nums">{eur.format(beneficeVendu)}</p>
+              <p className="text-xs text-muted-foreground">Vendu</p>
+            </div>
+            <div className="text-right">
+              <p className="text-xl font-semibold tabular-nums text-primary">{eur.format(beneficeNetTotal)}</p>
+              <p className="text-xs text-muted-foreground">Encaissé</p>
+            </div>
+          </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>CA encaissé (biens)</CardDescription>
-            <CardTitle className="text-2xl font-semibold tabular-nums">
-              {eur.format(caBienEncaisse)}
-            </CardTitle>
+            <CardDescription>CA biens</CardDescription>
           </CardHeader>
+          <CardContent className="flex items-end justify-between gap-2">
+            <div>
+              <p className="text-xl font-semibold tabular-nums">{eur.format(caBienVendu)}</p>
+              <p className="text-xs text-muted-foreground">Vendu</p>
+            </div>
+            <div className="text-right">
+              <p className="text-xl font-semibold tabular-nums text-primary">{eur.format(caBienEncaisse)}</p>
+              <p className="text-xs text-muted-foreground">Encaissé</p>
+            </div>
+          </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>CA encaissé (prestations)</CardDescription>
-            <CardTitle className="text-2xl font-semibold tabular-nums">
-              {eur.format(caServiceEncaisse)}
-            </CardTitle>
+            <CardDescription>CA prestations</CardDescription>
           </CardHeader>
+          <CardContent className="flex items-end justify-between gap-2">
+            <div>
+              <p className="text-xl font-semibold tabular-nums">{eur.format(caServiceVendu)}</p>
+              <p className="text-xs text-muted-foreground">Vendu</p>
+            </div>
+            <div className="text-right">
+              <p className="text-xl font-semibold tabular-nums text-primary">{eur.format(caServiceEncaisse)}</p>
+              <p className="text-xs text-muted-foreground">Encaissé</p>
+            </div>
+          </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
@@ -234,6 +276,10 @@ export function Dashboard({
           </CardHeader>
         </Card>
       </div>
+      <p className="-mt-3 text-xs text-muted-foreground">
+        <strong className="text-foreground">Vendu</strong> = toutes les ventes de la période, encaissées ou pas ·{" "}
+        <strong className="text-foreground">Encaissé</strong> = argent réellement arrivé sur la période.
+      </p>
 
       <EvolutionChart sales={chartSales} />
 
@@ -273,11 +319,15 @@ export function Dashboard({
         <div className="grid gap-4 sm:grid-cols-3">
           {categories.map((c) => {
             const Icon = categoryIcons[c.id] ?? Ticket;
-            const catSales = periodSalesAllScopes.filter(
-              (s) => s.categoryId === c.id && s.statut === "ENCAISSE"
+            const catSalesVendu = periodSalesAllScopesVendu.filter((s) => s.categoryId === c.id);
+            const catSalesEncaisse = periodSalesAllScopesEncaisse.filter((s) => s.categoryId === c.id);
+            const caVendu = catSalesVendu.reduce((sum, s) => sum + s.qty * s.prixVenteUnit, 0);
+            const beneficeVenduCat = catSalesVendu.reduce(
+              (sum, s) => sum + (s.qty * s.prixVenteUnit - s.qty * s.coutAchatUnit),
+              0
             );
-            const encaisse = catSales.reduce((sum, s) => sum + s.qty * s.prixVenteUnit, 0);
-            const benefice = catSales.reduce(
+            const caEncaisseCat = catSalesEncaisse.reduce((sum, s) => sum + s.qty * s.prixVenteUnit, 0);
+            const beneficeEncaisseCat = catSalesEncaisse.reduce(
               (sum, s) => sum + (s.qty * s.prixVenteUnit - s.qty * s.coutAchatUnit),
               0
             );
@@ -304,14 +354,30 @@ export function Dashboard({
                     </CardDescription>
                   </div>
                 </CardHeader>
-                <CardContent className="flex items-end justify-between gap-2">
-                  <div>
-                    <p className="text-lg font-semibold tabular-nums">{eur.format(encaisse)}</p>
-                    <p className="text-xs text-muted-foreground">CA encaissé</p>
+                <CardContent className="flex flex-col gap-2">
+                  <div className="flex items-end justify-between gap-2">
+                    <div>
+                      <p className="text-base font-semibold tabular-nums">{eur.format(caVendu)}</p>
+                      <p className="text-xs text-muted-foreground">CA vendu</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-base font-semibold tabular-nums">{eur.format(beneficeVenduCat)}</p>
+                      <p className="text-xs text-muted-foreground">Bénéf. vendu</p>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-lg font-semibold tabular-nums">{eur.format(benefice)}</p>
-                    <p className="text-xs text-muted-foreground">Bénéfice</p>
+                  <div className="flex items-end justify-between gap-2 border-t pt-2">
+                    <div>
+                      <p className="text-base font-semibold tabular-nums text-primary">
+                        {eur.format(caEncaisseCat)}
+                      </p>
+                      <p className="text-xs text-muted-foreground">CA encaissé</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-base font-semibold tabular-nums text-primary">
+                        {eur.format(beneficeEncaisseCat)}
+                      </p>
+                      <p className="text-xs text-muted-foreground">Bénéf. encaissé</p>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
