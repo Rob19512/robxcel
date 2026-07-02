@@ -58,7 +58,8 @@ export type CategoryCoreField =
   | "trackPriorite"
   | "trackRecu"
   | "trackEvents"
-  | "showDescription";
+  | "showDescription"
+  | "showCompteEmail";
 
 export async function updateCategoryField(
   id: string,
@@ -73,6 +74,7 @@ export async function updateCategoryField(
     case "trackRecu":
     case "trackEvents":
     case "showDescription":
+    case "showCompteEmail":
       data[field] = value === "true";
       break;
     case "name":

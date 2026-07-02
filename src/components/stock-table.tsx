@@ -102,6 +102,7 @@ export function StockTable({
   events,
   hideAddButtons,
   showDescription = true,
+  showCompteEmail = true,
 }: {
   categoryId: string;
   path: string;
@@ -113,6 +114,7 @@ export function StockTable({
   events?: EventOption[];
   hideAddButtons?: boolean;
   showDescription?: boolean;
+  showCompteEmail?: boolean;
 }) {
   const [search, setSearch] = useState("");
   const [showSold, setShowSold] = useState(false);
@@ -291,9 +293,9 @@ export function StockTable({
           "Date de vente": it.dateVente ?? "",
           "Date encaissement": it.dateEncaissement ?? "",
           Statut: it.statut,
-          "Compte (email)": it.compteEmail ?? "",
-          Notes: it.notes ?? "",
         });
+        if (showCompteEmail) row["Compte (email)"] = it.compteEmail ?? "";
+        row.Notes = it.notes ?? "";
         return row;
       })
     );
@@ -381,7 +383,7 @@ export function StockTable({
                 <TableHead className="min-w-32">Date de vente</TableHead>
                 <TableHead className="min-w-32">Date encaissement</TableHead>
                 <TableHead className="min-w-32">Statut</TableHead>
-                <TableHead className="min-w-40">Compte (email)</TableHead>
+                {showCompteEmail && <TableHead className="min-w-40">Compte (email)</TableHead>}
                 <TableHead className="min-w-48">Notes</TableHead>
                 <TableHead className="w-10" />
               </TableRow>
@@ -516,9 +518,11 @@ export function StockTable({
                     <TableCell>
                       <Badge className={statutBadgeVariant[it.statut]}>{STATUT_LABEL[it.statut]}</Badge>
                     </TableCell>
-                    <TableCell>
-                      <InlineText value={it.compteEmail ?? ""} onSave={saveField(it.id, "compteEmail")} />
-                    </TableCell>
+                    {showCompteEmail && (
+                      <TableCell>
+                        <InlineText value={it.compteEmail ?? ""} onSave={saveField(it.id, "compteEmail")} />
+                      </TableCell>
+                    )}
                     <TableCell>
                       <InlineTextArea value={it.notes ?? ""} onSave={saveField(it.id, "notes")} />
                     </TableCell>
@@ -537,7 +541,8 @@ export function StockTable({
                       (trackPriorite ? 1 : 0) +
                       (trackRecu ? 1 : 0) +
                       (events ? 1 : 0) +
-                      (showDescription ? 1 : 0)
+                      (showDescription ? 1 : 0) +
+                      (showCompteEmail ? 1 : 0)
                     }
                     className="py-8 text-center text-sm text-muted-foreground"
                   >
@@ -684,9 +689,11 @@ export function StockTable({
                         onSave={saveField(it.id, "tauxTvaAchat")}
                       />
                     </Field>
-                    <Field label="Compte (email)">
-                      <InlineText value={it.compteEmail ?? ""} onSave={saveField(it.id, "compteEmail")} />
-                    </Field>
+                    {showCompteEmail && (
+                      <Field label="Compte (email)">
+                        <InlineText value={it.compteEmail ?? ""} onSave={saveField(it.id, "compteEmail")} />
+                      </Field>
+                    )}
                   </div>
                   <div className="grid grid-cols-2 gap-2 rounded-md bg-muted p-2">
                     <Field label="Date de vente">

@@ -63,6 +63,7 @@ model Category {
   trackRecu     Boolean @default(false)
   trackEvents   Boolean @default(false)
   showDescription Boolean @default(true)
+  showCompteEmail Boolean @default(true)
   isBuiltin  Boolean  @default(false)
   sortOrder  Int      @default(0)
   createdAt  DateTime @default(now())

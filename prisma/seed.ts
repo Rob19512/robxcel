@@ -34,6 +34,7 @@ type CategorySpec = {
   trackRecu?: boolean;
   trackEvents?: boolean;
   showDescription?: boolean;
+  showCompteEmail?: boolean;
   sortOrder: number;
   fields: FieldSpec[];
   sources: { label: string; appliesToStock?: boolean; appliesToSale?: boolean }[];
@@ -47,6 +48,7 @@ async function upsertCategory(spec: CategorySpec) {
       trackRecu: spec.trackRecu ?? false,
       trackEvents: spec.trackEvents ?? false,
       showDescription: spec.showDescription ?? true,
+      showCompteEmail: spec.showCompteEmail ?? true,
       scope: spec.scope,
     },
     create: {
@@ -61,6 +63,7 @@ async function upsertCategory(spec: CategorySpec) {
       trackRecu: spec.trackRecu ?? false,
       trackEvents: spec.trackEvents ?? false,
       showDescription: spec.showDescription ?? true,
+      showCompteEmail: spec.showCompteEmail ?? true,
       isBuiltin: true,
       sortOrder: spec.sortOrder,
     },
@@ -121,6 +124,7 @@ async function seedCategories() {
     trackPriorite: true,
     trackEvents: true,
     showDescription: false,
+    showCompteEmail: false,
     sortOrder: 0,
     fields: billetsFields,
     sources: billetsSources.map((label) => ({ label })),
@@ -164,6 +168,7 @@ async function seedCategories() {
     trackPriorite: true,
     trackEvents: true,
     showDescription: false,
+    showCompteEmail: false,
     sortOrder: 10,
     fields: billetsFields,
     sources: billetsSources.map((label) => ({ label })),

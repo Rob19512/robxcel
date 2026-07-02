@@ -108,6 +108,7 @@ export async function CategoryPageContent({
               trackRecu={category.trackRecu}
               events={category.trackEvents ? eventOptions : undefined}
               showDescription={category.showDescription}
+              showCompteEmail={category.showCompteEmail}
             />
           </TabsContent>
         )}
@@ -123,6 +124,7 @@ export async function CategoryPageContent({
               trackRecu={category.trackRecu}
               events={category.trackEvents ? eventOptions : undefined}
               showDescription={category.showDescription}
+              showCompteEmail={category.showCompteEmail}
               hideAddButtons
             />
           </TabsContent>
@@ -154,6 +156,7 @@ export async function CategoryPageContent({
                 trackRecu: category.trackRecu,
                 trackEvents: category.trackEvents,
                 showDescription: category.showDescription,
+                showCompteEmail: category.showCompteEmail,
                 fields: category.fields.map((f) => ({ id: f.id, label: f.label, fieldType: f.fieldType })),
                 sources: category.sources.map((s) => ({ id: s.id, label: s.label })),
               }}

@@ -54,6 +54,7 @@ export type CategorySettingsData = {
   trackRecu: boolean;
   trackEvents: boolean;
   showDescription: boolean;
+  showCompteEmail: boolean;
   fields: { id: string; label: string; fieldType: "TEXT" | "NUMBER" | "DATE" }[];
   sources: { id: string; label: string }[];
 };
@@ -250,6 +251,15 @@ export function CategorySettings({ category, path }: { category: CategorySetting
               />
               Garder le champ Description (désactive si tu ne le remplis jamais)
             </label>
+            {category.hasStock && (
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox
+                  checked={category.showCompteEmail}
+                  onCheckedChange={(v) => saveField("showCompteEmail")(String(!!v))}
+                />
+                Garder le champ Compte (email) dans le stock
+              </label>
+            )}
           </div>
         </CardContent>
       </Card>
