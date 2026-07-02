@@ -114,16 +114,20 @@ export default function AidePage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">TVA trimestrielle</CardTitle>
+          <CardTitle className="text-base">TVA trimestrielle & IS</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-2 text-sm text-muted-foreground">
-          <p>Calculée sur les encaissements (Pro uniquement). Dates de dépôt :</p>
+          <p>TVA calculée sur les encaissements (Pro uniquement). Dates de dépôt :</p>
           <ul className="list-disc space-y-1 pl-4">
             <li>T1 (Jan-Mar) : avant le 30/04</li>
             <li>T2 (Avr-Juin) : avant le 31/07</li>
             <li>T3 (Juil-Sept) : avant le 31/10</li>
             <li>T4 (Oct-Déc) : avant le 31/01 de l&apos;année suivante</li>
           </ul>
+          <p>
+            IS estimé sur l&apos;année entière (encaissé − coût des ventes − achats pro) : 15 % jusqu&apos;à
+            42 500 € de bénéfice, 25 % au-delà.
+          </p>
         </CardContent>
       </Card>
     </div>

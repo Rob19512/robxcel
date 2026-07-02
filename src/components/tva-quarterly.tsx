@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { eur } from "@/lib/format";
+import { calculIS, SEUIL_IS_REDUIT, TAUX_IS_REDUIT, TAUX_IS_NORMAL } from "@/lib/is-tax";
 
 export type CategoryLite = { id: string; name: string };
 
@@ -133,11 +134,29 @@ export function TvaQuarterly({
     };
   });
 
+  // IS : sur le bénéfice imposable HT de l'année entière (encaissé, Pro), pas trimestre par trimestre.
+  const anneeSales = sales.filter(
+    (s) => s.statut === "ENCAISSE" && s.dateEncaissement && new Date(`${s.dateEncaissement}T00:00:00.000Z`).getFullYear() === year
+  );
+  let caHtAnnee = 0;
+  let coutHtAnnee = 0;
+  for (const s of anneeSales) {
+    const totalTtc = s.qty * s.prixVenteUnit;
+    caHtAnnee += totalTtc - tvaFromTtc(totalTtc, s.tauxTvaVente);
+    const coutTtc = s.qty * s.coutAchatUnit;
+    coutHtAnnee += coutTtc - tvaFromTtc(coutTtc, s.tauxTvaAchat);
+  }
+  const achatsProHtAnnee = achatsPro
+    .filter((a) => new Date(`${a.dateAchat}T00:00:00.000Z`).getFullYear() === year)
+    .reduce((sum, a) => sum + a.qty * a.montantHt, 0);
+  const beneficeImposable = caHtAnnee - coutHtAnnee - achatsProHtAnnee;
+  const is = calculIS(beneficeImposable);
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">TVA trimestrielle</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">TVA & IS</h1>
           <p className="text-sm text-muted-foreground">
             Sur les encaissements, Pro uniquement — année {year}.
           </p>
@@ -201,6 +220,41 @@ export function TvaQuarterly({
           </Card>
         ))}
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Impôt sur les sociétés (IS) — estimation {year}</CardTitle>
+          <CardDescription>
+            Sur l&apos;année entière (pas trimestre par trimestre), Pro uniquement, encaissé − coût des
+            ventes − achats pro. {TAUX_IS_REDUIT * 100} % jusqu&apos;à {eur.format(SEUIL_IS_REDUIT)} de
+            bénéfice, {TAUX_IS_NORMAL * 100} % au-delà.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">Bénéfice imposable</span>
+            <span className="tabular-nums">{eur.format(beneficeImposable)}</span>
+          </div>
+          <div className="flex flex-col gap-1 text-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">
+                Tranche à {TAUX_IS_REDUIT * 100} % ({eur.format(is.trancheReduite)})
+              </span>
+              <span className="tabular-nums">{eur.format(is.isReduit)}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">
+                Tranche à {TAUX_IS_NORMAL * 100} % ({eur.format(is.trancheNormale)})
+              </span>
+              <span className="tabular-nums">{eur.format(is.isNormal)}</span>
+            </div>
+          </div>
+          <div className="flex items-center justify-between rounded-md bg-muted px-3 py-2">
+            <span className="text-sm font-medium">IS estimé à payer</span>
+            <span className="text-lg font-semibold tabular-nums">{eur.format(is.total)}</span>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

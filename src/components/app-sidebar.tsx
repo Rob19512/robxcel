@@ -46,7 +46,7 @@ const navMain = [
 const navGestion: { href: string; label: string; icon: typeof Receipt; color?: string }[] = [
   { href: "/categories", label: "Catégories", icon: Layers },
   { href: "/achats-pro", label: "Achats pro", icon: Receipt },
-  { href: "/tva", label: "TVA trimestrielle", icon: Landmark },
+  { href: "/tva", label: "TVA & IS", icon: Landmark },
   { href: "/aide", label: "Mode d'emploi", icon: BookOpen },
 ];
 
