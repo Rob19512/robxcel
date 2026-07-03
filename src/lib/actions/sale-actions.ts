@@ -144,6 +144,34 @@ export async function duplicateSale(id: string, path: string) {
   revalidatePath(path);
 }
 
+// Encaissement en masse : si une date d'encaissement est fournie, passe aussi le statut à
+// ENCAISSE (c'est le sens même de "bulk encaissement" — sinon il faudrait un 2e geste pour
+// changer le statut, ce que l'édition ligne par ligne demande déjà).
+export async function bulkUpdateSaleDates(
+  ids: string[],
+  path: string,
+  dateVente: string | null,
+  dateEncaissement: string | null
+) {
+  const data: Record<string, unknown> = {};
+  if (dateVente) {
+    const d = toDate(dateVente);
+    if (!d) return;
+    data.dateVente = d;
+  }
+  if (dateEncaissement) {
+    const d = toDate(dateEncaissement);
+    if (!d) return;
+    data.dateEncaissement = d;
+    data.statut = "ENCAISSE";
+  }
+  if (Object.keys(data).length === 0) return;
+
+  await prisma.sale.updateMany({ where: { id: { in: ids } }, data });
+  revalidatePath(path);
+  if (dateEncaissement) revalidatePath(A_ENCAISSER_PATH);
+}
+
 export async function markSaleEncaisseToday(id: string, path: string) {
   await prisma.sale.update({
     where: { id },

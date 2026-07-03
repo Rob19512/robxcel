@@ -191,6 +191,21 @@ export async function updateStockDate(
   revalidatePath(categoryRoute(item.categoryId));
 }
 
+// Encaissement en masse : réutilise la logique d'updateStockDate (cascade de création de
+// Sale, transitions de statut) ligne par ligne plutôt que de la dupliquer en un seul
+// updateMany, qui ne saurait pas gérer la création automatique de Sale par article.
+export async function bulkUpdateStockDates(
+  ids: string[],
+  path: string,
+  dateVente: string | null,
+  dateEncaissement: string | null
+) {
+  for (const id of ids) {
+    if (dateVente) await updateStockDate(id, path, "dateVente", dateVente);
+    if (dateEncaissement) await updateStockDate(id, path, "dateEncaissement", dateEncaissement);
+  }
+}
+
 export async function markStockVenduToday(id: string, path: string) {
   await updateStockDate(id, path, "dateVente", new Date().toISOString().slice(0, 10));
 }

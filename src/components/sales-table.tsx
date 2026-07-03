@@ -35,6 +35,7 @@ import { InlineText, InlineTextArea, InlineNumber, InlineDate, InlineSelect } fr
 import { Checkbox } from "@/components/ui/checkbox";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { BulkDeleteButton } from "@/components/bulk-delete-button";
+import { BulkEncaissementButton } from "@/components/bulk-encaissement-button";
 import { TablePagination } from "@/components/table-pagination";
 import { eur, TVA_RATES } from "@/lib/format";
 import { computeSale } from "@/lib/calc";
@@ -49,6 +50,7 @@ import {
   restoreSale,
   bulkDeleteSales,
   bulkRestoreSales,
+  bulkUpdateSaleDates,
   duplicateSale,
   markSaleEncaisseToday,
   type SaleCoreField,
@@ -218,6 +220,19 @@ export function SalesTable({
     });
   }
 
+  function handleBulkEncaissement(dateVente: string | null, dateEncaissement: string | null) {
+    const ids = Array.from(selectedIds);
+    startTransition(async () => {
+      try {
+        await bulkUpdateSaleDates(ids, path, dateVente, dateEncaissement);
+        setSelectedIds(new Set());
+        toast.success(`${ids.length} ligne${ids.length > 1 ? "s" : ""} mise${ids.length > 1 ? "s" : ""} à jour`);
+      } catch {
+        toast.error("Impossible de mettre à jour l'encaissement");
+      }
+    });
+  }
+
   function handleDelete(id: string) {
     startTransition(async () => {
       try {
@@ -351,6 +366,7 @@ export function SalesTable({
           <Download />
           Exporter CSV
         </Button>
+        <BulkEncaissementButton count={selectedIds.size} onConfirm={handleBulkEncaissement} />
         <BulkDeleteButton count={selectedIds.size} onConfirm={handleBulkDelete} />
         <span className="ml-auto text-xs text-muted-foreground">
           {filtered.length} ligne{filtered.length > 1 ? "s" : ""}

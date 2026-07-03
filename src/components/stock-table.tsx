@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { BulkDeleteButton } from "@/components/bulk-delete-button";
+import { BulkEncaissementButton } from "@/components/bulk-encaissement-button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -43,6 +44,7 @@ import {
   restoreStockItem,
   bulkDeleteStockItems,
   bulkRestoreStockItems,
+  bulkUpdateStockDates,
   duplicateStockItem,
   markStockVenduToday,
   markStockEncaisseToday,
@@ -237,6 +239,19 @@ export function StockTable({
     });
   }
 
+  function handleBulkEncaissement(dateVente: string | null, dateEncaissement: string | null) {
+    const ids = Array.from(selectedIds);
+    startTransition(async () => {
+      try {
+        await bulkUpdateStockDates(ids, path, dateVente, dateEncaissement);
+        setSelectedIds(new Set());
+        toast.success(`${ids.length} ligne${ids.length > 1 ? "s" : ""} mise${ids.length > 1 ? "s" : ""} à jour`);
+      } catch {
+        toast.error("Impossible de mettre à jour l'encaissement");
+      }
+    });
+  }
+
   function handleDelete(id: string) {
     startTransition(async () => {
       try {
@@ -378,6 +393,7 @@ export function StockTable({
           <Download />
           Exporter CSV
         </Button>
+        <BulkEncaissementButton count={selectedIds.size} onConfirm={handleBulkEncaissement} />
         <BulkDeleteButton count={selectedIds.size} onConfirm={handleBulkDelete} />
         <span className="ml-auto text-xs text-muted-foreground">
           {filtered.length} article{filtered.length > 1 ? "s" : ""}
