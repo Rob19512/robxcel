@@ -2,9 +2,11 @@
 
 import { useEffect, useRef } from "react";
 
-// Permet de faire défiler un tableau large horizontalement avec la molette de la
-// souris (au lieu d'avoir à attraper la fine barre de défilement en bas), sans
-// gêner le scroll vertical normal de la page quand le tableau n'a pas de dépassement.
+// Permet de faire défiler un tableau large horizontalement avec Shift + molette (la
+// convention standard des navigateurs pour scroller latéralement à la souris), en plus
+// du pavé tactile (glissement horizontal, déjà géré nativement par le navigateur).
+// Un scroll vertical normal (sans Shift) ne doit JAMAIS être détourné : la molette doit
+// rester intuitive pour descendre dans la page, y compris quand elle survole un tableau.
 export function useHorizontalWheelScroll<T extends HTMLElement>() {
   const ref = useRef<T>(null);
 
@@ -14,8 +16,9 @@ export function useHorizontalWheelScroll<T extends HTMLElement>() {
 
     function onWheel(e: WheelEvent) {
       const node = el!;
+      if (!e.shiftKey) return;
       if (node.scrollWidth <= node.clientWidth) return;
-      if (e.deltaY === 0 || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+      if (e.deltaY === 0) return;
       e.preventDefault();
       node.scrollLeft += e.deltaY;
     }
