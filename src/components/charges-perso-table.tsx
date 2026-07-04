@@ -58,7 +58,9 @@ export function ChargesPersoTable({ path, initialItems }: { path: string; initia
 
   const filtered = initialItems.filter((it) => {
     if (!search.trim()) return true;
-    const haystack = normalizeForSearch([it.description, it.categorie, it.notes].join(" "));
+    const haystack = normalizeForSearch(
+      [it.description, it.categorie, it.notes, String(it.qty), String(it.montant)].join(" ")
+    );
     return haystack.includes(normalizeForSearch(search));
   });
 
@@ -201,7 +203,6 @@ export function ChargesPersoTable({ path, initialItems }: { path: string; initia
                 <TableHead className="min-w-48">Catégorie</TableHead>
                 <TableHead className="min-w-16">Qté</TableHead>
                 <TableHead className="min-w-28">Montant</TableHead>
-                <TableHead className="min-w-48">Notes</TableHead>
                 <TableHead className="w-10" />
               </TableRow>
             </TableHeader>
@@ -225,9 +226,6 @@ export function ChargesPersoTable({ path, initialItems }: { path: string; initia
                   </TableCell>
                   <TableCell>
                     <InlineNumber value={it.montant} onSave={saveField(it.id, "montant")} />
-                  </TableCell>
-                  <TableCell>
-                    <InlineText value={it.notes ?? ""} onSave={saveField(it.id, "notes")} />
                   </TableCell>
                   <TableCell>
                     <RowMenu onDuplicate={() => handleDuplicate(it.id)} onDelete={() => handleDelete(it.id)} />
@@ -277,9 +275,6 @@ export function ChargesPersoTable({ path, initialItems }: { path: string; initia
                   <InlineNumber value={it.montant} onSave={saveField(it.id, "montant")} />
                 </Field>
               </div>
-              <Field label="Notes">
-                <InlineText value={it.notes ?? ""} onSave={saveField(it.id, "notes")} />
-              </Field>
             </CardContent>
           </Card>
         ))}

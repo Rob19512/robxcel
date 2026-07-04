@@ -31,7 +31,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { InlineText, InlineTextArea, InlineNumber, InlineDate, InlineSelect } from "@/components/inline-field";
+import { InlineTextArea, InlineNumber, InlineDate, InlineSelect } from "@/components/inline-field";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { BulkDeleteButton } from "@/components/bulk-delete-button";
@@ -138,6 +138,9 @@ export function SalesTable({
           s.source,
           s.notes,
           s.eventId ? eventLabelById.get(s.eventId) : null,
+          String(s.qty),
+          String(s.prixVenteUnit),
+          String(s.coutAchatUnit),
           ...Object.values(s.customValues ?? {}),
         ]
           .join(" ")
@@ -418,7 +421,6 @@ export function SalesTable({
                 <TableHead className="min-w-24">TVA achat</TableHead>
                 <TableHead className="min-w-24">TVA déd.</TableHead>
                 <TableHead className="min-w-28">Bénéf. après TVA</TableHead>
-                <TableHead className="min-w-48">Notes</TableHead>
                 <TableHead className="w-10" />
               </TableRow>
             </TableHeader>
@@ -542,9 +544,6 @@ export function SalesTable({
                     </TableCell>
                     <TableCell className="text-center tabular-nums font-medium">
                       {eur.format(calc.beneficeNetApresTva)}
-                    </TableCell>
-                    <TableCell>
-                      <InlineTextArea value={s.notes ?? ""} onSave={saveField(s.id, "notes")} />
                     </TableCell>
                     <TableCell>
                       <RowMenu
@@ -699,9 +698,6 @@ export function SalesTable({
                     {eur.format(calc.beneficeNetApresTva)}
                   </span>
                 </div>
-                <Field label="Notes">
-                  <InlineTextArea value={s.notes ?? ""} onSave={saveField(s.id, "notes")} />
-                </Field>
               </CardContent>
             </Card>
           );

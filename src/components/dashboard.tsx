@@ -46,6 +46,7 @@ export type CategoryLite = {
   scope: "PRO" | "PERSO";
   hasStock: boolean;
   color: string | null;
+  trackEvents: boolean;
 };
 
 export type SaleLite = {
@@ -79,6 +80,7 @@ function DualStat({
   encaisseLabel = "Encaissé",
   size = "text-xl",
   valueClassName,
+  format = (n: number) => eur.format(n),
 }: {
   vendu: number;
   encaisse: number;
@@ -88,16 +90,17 @@ function DualStat({
   encaisseLabel?: string;
   size?: string;
   valueClassName?: string;
+  format?: (n: number) => string;
 }) {
   if (showVendu && showEncaisse) {
     return (
       <div className="flex items-end justify-between gap-2">
         <div>
-          <p className={cn(size, "font-semibold tabular-nums", valueClassName)}>{eur.format(vendu)}</p>
+          <p className={cn(size, "font-semibold tabular-nums", valueClassName)}>{format(vendu)}</p>
           <p className="text-xs text-muted-foreground">{venduLabel}</p>
         </div>
         <div className="text-right">
-          <p className={cn(size, "font-semibold tabular-nums", valueClassName ?? "text-primary")}>{eur.format(encaisse)}</p>
+          <p className={cn(size, "font-semibold tabular-nums", valueClassName ?? "text-primary")}>{format(encaisse)}</p>
           <p className="text-xs text-muted-foreground">{encaisseLabel}</p>
         </div>
       </div>
@@ -108,7 +111,7 @@ function DualStat({
   return (
     <div>
       <p className={cn(size, "font-semibold tabular-nums", valueClassName ?? (showEncaisse && "text-primary"))}>
-        {eur.format(value)}
+        {format(value)}
       </p>
       <p className="text-xs text-muted-foreground">{label}</p>
     </div>
@@ -189,6 +192,7 @@ export function Dashboard({
   let caServiceVendu = 0;
   let beneficeVendu = 0;
   let caEnAttente = 0;
+  let nbTicketsVendu = 0;
 
   for (const s of periodSalesVendu) {
     const cat = categoryById.get(s.categoryId);
@@ -199,11 +203,13 @@ export function Dashboard({
     else caServiceVendu += total;
     beneficeVendu += total - cout;
     if (s.statut === "EN_ATTENTE") caEnAttente += total;
+    if (cat.trackEvents) nbTicketsVendu += s.qty;
   }
 
   let caBienEncaisse = 0;
   let caServiceEncaisse = 0;
   let beneficeNetTotal = 0;
+  let nbTicketsEncaisse = 0;
 
   for (const s of periodSalesEncaisse) {
     const cat = categoryById.get(s.categoryId);
@@ -213,6 +219,7 @@ export function Dashboard({
     if (cat.kind === "BIEN") caBienEncaisse += total;
     else caServiceEncaisse += total;
     beneficeNetTotal += total - cout;
+    if (cat.trackEvents) nbTicketsEncaisse += s.qty;
   }
 
   const caTotalVendu = caBienVendu + caServiceVendu;
@@ -411,6 +418,20 @@ export function Dashboard({
           </CardHeader>
           <CardContent>
             <DualStat vendu={caTotalVendu} encaisse={caTotalEncaisse} showVendu={showVendu} showEncaisse={showEncaisse} />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Tickets vendus</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <DualStat
+              vendu={nbTicketsVendu}
+              encaisse={nbTicketsEncaisse}
+              showVendu={showVendu}
+              showEncaisse={showEncaisse}
+              format={(n) => String(n)}
+            />
           </CardContent>
         </Card>
         <Card>

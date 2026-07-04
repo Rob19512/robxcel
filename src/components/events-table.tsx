@@ -183,7 +183,6 @@ export function EventsTable({
                 <TableHead className="min-w-28">Vendus</TableHead>
                 <TableHead className="min-w-28">CA réalisé</TableHead>
                 <TableHead className="min-w-28">Bénéfice</TableHead>
-                <TableHead className="min-w-48">Notes</TableHead>
                 <TableHead className="w-10" />
               </TableRow>
             </TableHeader>
@@ -209,9 +208,6 @@ export function EventsTable({
                     <TableCell className="text-center tabular-nums">{eur.format(stats.ca)}</TableCell>
                     <TableCell className="text-center tabular-nums font-medium">
                       {eur.format(stats.benefice)}
-                    </TableCell>
-                    <TableCell>
-                      <InlineText value={e.notes ?? ""} onSave={saveField(e.id, "notes")} />
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center">
@@ -294,9 +290,6 @@ export function EventsTable({
                     <p className="font-medium tabular-nums">{eur.format(stats.benefice)}</p>
                   </div>
                 </div>
-                <Field label="Notes">
-                  <InlineText value={e.notes ?? ""} onSave={saveField(e.id, "notes")} />
-                </Field>
               </CardContent>
             </Card>
           );

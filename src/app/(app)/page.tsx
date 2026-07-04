@@ -20,6 +20,7 @@ export default async function DashboardPage() {
     scope: c.scope,
     hasStock: c.hasStock,
     color: c.color,
+    trackEvents: c.trackEvents,
   }));
 
   const salesLite: SaleLite[] = [

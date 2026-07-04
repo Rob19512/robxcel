@@ -73,7 +73,9 @@ export function AchatsProTable({ path, initialItems }: { path: string; initialIt
 
   const filtered = initialItems.filter((it) => {
     if (!search.trim()) return true;
-    const haystack = normalizeForSearch([it.description, it.categorie, it.notes].join(" "));
+    const haystack = normalizeForSearch(
+      [it.description, it.categorie, it.notes, String(it.qty), String(it.montantHt)].join(" ")
+    );
     return haystack.includes(normalizeForSearch(search));
   });
 
@@ -221,7 +223,6 @@ export function AchatsProTable({ path, initialItems }: { path: string; initialIt
                 <TableHead className="min-w-28">Montant HT</TableHead>
                 <TableHead className="min-w-24">Taux TVA</TableHead>
                 <TableHead className="min-w-28">TVA déductible</TableHead>
-                <TableHead className="min-w-48">Notes</TableHead>
                 <TableHead className="w-10" />
               </TableRow>
             </TableHeader>
@@ -262,9 +263,6 @@ export function AchatsProTable({ path, initialItems }: { path: string; initialIt
                       />
                     </TableCell>
                     <TableCell className="text-center tabular-nums">{eur.format(tvaDed)}</TableCell>
-                    <TableCell>
-                      <InlineText value={it.notes ?? ""} onSave={saveField(it.id, "notes")} />
-                    </TableCell>
                     <TableCell>
                       <RowMenu onDuplicate={() => handleDuplicate(it.id)} onDelete={() => handleDelete(it.id)} />
                     </TableCell>
@@ -333,9 +331,6 @@ export function AchatsProTable({ path, initialItems }: { path: string; initialIt
                   <span className="text-muted-foreground">TVA déductible</span>
                   <span className="font-semibold tabular-nums">{eur.format(tvaDed)}</span>
                 </div>
-                <Field label="Notes">
-                  <InlineText value={it.notes ?? ""} onSave={saveField(it.id, "notes")} />
-                </Field>
               </CardContent>
             </Card>
           );

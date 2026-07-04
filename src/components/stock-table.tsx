@@ -157,6 +157,9 @@ export function StockTable({
           it.notes,
           it.compteEmail,
           it.eventId ? eventLabelById.get(it.eventId) : null,
+          String(it.qty),
+          String(it.coutAchatUnit),
+          it.prixCibleVente !== null ? String(it.prixCibleVente) : null,
           ...Object.values(it.customValues ?? {}),
         ]
           .join(" ")
@@ -349,7 +352,7 @@ export function StockTable({
           "Qté": it.qty,
           "Coût achat unit.": it.coutAchatUnit,
           "Prix cible vente": it.prixCibleVente ?? "",
-          "Marge cible": margeCible,
+          "Marge": margeCible,
           "Taux TVA achat": it.tauxTvaAchat,
           "Date de vente": it.dateVente ?? "",
           "Date encaissement": it.dateEncaissement ?? "",
@@ -436,7 +439,7 @@ export function StockTable({
                 <TableHead className="min-w-16">Qté</TableHead>
                 <TableHead className="min-w-28">Coût achat unit.</TableHead>
                 <TableHead className="min-w-28">Prix cible vente</TableHead>
-                <TableHead className="min-w-28">Marge cible</TableHead>
+                <TableHead className="min-w-28">Marge</TableHead>
                 {trackPriorite && <TableHead className="min-w-32">Priorité</TableHead>}
                 {trackRecu && <TableHead className="min-w-32">Reçu</TableHead>}
                 <TableHead className="min-w-24">TVA achat</TableHead>
@@ -445,7 +448,6 @@ export function StockTable({
                 <TableHead className="min-w-32">Date encaissement</TableHead>
                 <TableHead className="min-w-32">Statut</TableHead>
                 {showCompteEmail && <TableHead className="min-w-40">Compte (email)</TableHead>}
-                <TableHead className="min-w-48">Notes</TableHead>
                 <TableHead className="w-10" />
               </TableRow>
             </TableHeader>
@@ -584,9 +586,6 @@ export function StockTable({
                         <InlineText value={it.compteEmail ?? ""} onSave={saveField(it.id, "compteEmail")} />
                       </TableCell>
                     )}
-                    <TableCell>
-                      <InlineTextArea value={it.notes ?? ""} onSave={saveField(it.id, "notes")} />
-                    </TableCell>
                     <TableCell>
                       <RowMenu onDuplicate={() => handleDuplicate(it.id)} onDelete={() => handleDelete(it.id)} />
                     </TableCell>
@@ -789,9 +788,6 @@ export function StockTable({
                       </div>
                     </Field>
                   </div>
-                  <Field label="Notes">
-                    <InlineTextArea value={it.notes ?? ""} onSave={saveField(it.id, "notes")} />
-                  </Field>
                 </CardContent>
               )}
             </Card>
