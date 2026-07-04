@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Card,
   CardContent,
@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -18,7 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { Ticket, Wrench, ShoppingBag } from "lucide-react";
+import { Ticket, Wrench, ShoppingBag, Eye, EyeOff } from "lucide-react";
 import { EvolutionChart, type SaleForChart } from "@/components/evolution-chart";
 import { eur } from "@/lib/format";
 import { SEUIL_BIEN, SEUIL_SERVICE } from "@/lib/tva-seuils";
@@ -142,6 +143,25 @@ export function Dashboard({
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState<number | null>(now.getMonth());
   const [viewMode, setViewMode] = useState<"vendu" | "encaisse" | "both">("both");
+  const [blurred, setBlurred] = useState(false);
+  useEffect(() => {
+    try {
+      setBlurred(localStorage.getItem("robxcel:dashboard-blur") === "1");
+    } catch {
+      // ignore
+    }
+  }, []);
+  function toggleBlurred() {
+    setBlurred((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("robxcel:dashboard-blur", next ? "1" : "0");
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  }
   const showVendu = viewMode !== "encaisse";
   const showEncaisse = viewMode !== "vendu";
   const scrollRef = useHorizontalWheelScroll<HTMLDivElement>();
@@ -386,8 +406,19 @@ export function Dashboard({
               ))}
             </SelectContent>
           </Select>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={toggleBlurred}
+            title={blurred ? "Afficher les chiffres" : "Flouter les chiffres"}
+          >
+            {blurred ? <EyeOff /> : <Eye />}
+            {blurred ? "Afficher" : "Flouter"}
+          </Button>
         </div>
       </div>
+
+      <div className={cn("flex flex-col gap-6", blurred && "blur-md select-none")}>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
@@ -658,6 +689,7 @@ export function Dashboard({
             );
           })}
         </div>
+      </div>
       </div>
     </div>
   );
