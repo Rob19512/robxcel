@@ -52,7 +52,9 @@ export default async function AppLayout({
           </form>
         </header>
         <TvaAlertBanner alerts={tvaAlerts} />
-        <main className="flex flex-1 flex-col gap-6 bg-background p-4 sm:p-6">
+        {/* pb-24 : réserve de la place pour la bannière d'installation PWA (fixed, bottom-4),
+            qui sinon recouvre la dernière carte visible sur mobile en scrollant tout en bas. */}
+        <main className="flex flex-1 flex-col gap-6 bg-background p-4 pb-24 sm:p-6">
           {children}
         </main>
         <InstallPrompt />
