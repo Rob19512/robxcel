@@ -215,6 +215,9 @@ export function Dashboard({
     beneficeNetTotal += total - cout;
   }
 
+  const caTotalVendu = caBienVendu + caServiceVendu;
+  const caTotalEncaisse = caBienEncaisse + caServiceEncaisse;
+
   // Seuils TVA : toujours Pro uniquement, sur l'année sélectionnée (peu importe le mois/scope choisis ailleurs)
   let caBienProAnnee = 0;
   let caServiceProAnnee = 0;
@@ -404,10 +407,10 @@ export function Dashboard({
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>CA prestations</CardDescription>
+            <CardDescription>CA total</CardDescription>
           </CardHeader>
           <CardContent>
-            <DualStat vendu={caServiceVendu} encaisse={caServiceEncaisse} showVendu={showVendu} showEncaisse={showEncaisse} />
+            <DualStat vendu={caTotalVendu} encaisse={caTotalEncaisse} showVendu={showVendu} showEncaisse={showEncaisse} />
           </CardContent>
         </Card>
         <Card>
