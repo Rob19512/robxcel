@@ -2,6 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { useHorizontalWheelScroll } from "@/lib/use-horizontal-wheel-scroll";
+import { useColumnVisibility, type ColumnDef } from "@/lib/use-column-visibility";
+import { ColumnVisibilityMenu } from "@/components/column-visibility-menu";
 import { toast } from "sonner";
 import { Plus, MoreVertical, Copy, Trash2, Download } from "lucide-react";
 import {
@@ -55,6 +57,13 @@ export function ChargesPersoTable({ path, initialItems }: { path: string; initia
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
   const scrollRef = useHorizontalWheelScroll<HTMLDivElement>();
+  const { isVisible, toggle: toggleColumn } = useColumnVisibility("charges-perso");
+  const columns: ColumnDef[] = [
+    { key: "description", label: "Description" },
+    { key: "categorie", label: "Catégorie" },
+    { key: "qty", label: "Qté" },
+    { key: "montant", label: "Montant" },
+  ];
 
   const filtered = initialItems.filter((it) => {
     if (!search.trim()) return true;
@@ -181,6 +190,7 @@ export function ChargesPersoTable({ path, initialItems }: { path: string; initia
           <Download />
           Exporter CSV
         </Button>
+        <ColumnVisibilityMenu columns={columns} isVisible={isVisible} toggle={toggleColumn} />
         <BulkDeleteButton count={selectedIds.size} onConfirm={handleBulkDelete} />
         <span className="ml-auto text-xs text-muted-foreground">
           {filtered.length} ligne{filtered.length > 1 ? "s" : ""} · {eur.format(total)}
@@ -199,10 +209,10 @@ export function ChargesPersoTable({ path, initialItems }: { path: string; initia
                   />
                 </TableHead>
                 <StickyTableHead className="min-w-32" stickyClassName={STICKY_COL}>Date</StickyTableHead>
-                <TableHead className="min-w-56">Description</TableHead>
-                <TableHead className="min-w-48">Catégorie</TableHead>
-                <TableHead className="min-w-16">Qté</TableHead>
-                <TableHead className="min-w-28">Montant</TableHead>
+                {isVisible("description") && <TableHead className="min-w-56">Description</TableHead>}
+                {isVisible("categorie") && <TableHead className="min-w-48">Catégorie</TableHead>}
+                {isVisible("qty") && <TableHead className="min-w-16">Qté</TableHead>}
+                {isVisible("montant") && <TableHead className="min-w-28">Montant</TableHead>}
                 <TableHead className="w-10" />
               </TableRow>
             </TableHeader>
@@ -215,18 +225,26 @@ export function ChargesPersoTable({ path, initialItems }: { path: string; initia
                   <StickyTableCell stickyClassName={STICKY_COL}>
                     <InlineDate value={it.date} onSave={saveField(it.id, "date")} />
                   </StickyTableCell>
-                  <TableCell>
-                    <InlineText value={it.description} onSave={saveField(it.id, "description")} testId="charge-description" />
-                  </TableCell>
-                  <TableCell>
-                    <InlineText value={it.categorie ?? ""} placeholder="Catégorie" onSave={saveField(it.id, "categorie")} />
-                  </TableCell>
-                  <TableCell>
-                    <InlineNumber value={it.qty} step="1" onSave={saveField(it.id, "qty")} />
-                  </TableCell>
-                  <TableCell>
-                    <InlineNumber value={it.montant} onSave={saveField(it.id, "montant")} />
-                  </TableCell>
+                  {isVisible("description") && (
+                    <TableCell>
+                      <InlineText value={it.description} onSave={saveField(it.id, "description")} testId="charge-description" />
+                    </TableCell>
+                  )}
+                  {isVisible("categorie") && (
+                    <TableCell>
+                      <InlineText value={it.categorie ?? ""} placeholder="Catégorie" onSave={saveField(it.id, "categorie")} />
+                    </TableCell>
+                  )}
+                  {isVisible("qty") && (
+                    <TableCell>
+                      <InlineNumber value={it.qty} step="1" onSave={saveField(it.id, "qty")} />
+                    </TableCell>
+                  )}
+                  {isVisible("montant") && (
+                    <TableCell>
+                      <InlineNumber value={it.montant} onSave={saveField(it.id, "montant")} />
+                    </TableCell>
+                  )}
                   <TableCell>
                     <RowMenu onDuplicate={() => handleDuplicate(it.id)} onDelete={() => handleDelete(it.id)} />
                   </TableCell>

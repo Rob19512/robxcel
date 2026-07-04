@@ -2,6 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { useHorizontalWheelScroll } from "@/lib/use-horizontal-wheel-scroll";
+import { useColumnVisibility, type ColumnDef } from "@/lib/use-column-visibility";
+import { ColumnVisibilityMenu } from "@/components/column-visibility-menu";
 import { toast } from "sonner";
 import { Plus, MoreVertical, Copy, Trash2, Download } from "lucide-react";
 import {
@@ -70,6 +72,15 @@ export function AchatsProTable({ path, initialItems }: { path: string; initialIt
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
   const scrollRef = useHorizontalWheelScroll<HTMLDivElement>();
+  const { isVisible, toggle: toggleColumn } = useColumnVisibility("achats-pro");
+  const columns: ColumnDef[] = [
+    { key: "description", label: "Description / Fournisseur" },
+    { key: "categorie", label: "Catégorie" },
+    { key: "qty", label: "Qté" },
+    { key: "montantHt", label: "Montant HT" },
+    { key: "tauxTva", label: "Taux TVA" },
+    { key: "tvaDed", label: "TVA déductible" },
+  ];
 
   const filtered = initialItems.filter((it) => {
     if (!search.trim()) return true;
@@ -199,6 +210,7 @@ export function AchatsProTable({ path, initialItems }: { path: string; initialIt
           <Download />
           Exporter CSV
         </Button>
+        <ColumnVisibilityMenu columns={columns} isVisible={isVisible} toggle={toggleColumn} />
         <BulkDeleteButton count={selectedIds.size} onConfirm={handleBulkDelete} />
         <span className="ml-auto text-xs text-muted-foreground">
           {filtered.length} ligne{filtered.length > 1 ? "s" : ""}
@@ -217,12 +229,12 @@ export function AchatsProTable({ path, initialItems }: { path: string; initialIt
                   />
                 </TableHead>
                 <StickyTableHead className="min-w-32" stickyClassName={STICKY_COL}>Date achat</StickyTableHead>
-                <TableHead className="min-w-56">Description / Fournisseur</TableHead>
-                <TableHead className="min-w-48">Catégorie</TableHead>
-                <TableHead className="min-w-16">Qté</TableHead>
-                <TableHead className="min-w-28">Montant HT</TableHead>
-                <TableHead className="min-w-24">Taux TVA</TableHead>
-                <TableHead className="min-w-28">TVA déductible</TableHead>
+                {isVisible("description") && <TableHead className="min-w-56">Description / Fournisseur</TableHead>}
+                {isVisible("categorie") && <TableHead className="min-w-48">Catégorie</TableHead>}
+                {isVisible("qty") && <TableHead className="min-w-16">Qté</TableHead>}
+                {isVisible("montantHt") && <TableHead className="min-w-28">Montant HT</TableHead>}
+                {isVisible("tauxTva") && <TableHead className="min-w-24">Taux TVA</TableHead>}
+                {isVisible("tvaDed") && <TableHead className="min-w-28">TVA déductible</TableHead>}
                 <TableHead className="w-10" />
               </TableRow>
             </TableHeader>
@@ -238,31 +250,43 @@ export function AchatsProTable({ path, initialItems }: { path: string; initialIt
                     <StickyTableCell stickyClassName={STICKY_COL}>
                       <InlineDate value={it.dateAchat} onSave={saveField(it.id, "dateAchat")} />
                     </StickyTableCell>
-                    <TableCell>
-                      <InlineText value={it.description} onSave={saveField(it.id, "description")} testId="achat-description" />
-                    </TableCell>
-                    <TableCell>
-                      <InlineSelect
-                        value={it.categorie ?? ""}
-                        options={categorieOptions}
-                        placeholder="Catégorie"
-                        onSave={saveField(it.id, "categorie")}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <InlineNumber value={it.qty} step="1" onSave={saveField(it.id, "qty")} />
-                    </TableCell>
-                    <TableCell>
-                      <InlineNumber value={it.montantHt} onSave={saveField(it.id, "montantHt")} />
-                    </TableCell>
-                    <TableCell>
-                      <InlineSelect
-                        value={String(it.tauxTva)}
-                        options={tvaOptions}
-                        onSave={saveField(it.id, "tauxTva")}
-                      />
-                    </TableCell>
-                    <TableCell className="text-center tabular-nums">{eur.format(tvaDed)}</TableCell>
+                    {isVisible("description") && (
+                      <TableCell>
+                        <InlineText value={it.description} onSave={saveField(it.id, "description")} testId="achat-description" />
+                      </TableCell>
+                    )}
+                    {isVisible("categorie") && (
+                      <TableCell>
+                        <InlineSelect
+                          value={it.categorie ?? ""}
+                          options={categorieOptions}
+                          placeholder="Catégorie"
+                          onSave={saveField(it.id, "categorie")}
+                        />
+                      </TableCell>
+                    )}
+                    {isVisible("qty") && (
+                      <TableCell>
+                        <InlineNumber value={it.qty} step="1" onSave={saveField(it.id, "qty")} />
+                      </TableCell>
+                    )}
+                    {isVisible("montantHt") && (
+                      <TableCell>
+                        <InlineNumber value={it.montantHt} onSave={saveField(it.id, "montantHt")} />
+                      </TableCell>
+                    )}
+                    {isVisible("tauxTva") && (
+                      <TableCell>
+                        <InlineSelect
+                          value={String(it.tauxTva)}
+                          options={tvaOptions}
+                          onSave={saveField(it.id, "tauxTva")}
+                        />
+                      </TableCell>
+                    )}
+                    {isVisible("tvaDed") && (
+                      <TableCell className="text-center tabular-nums">{eur.format(tvaDed)}</TableCell>
+                    )}
                     <TableCell>
                       <RowMenu onDuplicate={() => handleDuplicate(it.id)} onDelete={() => handleDelete(it.id)} />
                     </TableCell>

@@ -2,6 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { useHorizontalWheelScroll } from "@/lib/use-horizontal-wheel-scroll";
+import { useColumnVisibility, type ColumnDef } from "@/lib/use-column-visibility";
+import { ColumnVisibilityMenu } from "@/components/column-visibility-menu";
 import { toast } from "sonner";
 import { Plus, MoreVertical, Trash2, Eye } from "lucide-react";
 import {
@@ -72,6 +74,15 @@ export function EventsTable({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
   const scrollRef = useHorizontalWheelScroll<HTMLDivElement>();
+  const { isVisible, toggle: toggleColumn } = useColumnVisibility("events");
+  const columns: ColumnDef[] = [
+    { key: "date", label: "Date" },
+    { key: "lieuSalle", label: "Lieu / Salle" },
+    { key: "enStock", label: "En stock" },
+    { key: "vendus", label: "Vendus" },
+    { key: "ca", label: "CA réalisé" },
+    { key: "benefice", label: "Bénéfice" },
+  ];
 
   const filtered = initialEvents.filter((e) => {
     if (!search.trim()) return true;
@@ -159,6 +170,7 @@ export function EventsTable({
           onChange={(e) => setSearch(e.target.value)}
           className="h-8 w-48"
         />
+        <ColumnVisibilityMenu columns={columns} isVisible={isVisible} toggle={toggleColumn} />
         <BulkDeleteButton count={selectedIds.size} onConfirm={handleBulkDelete} permanent />
         <span className="ml-auto text-xs text-muted-foreground">
           {filtered.length} événement{filtered.length > 1 ? "s" : ""}
@@ -177,12 +189,12 @@ export function EventsTable({
                   />
                 </TableHead>
                 <StickyTableHead className="min-w-48" stickyClassName={STICKY_COL}>Nom</StickyTableHead>
-                <TableHead className="min-w-32">Date</TableHead>
-                <TableHead className="min-w-48">Lieu / Salle</TableHead>
-                <TableHead className="min-w-28">En stock</TableHead>
-                <TableHead className="min-w-28">Vendus</TableHead>
-                <TableHead className="min-w-28">CA réalisé</TableHead>
-                <TableHead className="min-w-28">Bénéfice</TableHead>
+                {isVisible("date") && <TableHead className="min-w-32">Date</TableHead>}
+                {isVisible("lieuSalle") && <TableHead className="min-w-48">Lieu / Salle</TableHead>}
+                {isVisible("enStock") && <TableHead className="min-w-28">En stock</TableHead>}
+                {isVisible("vendus") && <TableHead className="min-w-28">Vendus</TableHead>}
+                {isVisible("ca") && <TableHead className="min-w-28">CA réalisé</TableHead>}
+                {isVisible("benefice") && <TableHead className="min-w-28">Bénéfice</TableHead>}
                 <TableHead className="w-10" />
               </TableRow>
             </TableHeader>
@@ -197,18 +209,30 @@ export function EventsTable({
                     <StickyTableCell stickyClassName={STICKY_COL}>
                       <InlineText value={e.name} onSave={saveField(e.id, "name")} testId="event-name" />
                     </StickyTableCell>
-                    <TableCell>
-                      <InlineDate value={e.dateEvenement ?? ""} onSave={saveField(e.id, "dateEvenement")} />
-                    </TableCell>
-                    <TableCell>
-                      <InlineText value={e.lieuSalle ?? ""} onSave={saveField(e.id, "lieuSalle")} />
-                    </TableCell>
-                    <TableCell className="text-center tabular-nums">{stats.nbEnStock}</TableCell>
-                    <TableCell className="text-center tabular-nums">{stats.nbVendus}</TableCell>
-                    <TableCell className="text-center tabular-nums">{eur.format(stats.ca)}</TableCell>
-                    <TableCell className="text-center tabular-nums font-medium">
-                      {eur.format(stats.benefice)}
-                    </TableCell>
+                    {isVisible("date") && (
+                      <TableCell>
+                        <InlineDate value={e.dateEvenement ?? ""} onSave={saveField(e.id, "dateEvenement")} />
+                      </TableCell>
+                    )}
+                    {isVisible("lieuSalle") && (
+                      <TableCell>
+                        <InlineText value={e.lieuSalle ?? ""} onSave={saveField(e.id, "lieuSalle")} />
+                      </TableCell>
+                    )}
+                    {isVisible("enStock") && (
+                      <TableCell className="text-center tabular-nums">{stats.nbEnStock}</TableCell>
+                    )}
+                    {isVisible("vendus") && (
+                      <TableCell className="text-center tabular-nums">{stats.nbVendus}</TableCell>
+                    )}
+                    {isVisible("ca") && (
+                      <TableCell className="text-center tabular-nums">{eur.format(stats.ca)}</TableCell>
+                    )}
+                    {isVisible("benefice") && (
+                      <TableCell className="text-center tabular-nums font-medium">
+                        {eur.format(stats.benefice)}
+                      </TableCell>
+                    )}
                     <TableCell>
                       <div className="flex items-center">
                         <Button

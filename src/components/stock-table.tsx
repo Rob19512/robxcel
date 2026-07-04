@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useHorizontalWheelScroll } from "@/lib/use-horizontal-wheel-scroll";
+import { useColumnVisibility, type ColumnDef } from "@/lib/use-column-visibility";
+import { ColumnVisibilityMenu } from "@/components/column-visibility-menu";
 import { toast } from "sonner";
 import { Plus, MoreVertical, Copy, Trash2, PackageCheck, CheckCircle2, Download, ChevronDown } from "lucide-react";
 import {
@@ -132,6 +134,28 @@ export function StockTable({
   const [newIds, setNewIds] = useState<Set<string>>(new Set());
   const PAGE_SIZE = 50;
   const scrollRef = useHorizontalWheelScroll<HTMLDivElement>();
+  const { isVisible, toggle: toggleColumn } = useColumnVisibility("stock");
+  const columns: ColumnDef[] = useMemo(
+    () => [
+      ...(showDescription ? [{ key: "description", label: "Description" }] : []),
+      { key: "source", label: "Source cible" },
+      ...(events ? [{ key: "evenement", label: "Événement" }] : []),
+      ...fields.map((f) => ({ key: `custom:${f.key}`, label: f.label })),
+      { key: "qty", label: "Qté" },
+      { key: "coutAchat", label: "Coût achat unit." },
+      { key: "prixCible", label: "Prix cible vente" },
+      { key: "marge", label: "Marge" },
+      ...(trackPriorite ? [{ key: "priorite", label: "Priorité" }] : []),
+      ...(trackRecu ? [{ key: "recu", label: "Reçu" }] : []),
+      { key: "tvaAchat", label: "TVA achat" },
+      { key: "tvaDed", label: "TVA déd." },
+      { key: "dateVente", label: "Date de vente" },
+      { key: "dateEncaissement", label: "Date encaissement" },
+      { key: "statut", label: "Statut" },
+      ...(showCompteEmail ? [{ key: "compteEmail", label: "Compte (email)" }] : []),
+    ],
+    [showDescription, events, fields, trackPriorite, trackRecu, showCompteEmail]
+  );
 
   function toggleExpanded(id: string) {
     setExpanded((prev) => {
@@ -409,6 +433,7 @@ export function StockTable({
           <Download />
           Exporter CSV
         </Button>
+        <ColumnVisibilityMenu columns={columns} isVisible={isVisible} toggle={toggleColumn} />
         <BulkEncaissementButton count={selectedIds.size} onConfirm={handleBulkEncaissement} />
         <BulkDeleteButton count={selectedIds.size} onConfirm={handleBulkDelete} />
         <span className="ml-auto text-xs text-muted-foreground">
@@ -428,26 +453,26 @@ export function StockTable({
                   />
                 </TableHead>
                 <StickyTableHead className="min-w-32" stickyClassName={STICKY_COL}>Date achat</StickyTableHead>
-                {showDescription && <TableHead className="min-w-48">Description</TableHead>}
-                <TableHead className="min-w-36">Source cible</TableHead>
-                {events && <TableHead className="min-w-48">Événement</TableHead>}
-                {fields.map((f) => (
+                {showDescription && isVisible("description") && <TableHead className="min-w-48">Description</TableHead>}
+                {isVisible("source") && <TableHead className="min-w-36">Source cible</TableHead>}
+                {events && isVisible("evenement") && <TableHead className="min-w-48">Événement</TableHead>}
+                {fields.map((f) => isVisible(`custom:${f.key}`) && (
                   <TableHead key={f.id} className="min-w-36">
                     {f.label}
                   </TableHead>
                 ))}
-                <TableHead className="min-w-16">Qté</TableHead>
-                <TableHead className="min-w-28">Coût achat unit.</TableHead>
-                <TableHead className="min-w-28">Prix cible vente</TableHead>
-                <TableHead className="min-w-28">Marge</TableHead>
-                {trackPriorite && <TableHead className="min-w-32">Priorité</TableHead>}
-                {trackRecu && <TableHead className="min-w-32">Reçu</TableHead>}
-                <TableHead className="min-w-24">TVA achat</TableHead>
-                <TableHead className="min-w-24">TVA déd.</TableHead>
-                <TableHead className="min-w-32">Date de vente</TableHead>
-                <TableHead className="min-w-32">Date encaissement</TableHead>
-                <TableHead className="min-w-32">Statut</TableHead>
-                {showCompteEmail && <TableHead className="min-w-40">Compte (email)</TableHead>}
+                {isVisible("qty") && <TableHead className="min-w-16">Qté</TableHead>}
+                {isVisible("coutAchat") && <TableHead className="min-w-28">Coût achat unit.</TableHead>}
+                {isVisible("prixCible") && <TableHead className="min-w-28">Prix cible vente</TableHead>}
+                {isVisible("marge") && <TableHead className="min-w-28">Marge</TableHead>}
+                {trackPriorite && isVisible("priorite") && <TableHead className="min-w-32">Priorité</TableHead>}
+                {trackRecu && isVisible("recu") && <TableHead className="min-w-32">Reçu</TableHead>}
+                {isVisible("tvaAchat") && <TableHead className="min-w-24">TVA achat</TableHead>}
+                {isVisible("tvaDed") && <TableHead className="min-w-24">TVA déd.</TableHead>}
+                {isVisible("dateVente") && <TableHead className="min-w-32">Date de vente</TableHead>}
+                {isVisible("dateEncaissement") && <TableHead className="min-w-32">Date encaissement</TableHead>}
+                {isVisible("statut") && <TableHead className="min-w-32">Statut</TableHead>}
+                {showCompteEmail && isVisible("compteEmail") && <TableHead className="min-w-40">Compte (email)</TableHead>}
                 <TableHead className="w-10" />
               </TableRow>
             </TableHeader>
@@ -467,20 +492,22 @@ export function StockTable({
                     <StickyTableCell stickyClassName={STICKY_COL}>
                       <InlineDate value={it.dateAchat} onSave={saveField(it.id, "dateAchat")} />
                     </StickyTableCell>
-                    {showDescription && (
+                    {showDescription && isVisible("description") && (
                       <TableCell>
                         <InlineTextArea value={it.description ?? ""} onSave={saveField(it.id, "description")} testId="stock-description" />
                       </TableCell>
                     )}
-                    <TableCell>
-                      <InlineSelect
-                        value={it.source ?? ""}
-                        options={sourceOptions}
-                        placeholder="Source"
-                        onSave={saveField(it.id, "source")}
-                      />
-                    </TableCell>
-                    {events && (
+                    {isVisible("source") && (
+                      <TableCell>
+                        <InlineSelect
+                          value={it.source ?? ""}
+                          options={sourceOptions}
+                          placeholder="Source"
+                          onSave={saveField(it.id, "source")}
+                        />
+                      </TableCell>
+                    )}
+                    {events && isVisible("evenement") && (
                       <TableCell>
                         <InlineSelect
                           value={it.eventId ?? ""}
@@ -490,7 +517,7 @@ export function StockTable({
                         />
                       </TableCell>
                     )}
-                    {fields.map((f) => (
+                    {fields.map((f) => isVisible(`custom:${f.key}`) && (
                       <TableCell key={f.id}>
                         {f.fieldType === "DATE" ? (
                           <InlineDate value={it.customValues?.[f.key] ?? ""} onSave={saveCustom(it.id, f.key)} />
@@ -504,22 +531,30 @@ export function StockTable({
                         )}
                       </TableCell>
                     ))}
-                    <TableCell>
-                      <InlineNumber value={it.qty} step="1" onSave={saveField(it.id, "qty")} />
-                    </TableCell>
-                    <TableCell>
-                      <InlineNumber value={it.coutAchatUnit} onSave={saveField(it.id, "coutAchatUnit")} />
-                    </TableCell>
-                    <TableCell>
-                      <InlineNumber
-                        value={it.prixCibleVente ?? 0}
-                        onSave={saveField(it.id, "prixCibleVente")}
-                      />
-                    </TableCell>
-                    <TableCell className="text-center tabular-nums">
-                      {margeCible !== null ? eur.format(margeCible) : "—"}
-                    </TableCell>
-                    {trackPriorite && (
+                    {isVisible("qty") && (
+                      <TableCell>
+                        <InlineNumber value={it.qty} step="1" onSave={saveField(it.id, "qty")} />
+                      </TableCell>
+                    )}
+                    {isVisible("coutAchat") && (
+                      <TableCell>
+                        <InlineNumber value={it.coutAchatUnit} onSave={saveField(it.id, "coutAchatUnit")} />
+                      </TableCell>
+                    )}
+                    {isVisible("prixCible") && (
+                      <TableCell>
+                        <InlineNumber
+                          value={it.prixCibleVente ?? 0}
+                          onSave={saveField(it.id, "prixCibleVente")}
+                        />
+                      </TableCell>
+                    )}
+                    {isVisible("marge") && (
+                      <TableCell className="text-center tabular-nums">
+                        {margeCible !== null ? eur.format(margeCible) : "—"}
+                      </TableCell>
+                    )}
+                    {trackPriorite && isVisible("priorite") && (
                       <TableCell>
                         <InlineSelect
                           value={it.priorite ?? "NORMAL"}
@@ -528,7 +563,7 @@ export function StockTable({
                         />
                       </TableCell>
                     )}
-                    {trackRecu && (
+                    {trackRecu && isVisible("recu") && (
                       <TableCell>
                         <InlineSelect
                           value={String(it.recu ?? false)}
@@ -537,51 +572,61 @@ export function StockTable({
                         />
                       </TableCell>
                     )}
-                    <TableCell>
-                      <InlineSelect
-                        value={String(it.tauxTvaAchat)}
-                        options={tvaOptions}
-                        onSave={saveField(it.id, "tauxTvaAchat")}
-                      />
-                    </TableCell>
-                    <TableCell className="text-center tabular-nums">{eur.format(tvaDed)}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        <InlineDate value={it.dateVente ?? ""} onSave={saveDate(it.id, "dateVente")} />
-                        {!it.dateVente && (
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            title="Marquer vendu aujourd'hui"
-                            onClick={() => handleMarkVendu(it.id)}
-                          >
-                            <PackageCheck className="text-amber-600" />
-                          </Button>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        <InlineDate
-                          value={it.dateEncaissement ?? ""}
-                          onSave={saveDate(it.id, "dateEncaissement")}
+                    {isVisible("tvaAchat") && (
+                      <TableCell>
+                        <InlineSelect
+                          value={String(it.tauxTvaAchat)}
+                          options={tvaOptions}
+                          onSave={saveField(it.id, "tauxTvaAchat")}
                         />
-                        {it.dateVente && !it.dateEncaissement && (
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            title="Marquer encaissé aujourd'hui"
-                            onClick={() => handleMarkEncaisse(it.id)}
-                          >
-                            <CheckCircle2 className="text-emerald-600" />
-                          </Button>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge className={statutBadgeVariant[it.statut]}>{STATUT_LABEL[it.statut]}</Badge>
-                    </TableCell>
-                    {showCompteEmail && (
+                      </TableCell>
+                    )}
+                    {isVisible("tvaDed") && (
+                      <TableCell className="text-center tabular-nums">{eur.format(tvaDed)}</TableCell>
+                    )}
+                    {isVisible("dateVente") && (
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <InlineDate value={it.dateVente ?? ""} onSave={saveDate(it.id, "dateVente")} />
+                          {!it.dateVente && (
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              title="Marquer vendu aujourd'hui"
+                              onClick={() => handleMarkVendu(it.id)}
+                            >
+                              <PackageCheck className="text-amber-600" />
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    )}
+                    {isVisible("dateEncaissement") && (
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <InlineDate
+                            value={it.dateEncaissement ?? ""}
+                            onSave={saveDate(it.id, "dateEncaissement")}
+                          />
+                          {it.dateVente && !it.dateEncaissement && (
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              title="Marquer encaissé aujourd'hui"
+                              onClick={() => handleMarkEncaisse(it.id)}
+                            >
+                              <CheckCircle2 className="text-emerald-600" />
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    )}
+                    {isVisible("statut") && (
+                      <TableCell>
+                        <Badge className={statutBadgeVariant[it.statut]}>{STATUT_LABEL[it.statut]}</Badge>
+                      </TableCell>
+                    )}
+                    {showCompteEmail && isVisible("compteEmail") && (
                       <TableCell>
                         <InlineText value={it.compteEmail ?? ""} onSave={saveField(it.id, "compteEmail")} />
                       </TableCell>
