@@ -18,6 +18,13 @@ import {
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { eur } from "@/lib/format";
 
+const compactEur = new Intl.NumberFormat("fr-FR", {
+  style: "currency",
+  currency: "EUR",
+  notation: "compact",
+  maximumFractionDigits: 1,
+});
+
 export type SaleForChart = {
   dateVente: string;
   dateEncaissement: string | null;
@@ -164,9 +171,9 @@ export function EvolutionChart({ sales }: { sales: SaleForChart[] }) {
             <YAxis
               tickLine={false}
               axisLine={false}
-              width={64}
+              width={56}
               fontSize={12}
-              tickFormatter={(v) => eur.format(Number(v))}
+              tickFormatter={(v) => compactEur.format(Number(v))}
             />
             <ChartTooltip
               content={
