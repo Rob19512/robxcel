@@ -176,10 +176,19 @@ export function SalesTable({
       result.sort((a, b) => {
         const la = a.eventId ? eventLabelById.get(a.eventId) ?? "" : "";
         const lb = b.eventId ? eventLabelById.get(b.eventId) ?? "" : "";
-        if (la === lb) return 0;
-        if (!la) return 1;
-        if (!lb) return -1;
-        return la.localeCompare(lb);
+        if (la !== lb) {
+          if (!la) return 1;
+          if (!lb) return -1;
+          return la.localeCompare(lb);
+        }
+        // Même événement : regrouper les billets d'une même commande (duo/quatuor)
+        // pour qu'ils restent côte à côte au lieu d'être dispersés dans la liste.
+        const ca = a.customValues?.numeroCommande?.trim() ?? "";
+        const cb = b.customValues?.numeroCommande?.trim() ?? "";
+        if (ca === cb) return 0;
+        if (!ca) return 1;
+        if (!cb) return -1;
+        return ca.localeCompare(cb);
       });
     }
 
