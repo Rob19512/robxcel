@@ -121,6 +121,7 @@ export function SalesTable({
   const [sortMode, setSortMode] = useState<"date" | "evenement">("evenement");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
+  const [newIds, setNewIds] = useState<Set<string>>(new Set());
   const scrollRef = useHorizontalWheelScroll<HTMLDivElement>();
 
   useMemo(() => setSales(initialSales), [initialSales]);
@@ -154,8 +155,18 @@ export function SalesTable({
         return la.localeCompare(lb);
       });
     }
+
+    // Les lignes tout juste ajoutées passent devant, quel que soit le tri : sinon une
+    // ligne vide (sans événement) tombe en fin de liste et se retrouve sur la dernière
+    // page, obligeant à naviguer jusqu'au bout pour la remplir.
+    if (newIds.size > 0) {
+      const fresh: typeof result = [];
+      const rest: typeof result = [];
+      for (const s of result) (newIds.has(s.id) ? fresh : rest).push(s);
+      return [...fresh, ...rest];
+    }
     return result;
-  }, [sales, statutFilter, search, eventLabelById, events, sortMode]);
+  }, [sales, statutFilter, search, eventLabelById, events, sortMode, newIds]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages - 1);
@@ -175,7 +186,9 @@ export function SalesTable({
   function handleAdd() {
     startTransition(async () => {
       try {
-        await createSale(categoryId, path);
+        const id = await createSale(categoryId, path);
+        setNewIds((prev) => new Set(prev).add(id));
+        setPage(0);
       } catch {
         toast.error("Impossible d'ajouter la ligne");
       }

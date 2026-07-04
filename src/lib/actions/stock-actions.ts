@@ -24,7 +24,7 @@ function toDate(value: string | null) {
 }
 
 export async function createStockItem(categoryId: string, path: string) {
-  await prisma.stockItem.create({
+  const item = await prisma.stockItem.create({
     data: {
       categoryId,
       dateAchat: new Date(),
@@ -33,6 +33,7 @@ export async function createStockItem(categoryId: string, path: string) {
     },
   });
   revalidatePath(path);
+  return item.id;
 }
 
 export type BulkStockRowInput = {

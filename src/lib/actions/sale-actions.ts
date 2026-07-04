@@ -25,7 +25,7 @@ function toDate(value: string | null) {
 
 export async function createSale(categoryId: string, path: string) {
   const today = new Date();
-  await prisma.sale.create({
+  const sale = await prisma.sale.create({
     data: {
       categoryId,
       dateVente: today,
@@ -37,6 +37,7 @@ export async function createSale(categoryId: string, path: string) {
     },
   });
   revalidatePath(path);
+  return sale.id;
 }
 
 export async function updateSaleField(

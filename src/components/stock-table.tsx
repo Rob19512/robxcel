@@ -129,6 +129,7 @@ export function StockTable({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(0);
   const [isPending, startTransition] = useTransition();
+  const [newIds, setNewIds] = useState<Set<string>>(new Set());
   const PAGE_SIZE = 50;
   const scrollRef = useHorizontalWheelScroll<HTMLDivElement>();
 
@@ -173,8 +174,18 @@ export function StockTable({
         return la.localeCompare(lb);
       });
     }
+
+    // Les lignes tout juste ajoutées passent devant, quel que soit le tri : sinon une
+    // ligne vide (sans événement) tombe en fin de liste et se retrouve sur la dernière
+    // page, obligeant à naviguer jusqu'au bout pour la remplir.
+    if (newIds.size > 0) {
+      const fresh: typeof result = [];
+      const rest: typeof result = [];
+      for (const it of result) (newIds.has(it.id) ? fresh : rest).push(it);
+      return [...fresh, ...rest];
+    }
     return result;
-  }, [items, showSold, search, eventLabelById, events, sortMode]);
+  }, [items, showSold, search, eventLabelById, events, sortMode, newIds]);
 
   // Rendre 50 lignes à la fois au lieu de centaines d'un coup évite de monter
   // des centaines de champs éditables en même temps (lent).
@@ -194,7 +205,9 @@ export function StockTable({
   function handleAdd() {
     startTransition(async () => {
       try {
-        await createStockItem(categoryId, path);
+        const id = await createStockItem(categoryId, path);
+        setNewIds((prev) => new Set(prev).add(id));
+        setPage(0);
       } catch {
         toast.error("Impossible d'ajouter la ligne");
       }
