@@ -15,29 +15,18 @@ export async function CategoryPageContent({
   path: string;
   title?: string;
 }) {
-  const category = await prisma.category.findUniqueOrThrow({
-    where: { id: categoryId },
-    include: { fields: { orderBy: { sortOrder: "asc" } }, sources: { orderBy: { sortOrder: "asc" } } },
-  });
-
-  // Quand la catégorie suit des événements (Billets), on regroupe les lignes par événement
-  // — tous les tickets d'un même concert restent côte à côte, comme dans l'Excel d'origine —
-  // plutôt que de tout éparpiller par simple date d'achat/vente.
-  const saleOrderBy = category.trackEvents
-    ? [{ event: { dateEvenement: "asc" as const } }, { dateVente: "desc" as const }]
-    : { dateVente: "desc" as const };
-  const stockOrderBy = category.trackEvents
-    ? [{ event: { dateEvenement: "asc" as const } }, { dateAchat: "desc" as const }]
-    : { dateAchat: "desc" as const };
-
-  const [sales, stockItems, events] = await Promise.all([
-    prisma.sale.findMany({ where: { categoryId, deletedAt: null }, orderBy: saleOrderBy }),
-    category.hasStock
-      ? prisma.stockItem.findMany({ where: { categoryId, deletedAt: null }, orderBy: stockOrderBy })
-      : Promise.resolve([]),
-    category.trackEvents
-      ? prisma.event.findMany({ where: { categoryId }, orderBy: { dateEvenement: "desc" } })
-      : Promise.resolve([]),
+  // Le regroupement par événement (Billets) est déjà refait côté client par défaut
+  // (sortMode="evenement"), donc l'ordre exact renvoyé ici n'a pas besoin d'attendre
+  // category.trackEvents/hasStock : les 4 requêtes partent en parallèle sans dépendance,
+  // au lieu d'un aller-retour "category" puis un second aller-retour pour le reste.
+  const [category, sales, stockItems, events] = await Promise.all([
+    prisma.category.findUniqueOrThrow({
+      where: { id: categoryId },
+      include: { fields: { orderBy: { sortOrder: "asc" } }, sources: { orderBy: { sortOrder: "asc" } } },
+    }),
+    prisma.sale.findMany({ where: { categoryId, deletedAt: null }, orderBy: { dateVente: "desc" } }),
+    prisma.stockItem.findMany({ where: { categoryId, deletedAt: null }, orderBy: { dateAchat: "desc" } }),
+    prisma.event.findMany({ where: { categoryId }, orderBy: { dateEvenement: "desc" } }),
   ]);
 
   const stockFields = category.fields.filter((f) => f.showInStock);

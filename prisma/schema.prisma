@@ -89,6 +89,8 @@ model Event {
 
   stockItems StockItem[]
   sales      Sale[]
+
+  @@index([categoryId])
 }
 
 model CategoryField {
@@ -144,6 +146,9 @@ model StockItem {
   deletedAt        DateTime?
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
+
+  @@index([categoryId, deletedAt])
+  @@index([deletedAt, statut])
 }
 
 model Sale {
@@ -168,6 +173,9 @@ model Sale {
   deletedAt        DateTime?
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt
+
+  @@index([categoryId, deletedAt])
+  @@index([deletedAt, statut])
 }
 
 model AchatPro {
@@ -182,6 +190,8 @@ model AchatPro {
   deletedAt   DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  @@index([deletedAt])
 }
 
 // Dépenses personnelles (hors SASU) : modèle séparé d'AchatPro pour garantir que
@@ -197,4 +207,6 @@ model ChargePerso {
   deletedAt   DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+
+  @@index([deletedAt])
 }
