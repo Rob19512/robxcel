@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useHorizontalWheelScroll } from "@/lib/use-horizontal-wheel-scroll";
-import { useColumnVisibility, type ColumnDef } from "@/lib/use-column-visibility";
+import { useColumnPrefs, type ColumnDef } from "@/lib/use-column-visibility";
 import { ColumnVisibilityMenu } from "@/components/column-visibility-menu";
 import { toast } from "sonner";
 import { Plus, MoreVertical, Copy, Trash2, Download } from "lucide-react";
@@ -72,7 +72,8 @@ export function AchatsProTable({ path, initialItems }: { path: string; initialIt
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
   const scrollRef = useHorizontalWheelScroll<HTMLDivElement>();
-  const { isVisible, toggle: toggleColumn } = useColumnVisibility("achats-pro");
+  const columnKeys = ["description", "categorie", "qty", "montantHt", "tauxTva", "tvaDed"];
+  const { order, isVisible, toggle: toggleColumn, move: moveColumn } = useColumnPrefs("achats-pro", columnKeys);
   const columns: ColumnDef[] = [
     { key: "description", label: "Description / Fournisseur" },
     { key: "categorie", label: "Catégorie" },
@@ -81,6 +82,39 @@ export function AchatsProTable({ path, initialItems }: { path: string; initialIt
     { key: "tauxTva", label: "Taux TVA" },
     { key: "tvaDed", label: "TVA déductible" },
   ];
+  const visibleOrderedKeys = order.filter(isVisible);
+  const labelByKey = new Map(columns.map((c) => [c.key, c.label]));
+  function headClassName(key: string) {
+    const widths: Record<string, string> = {
+      description: "min-w-56",
+      categorie: "min-w-48",
+      qty: "min-w-16",
+      montantHt: "min-w-28",
+      tauxTva: "min-w-24",
+      tvaDed: "min-w-28",
+    };
+    return widths[key] ?? "min-w-36";
+  }
+  function renderBodyCell(key: string, it: AchatProRow, tvaDed: number) {
+    switch (key) {
+      case "description":
+        return <InlineText value={it.description} onSave={saveField(it.id, "description")} testId="achat-description" />;
+      case "categorie":
+        return (
+          <InlineSelect value={it.categorie ?? ""} options={categorieOptions} placeholder="Catégorie" onSave={saveField(it.id, "categorie")} />
+        );
+      case "qty":
+        return <InlineNumber value={it.qty} step="1" onSave={saveField(it.id, "qty")} />;
+      case "montantHt":
+        return <InlineNumber value={it.montantHt} onSave={saveField(it.id, "montantHt")} />;
+      case "tauxTva":
+        return <InlineSelect value={String(it.tauxTva)} options={tvaOptions} onSave={saveField(it.id, "tauxTva")} />;
+      case "tvaDed":
+        return eur.format(tvaDed);
+      default:
+        return null;
+    }
+  }
 
   const filtered = initialItems.filter((it) => {
     if (!search.trim()) return true;
@@ -210,7 +244,7 @@ export function AchatsProTable({ path, initialItems }: { path: string; initialIt
           <Download />
           Exporter CSV
         </Button>
-        <ColumnVisibilityMenu columns={columns} isVisible={isVisible} toggle={toggleColumn} />
+        <ColumnVisibilityMenu columns={columns} order={order} isVisible={isVisible} toggle={toggleColumn} move={moveColumn} />
         <BulkDeleteButton count={selectedIds.size} onConfirm={handleBulkDelete} />
         <span className="ml-auto text-xs text-muted-foreground">
           {filtered.length} ligne{filtered.length > 1 ? "s" : ""}
@@ -229,12 +263,11 @@ export function AchatsProTable({ path, initialItems }: { path: string; initialIt
                   />
                 </TableHead>
                 <StickyTableHead className="min-w-32" stickyClassName={STICKY_COL}>Date achat</StickyTableHead>
-                {isVisible("description") && <TableHead className="min-w-56">Description / Fournisseur</TableHead>}
-                {isVisible("categorie") && <TableHead className="min-w-48">Catégorie</TableHead>}
-                {isVisible("qty") && <TableHead className="min-w-16">Qté</TableHead>}
-                {isVisible("montantHt") && <TableHead className="min-w-28">Montant HT</TableHead>}
-                {isVisible("tauxTva") && <TableHead className="min-w-24">Taux TVA</TableHead>}
-                {isVisible("tvaDed") && <TableHead className="min-w-28">TVA déductible</TableHead>}
+                {visibleOrderedKeys.map((key) => (
+                  <TableHead key={key} className={headClassName(key)}>
+                    {labelByKey.get(key)}
+                  </TableHead>
+                ))}
                 <TableHead className="w-10" />
               </TableRow>
             </TableHeader>
@@ -250,43 +283,11 @@ export function AchatsProTable({ path, initialItems }: { path: string; initialIt
                     <StickyTableCell stickyClassName={STICKY_COL}>
                       <InlineDate value={it.dateAchat} onSave={saveField(it.id, "dateAchat")} />
                     </StickyTableCell>
-                    {isVisible("description") && (
-                      <TableCell>
-                        <InlineText value={it.description} onSave={saveField(it.id, "description")} testId="achat-description" />
+                    {visibleOrderedKeys.map((key) => (
+                      <TableCell key={key} className={key === "tvaDed" ? "text-center tabular-nums" : undefined}>
+                        {renderBodyCell(key, it, tvaDed)}
                       </TableCell>
-                    )}
-                    {isVisible("categorie") && (
-                      <TableCell>
-                        <InlineSelect
-                          value={it.categorie ?? ""}
-                          options={categorieOptions}
-                          placeholder="Catégorie"
-                          onSave={saveField(it.id, "categorie")}
-                        />
-                      </TableCell>
-                    )}
-                    {isVisible("qty") && (
-                      <TableCell>
-                        <InlineNumber value={it.qty} step="1" onSave={saveField(it.id, "qty")} />
-                      </TableCell>
-                    )}
-                    {isVisible("montantHt") && (
-                      <TableCell>
-                        <InlineNumber value={it.montantHt} onSave={saveField(it.id, "montantHt")} />
-                      </TableCell>
-                    )}
-                    {isVisible("tauxTva") && (
-                      <TableCell>
-                        <InlineSelect
-                          value={String(it.tauxTva)}
-                          options={tvaOptions}
-                          onSave={saveField(it.id, "tauxTva")}
-                        />
-                      </TableCell>
-                    )}
-                    {isVisible("tvaDed") && (
-                      <TableCell className="text-center tabular-nums">{eur.format(tvaDed)}</TableCell>
-                    )}
+                    ))}
                     <TableCell>
                       <RowMenu onDuplicate={() => handleDuplicate(it.id)} onDelete={() => handleDelete(it.id)} />
                     </TableCell>

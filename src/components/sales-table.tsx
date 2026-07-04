@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useHorizontalWheelScroll } from "@/lib/use-horizontal-wheel-scroll";
-import { useColumnVisibility, type ColumnDef } from "@/lib/use-column-visibility";
+import { useColumnPrefs, type ColumnDef } from "@/lib/use-column-visibility";
 import { ColumnVisibilityMenu } from "@/components/column-visibility-menu";
 import { toast } from "sonner";
 import { Plus, MoreVertical, Copy, Trash2, CheckCircle2, Download } from "lucide-react";
@@ -125,7 +125,28 @@ export function SalesTable({
   const [isPending, startTransition] = useTransition();
   const [newIds, setNewIds] = useState<Set<string>>(new Set());
   const scrollRef = useHorizontalWheelScroll<HTMLDivElement>();
-  const { isVisible, toggle: toggleColumn } = useColumnVisibility("sales");
+  const columnKeys = useMemo(
+    () => [
+      "dateEncaissement",
+      "statut",
+      "source",
+      ...(events ? ["evenement"] : []),
+      ...(showDescription ? ["description"] : []),
+      ...fields.map((f) => `custom:${f.key}`),
+      "qty",
+      "prixVente",
+      "coutAchat",
+      "totalEncaisse",
+      "margeBrute",
+      "tvaVente",
+      "tvaCollectee",
+      "tvaAchat",
+      "tvaDed",
+      "beneficeApresTva",
+    ],
+    [events, showDescription, fields]
+  );
+  const { order, isVisible, toggle: toggleColumn, move: moveColumn } = useColumnPrefs("sales", columnKeys);
   const columns: ColumnDef[] = useMemo(
     () => [
       { key: "dateEncaissement", label: "Date encaissement" },
@@ -147,6 +168,93 @@ export function SalesTable({
     ],
     [events, showDescription, fields]
   );
+  const visibleOrderedKeys = order.filter(isVisible);
+  const labelByKey = useMemo(() => new Map(columns.map((c) => [c.key, c.label])), [columns]);
+  function headClassName(key: string) {
+    if (key.startsWith("custom:")) return "min-w-36";
+    const widths: Record<string, string> = {
+      dateEncaissement: "min-w-32",
+      statut: "min-w-36",
+      source: "min-w-36",
+      evenement: "min-w-48",
+      description: "min-w-48",
+      qty: "min-w-16",
+      prixVente: "min-w-28",
+      coutAchat: "min-w-28",
+      totalEncaisse: "min-w-28",
+      margeBrute: "min-w-28",
+      tvaVente: "min-w-24",
+      tvaCollectee: "min-w-24",
+      tvaAchat: "min-w-24",
+      tvaDed: "min-w-24",
+      beneficeApresTva: "min-w-28",
+    };
+    return widths[key] ?? "min-w-36";
+  }
+
+  function renderBodyCell(key: string, s: SaleRow, calc: ReturnType<typeof computeSale>) {
+    if (key.startsWith("custom:")) {
+      const fieldKey = key.slice("custom:".length);
+      const f = fields.find((fd) => fd.key === fieldKey);
+      if (!f) return null;
+      return f.fieldType === "DATE" ? (
+        <InlineDate value={s.customValues?.[f.key] ?? ""} onSave={saveCustom(s.id, f.key)} />
+      ) : f.fieldType === "NUMBER" ? (
+        <InlineNumber value={Number(s.customValues?.[f.key] ?? 0)} onSave={saveCustom(s.id, f.key)} />
+      ) : (
+        <InlineTextArea value={s.customValues?.[f.key] ?? ""} onSave={saveCustom(s.id, f.key)} />
+      );
+    }
+    switch (key) {
+      case "dateEncaissement":
+        return (
+          <div className="flex items-center gap-1">
+            <InlineDate value={s.dateEncaissement ?? ""} onSave={saveField(s.id, "dateEncaissement")} />
+            {!s.dateEncaissement && (
+              <Button variant="ghost" size="icon-sm" title="Marquer encaissé aujourd'hui" onClick={() => handleMarkEncaisse(s.id)}>
+                <CheckCircle2 className="text-emerald-600" />
+              </Button>
+            )}
+          </div>
+        );
+      case "statut":
+        return <InlineSelect value={s.statut} options={STATUT_OPTIONS} onSave={saveField(s.id, "statut")} />;
+      case "source":
+        return (
+          <InlineSelect value={s.source ?? ""} options={sourceOptions} placeholder="Source" onSave={saveField(s.id, "source")} />
+        );
+      case "evenement":
+        return (
+          <InlineSelect value={s.eventId ?? ""} options={eventOptions} placeholder="Événement" onSave={saveEvent(s.id)} />
+        );
+      case "description":
+        return (
+          <InlineTextArea value={s.description ?? ""} onSave={saveField(s.id, "description")} testId="sale-description" />
+        );
+      case "qty":
+        return <InlineNumber value={s.qty} step="1" onSave={saveField(s.id, "qty")} />;
+      case "prixVente":
+        return <InlineNumber value={s.prixVenteUnit} onSave={saveField(s.id, "prixVenteUnit")} />;
+      case "coutAchat":
+        return <InlineNumber value={s.coutAchatUnit} onSave={saveField(s.id, "coutAchatUnit")} />;
+      case "totalEncaisse":
+        return eur.format(calc.totalEncaisse);
+      case "margeBrute":
+        return eur.format(calc.margeBrute);
+      case "tvaVente":
+        return <InlineSelect value={String(s.tauxTvaVente)} options={tvaOptions} onSave={saveField(s.id, "tauxTvaVente")} />;
+      case "tvaCollectee":
+        return eur.format(calc.tvaCollectee);
+      case "tvaAchat":
+        return <InlineSelect value={String(s.tauxTvaAchat)} options={tvaOptions} onSave={saveField(s.id, "tauxTvaAchat")} />;
+      case "tvaDed":
+        return eur.format(calc.tvaDeductibleAchat);
+      case "beneficeApresTva":
+        return eur.format(calc.beneficeNetApresTva);
+      default:
+        return null;
+    }
+  }
 
   useMemo(() => setSales(initialSales), [initialSales]);
 
@@ -415,7 +523,7 @@ export function SalesTable({
           <Download />
           Exporter CSV
         </Button>
-        <ColumnVisibilityMenu columns={columns} isVisible={isVisible} toggle={toggleColumn} />
+        <ColumnVisibilityMenu columns={columns} order={order} isVisible={isVisible} toggle={toggleColumn} move={moveColumn} />
         <BulkEncaissementButton count={selectedIds.size} onConfirm={handleBulkEncaissement} />
         <BulkDeleteButton count={selectedIds.size} onConfirm={handleBulkDelete} />
         <span className="ml-auto text-xs text-muted-foreground">
@@ -435,26 +543,11 @@ export function SalesTable({
                   />
                 </TableHead>
                 <StickyTableHead className="min-w-32" stickyClassName={STICKY_COL}>Date vente</StickyTableHead>
-                {isVisible("dateEncaissement") && <TableHead className="min-w-32">Date encaissement</TableHead>}
-                {isVisible("statut") && <TableHead className="min-w-36">Statut</TableHead>}
-                {isVisible("source") && <TableHead className="min-w-36">Source</TableHead>}
-                {events && isVisible("evenement") && <TableHead className="min-w-48">Événement</TableHead>}
-                {showDescription && isVisible("description") && <TableHead className="min-w-48">Description</TableHead>}
-                {fields.map((f) => isVisible(`custom:${f.key}`) && (
-                  <TableHead key={f.id} className="min-w-36">
-                    {f.label}
+                {visibleOrderedKeys.map((key) => (
+                  <TableHead key={key} className={headClassName(key)}>
+                    {labelByKey.get(key)}
                   </TableHead>
                 ))}
-                {isVisible("qty") && <TableHead className="min-w-16">Qté</TableHead>}
-                {isVisible("prixVente") && <TableHead className="min-w-28">Prix vente unit.</TableHead>}
-                {isVisible("coutAchat") && <TableHead className="min-w-28">Coût achat unit.</TableHead>}
-                {isVisible("totalEncaisse") && <TableHead className="min-w-28">Total encaissé</TableHead>}
-                {isVisible("margeBrute") && <TableHead className="min-w-28">Marge brute</TableHead>}
-                {isVisible("tvaVente") && <TableHead className="min-w-24">TVA vente</TableHead>}
-                {isVisible("tvaCollectee") && <TableHead className="min-w-24">TVA collectée</TableHead>}
-                {isVisible("tvaAchat") && <TableHead className="min-w-24">TVA achat</TableHead>}
-                {isVisible("tvaDed") && <TableHead className="min-w-24">TVA déd.</TableHead>}
-                {isVisible("beneficeApresTva") && <TableHead className="min-w-28">Bénéf. après TVA</TableHead>}
                 <TableHead className="w-10" />
               </TableRow>
             </TableHeader>
@@ -469,142 +562,21 @@ export function SalesTable({
                     <StickyTableCell stickyClassName={STICKY_COL}>
                       <InlineDate value={s.dateVente} onSave={saveField(s.id, "dateVente")} />
                     </StickyTableCell>
-                    {isVisible("dateEncaissement") && (
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          <InlineDate
-                            value={s.dateEncaissement ?? ""}
-                            onSave={saveField(s.id, "dateEncaissement")}
-                          />
-                          {!s.dateEncaissement && (
-                            <Button
-                              variant="ghost"
-                              size="icon-sm"
-                              title="Marquer encaissé aujourd'hui"
-                              onClick={() => handleMarkEncaisse(s.id)}
-                            >
-                              <CheckCircle2 className="text-emerald-600" />
-                            </Button>
-                          )}
-                        </div>
-                      </TableCell>
-                    )}
-                    {isVisible("statut") && (
-                      <TableCell>
-                        <InlineSelect
-                          value={s.statut}
-                          options={STATUT_OPTIONS}
-                          onSave={saveField(s.id, "statut")}
-                        />
-                      </TableCell>
-                    )}
-                    {isVisible("source") && (
-                      <TableCell>
-                        <InlineSelect
-                          value={s.source ?? ""}
-                          options={sourceOptions}
-                          placeholder="Source"
-                          onSave={saveField(s.id, "source")}
-                        />
-                      </TableCell>
-                    )}
-                    {events && isVisible("evenement") && (
-                      <TableCell>
-                        <InlineSelect
-                          value={s.eventId ?? ""}
-                          options={eventOptions}
-                          placeholder="Événement"
-                          onSave={saveEvent(s.id)}
-                        />
-                      </TableCell>
-                    )}
-                    {showDescription && isVisible("description") && (
-                      <TableCell>
-                        <InlineTextArea
-                          value={s.description ?? ""}
-                          onSave={saveField(s.id, "description")}
-                          testId="sale-description"
-                        />
-                      </TableCell>
-                    )}
-                    {fields.map((f) => isVisible(`custom:${f.key}`) && (
-                      <TableCell key={f.id}>
-                        {f.fieldType === "DATE" ? (
-                          <InlineDate
-                            value={s.customValues?.[f.key] ?? ""}
-                            onSave={saveCustom(s.id, f.key)}
-                          />
-                        ) : f.fieldType === "NUMBER" ? (
-                          <InlineNumber
-                            value={Number(s.customValues?.[f.key] ?? 0)}
-                            onSave={saveCustom(s.id, f.key)}
-                          />
-                        ) : (
-                          <InlineTextArea
-                            value={s.customValues?.[f.key] ?? ""}
-                            onSave={saveCustom(s.id, f.key)}
-                          />
-                        )}
+                    {visibleOrderedKeys.map((key) => (
+                      <TableCell
+                        key={key}
+                        className={
+                          ["totalEncaisse", "margeBrute", "tvaCollectee", "tvaDed", "beneficeApresTva"].includes(key)
+                            ? cn(
+                                "text-center tabular-nums",
+                                (key === "totalEncaisse" || key === "beneficeApresTva") && "font-medium"
+                              )
+                            : undefined
+                        }
+                      >
+                        {renderBodyCell(key, s, calc)}
                       </TableCell>
                     ))}
-                    {isVisible("qty") && (
-                      <TableCell>
-                        <InlineNumber value={s.qty} step="1" onSave={saveField(s.id, "qty")} />
-                      </TableCell>
-                    )}
-                    {isVisible("prixVente") && (
-                      <TableCell>
-                        <InlineNumber value={s.prixVenteUnit} onSave={saveField(s.id, "prixVenteUnit")} />
-                      </TableCell>
-                    )}
-                    {isVisible("coutAchat") && (
-                      <TableCell>
-                        <InlineNumber value={s.coutAchatUnit} onSave={saveField(s.id, "coutAchatUnit")} />
-                      </TableCell>
-                    )}
-                    {isVisible("totalEncaisse") && (
-                      <TableCell className="text-center tabular-nums font-medium">
-                        {eur.format(calc.totalEncaisse)}
-                      </TableCell>
-                    )}
-                    {isVisible("margeBrute") && (
-                      <TableCell className="text-center tabular-nums">
-                        {eur.format(calc.margeBrute)}
-                      </TableCell>
-                    )}
-                    {isVisible("tvaVente") && (
-                      <TableCell>
-                        <InlineSelect
-                          value={String(s.tauxTvaVente)}
-                          options={tvaOptions}
-                          onSave={saveField(s.id, "tauxTvaVente")}
-                        />
-                      </TableCell>
-                    )}
-                    {isVisible("tvaCollectee") && (
-                      <TableCell className="text-center tabular-nums">
-                        {eur.format(calc.tvaCollectee)}
-                      </TableCell>
-                    )}
-                    {isVisible("tvaAchat") && (
-                      <TableCell>
-                        <InlineSelect
-                          value={String(s.tauxTvaAchat)}
-                          options={tvaOptions}
-                          onSave={saveField(s.id, "tauxTvaAchat")}
-                        />
-                      </TableCell>
-                    )}
-                    {isVisible("tvaDed") && (
-                      <TableCell className="text-center tabular-nums">
-                        {eur.format(calc.tvaDeductibleAchat)}
-                      </TableCell>
-                    )}
-                    {isVisible("beneficeApresTva") && (
-                      <TableCell className="text-center tabular-nums font-medium">
-                        {eur.format(calc.beneficeNetApresTva)}
-                      </TableCell>
-                    )}
                     <TableCell>
                       <RowMenu
                         onDuplicate={() => handleDuplicate(s.id)}

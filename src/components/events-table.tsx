@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useHorizontalWheelScroll } from "@/lib/use-horizontal-wheel-scroll";
-import { useColumnVisibility, type ColumnDef } from "@/lib/use-column-visibility";
+import { useColumnPrefs, type ColumnDef } from "@/lib/use-column-visibility";
 import { ColumnVisibilityMenu } from "@/components/column-visibility-menu";
 import { toast } from "sonner";
 import { Plus, MoreVertical, Trash2, Eye } from "lucide-react";
@@ -74,7 +74,8 @@ export function EventsTable({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
   const scrollRef = useHorizontalWheelScroll<HTMLDivElement>();
-  const { isVisible, toggle: toggleColumn } = useColumnVisibility("events");
+  const columnKeys = ["date", "lieuSalle", "enStock", "vendus", "ca", "benefice"];
+  const { order, isVisible, toggle: toggleColumn, move: moveColumn } = useColumnPrefs("events", columnKeys);
   const columns: ColumnDef[] = [
     { key: "date", label: "Date" },
     { key: "lieuSalle", label: "Lieu / Salle" },
@@ -83,6 +84,37 @@ export function EventsTable({
     { key: "ca", label: "CA réalisé" },
     { key: "benefice", label: "Bénéfice" },
   ];
+  const visibleOrderedKeys = order.filter(isVisible);
+  const labelByKey = new Map(columns.map((c) => [c.key, c.label]));
+  function headClassName(key: string) {
+    const widths: Record<string, string> = {
+      date: "min-w-32",
+      lieuSalle: "min-w-48",
+      enStock: "min-w-28",
+      vendus: "min-w-28",
+      ca: "min-w-28",
+      benefice: "min-w-28",
+    };
+    return widths[key] ?? "min-w-36";
+  }
+  function renderBodyCell(key: string, e: EventRow, stats: ReturnType<typeof statsFor>) {
+    switch (key) {
+      case "date":
+        return <InlineDate value={e.dateEvenement ?? ""} onSave={saveField(e.id, "dateEvenement")} />;
+      case "lieuSalle":
+        return <InlineText value={e.lieuSalle ?? ""} onSave={saveField(e.id, "lieuSalle")} />;
+      case "enStock":
+        return stats.nbEnStock;
+      case "vendus":
+        return stats.nbVendus;
+      case "ca":
+        return eur.format(stats.ca);
+      case "benefice":
+        return eur.format(stats.benefice);
+      default:
+        return null;
+    }
+  }
 
   const filtered = initialEvents.filter((e) => {
     if (!search.trim()) return true;
@@ -170,7 +202,7 @@ export function EventsTable({
           onChange={(e) => setSearch(e.target.value)}
           className="h-8 w-48"
         />
-        <ColumnVisibilityMenu columns={columns} isVisible={isVisible} toggle={toggleColumn} />
+        <ColumnVisibilityMenu columns={columns} order={order} isVisible={isVisible} toggle={toggleColumn} move={moveColumn} />
         <BulkDeleteButton count={selectedIds.size} onConfirm={handleBulkDelete} permanent />
         <span className="ml-auto text-xs text-muted-foreground">
           {filtered.length} événement{filtered.length > 1 ? "s" : ""}
@@ -189,12 +221,11 @@ export function EventsTable({
                   />
                 </TableHead>
                 <StickyTableHead className="min-w-48" stickyClassName={STICKY_COL}>Nom</StickyTableHead>
-                {isVisible("date") && <TableHead className="min-w-32">Date</TableHead>}
-                {isVisible("lieuSalle") && <TableHead className="min-w-48">Lieu / Salle</TableHead>}
-                {isVisible("enStock") && <TableHead className="min-w-28">En stock</TableHead>}
-                {isVisible("vendus") && <TableHead className="min-w-28">Vendus</TableHead>}
-                {isVisible("ca") && <TableHead className="min-w-28">CA réalisé</TableHead>}
-                {isVisible("benefice") && <TableHead className="min-w-28">Bénéfice</TableHead>}
+                {visibleOrderedKeys.map((key) => (
+                  <TableHead key={key} className={headClassName(key)}>
+                    {labelByKey.get(key)}
+                  </TableHead>
+                ))}
                 <TableHead className="w-10" />
               </TableRow>
             </TableHeader>
@@ -209,30 +240,17 @@ export function EventsTable({
                     <StickyTableCell stickyClassName={STICKY_COL}>
                       <InlineText value={e.name} onSave={saveField(e.id, "name")} testId="event-name" />
                     </StickyTableCell>
-                    {isVisible("date") && (
-                      <TableCell>
-                        <InlineDate value={e.dateEvenement ?? ""} onSave={saveField(e.id, "dateEvenement")} />
+                    {visibleOrderedKeys.map((key) => (
+                      <TableCell
+                        key={key}
+                        className={cn(
+                          ["enStock", "vendus", "ca", "benefice"].includes(key) && "text-center tabular-nums",
+                          key === "benefice" && "font-medium"
+                        )}
+                      >
+                        {renderBodyCell(key, e, stats)}
                       </TableCell>
-                    )}
-                    {isVisible("lieuSalle") && (
-                      <TableCell>
-                        <InlineText value={e.lieuSalle ?? ""} onSave={saveField(e.id, "lieuSalle")} />
-                      </TableCell>
-                    )}
-                    {isVisible("enStock") && (
-                      <TableCell className="text-center tabular-nums">{stats.nbEnStock}</TableCell>
-                    )}
-                    {isVisible("vendus") && (
-                      <TableCell className="text-center tabular-nums">{stats.nbVendus}</TableCell>
-                    )}
-                    {isVisible("ca") && (
-                      <TableCell className="text-center tabular-nums">{eur.format(stats.ca)}</TableCell>
-                    )}
-                    {isVisible("benefice") && (
-                      <TableCell className="text-center tabular-nums font-medium">
-                        {eur.format(stats.benefice)}
-                      </TableCell>
-                    )}
+                    ))}
                     <TableCell>
                       <div className="flex items-center">
                         <Button
