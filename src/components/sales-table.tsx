@@ -96,7 +96,7 @@ const statutBadgeVariant: Record<SaleRow["statut"], string> = {
 
 const tvaOptions = TVA_RATES.map((r) => ({ value: String(r), label: r === 0 ? "0 % (exo)" : `${r} %` }));
 
-export type EventOption = { id: string; label: string };
+export type EventOption = { id: string; label: string; dateEvenement: string | null };
 
 export function SalesTable({
   categoryId,
@@ -259,6 +259,7 @@ export function SalesTable({
   useMemo(() => setSales(initialSales), [initialSales]);
 
   const eventLabelById = useMemo(() => new Map((events ?? []).map((e) => [e.id, e.label])), [events]);
+  const eventDateById = useMemo(() => new Map((events ?? []).map((e) => [e.id, e.dateEvenement])), [events]);
 
   const filtered = useMemo(() => {
     const result = sales.filter((s) => {
@@ -298,6 +299,17 @@ export function SalesTable({
         if (!cb) return -1;
         return ca.localeCompare(cb);
       });
+    } else if (events && sortMode === "date") {
+      // "Trier par date" pour les billets = la date du concert, pas la date de vente :
+      // c'est elle qui donne l'urgence réelle de vendre, pas quand le billet a été vendu.
+      result.sort((a, b) => {
+        const da = a.eventId ? eventDateById.get(a.eventId) ?? null : null;
+        const db = b.eventId ? eventDateById.get(b.eventId) ?? null : null;
+        if (da === db) return 0;
+        if (!da) return 1;
+        if (!db) return -1;
+        return da.localeCompare(db);
+      });
     }
 
     // Les lignes tout juste ajoutées passent devant, quel que soit le tri : sinon une
@@ -310,7 +322,7 @@ export function SalesTable({
       return [...fresh, ...rest];
     }
     return result;
-  }, [sales, statutFilter, search, eventLabelById, events, sortMode, newIds]);
+  }, [sales, statutFilter, search, eventLabelById, eventDateById, events, sortMode, newIds]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages - 1);

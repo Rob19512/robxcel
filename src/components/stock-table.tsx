@@ -91,6 +91,21 @@ const PRIORITE_OPTIONS = [
   { value: "NORMAL", label: "🟡 Normal" },
   { value: "PAS_PRESSE", label: "🟢 Pas pressé" },
 ];
+const PRIORITE_LABEL: Record<string, string> = Object.fromEntries(PRIORITE_OPTIONS.map((o) => [o.value, o.label]));
+
+// Priorité calculée automatiquement pour les billets liés à un événement, à partir du
+// nombre de jours restants avant le concert : plus besoin de la mettre à jour à la main.
+function autoPrioriteFromDate(dateEvenement: string | null): "URGENT" | "NORMAL" | "PAS_PRESSE" | null {
+  if (!dateEvenement) return null;
+  const eventDate = new Date(`${dateEvenement}T00:00:00.000Z`);
+  if (Number.isNaN(eventDate.getTime())) return null;
+  const now = new Date();
+  const todayUtc = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  const daysUntil = Math.round((eventDate.getTime() - todayUtc) / (1000 * 60 * 60 * 24));
+  if (daysUntil <= 7) return "URGENT";
+  if (daysUntil <= 21) return "NORMAL";
+  return "PAS_PRESSE";
+}
 
 const RECU_OPTIONS = [
   { value: "true", label: "🟢 Reçu" },
@@ -235,10 +250,17 @@ export function StockTable({
         return <InlineNumber value={it.prixCibleVente ?? 0} onSave={saveField(it.id, "prixCibleVente")} />;
       case "marge":
         return margeCible !== null ? eur.format(margeCible) : "—";
-      case "priorite":
+      case "priorite": {
+        const auto = it.eventId ? autoPrioriteFromDate(eventDateById.get(it.eventId) ?? null) : null;
+        if (auto) {
+          return (
+            <span title="Calculée automatiquement selon la date de l'événement">{PRIORITE_LABEL[auto]}</span>
+          );
+        }
         return (
           <InlineSelect value={it.priorite ?? "NORMAL"} options={PRIORITE_OPTIONS} onSave={saveField(it.id, "priorite")} />
         );
+      }
       case "recu":
         return (
           <InlineSelect value={String(it.recu ?? false)} options={RECU_OPTIONS} onSave={saveField(it.id, "recu")} />
@@ -292,6 +314,7 @@ export function StockTable({
   const items = initialItems;
   const sourceOptions = useMemo(() => sources.map((s) => ({ value: s, label: s })), [sources]);
   const eventLabelById = useMemo(() => new Map((events ?? []).map((e) => [e.id, e.label])), [events]);
+  const eventDateById = useMemo(() => new Map((events ?? []).map((e) => [e.id, e.dateEvenement])), [events]);
 
   const filtered = useMemo(() => {
     const result = items.filter((it) => {
@@ -332,6 +355,17 @@ export function StockTable({
         if (!cb) return -1;
         return ca.localeCompare(cb);
       });
+    } else if (events && sortMode === "date") {
+      // "Trier par date" pour les billets = la date du concert, pas la date d'achat :
+      // c'est elle qui donne l'urgence réelle de vendre, pas quand le billet a été acheté.
+      result.sort((a, b) => {
+        const da = a.eventId ? eventDateById.get(a.eventId) ?? null : null;
+        const db = b.eventId ? eventDateById.get(b.eventId) ?? null : null;
+        if (da === db) return 0;
+        if (!da) return 1; // sans événement à la fin
+        if (!db) return -1;
+        return da.localeCompare(db);
+      });
     }
 
     // Les lignes tout juste ajoutées passent devant, quel que soit le tri : sinon une
@@ -344,7 +378,7 @@ export function StockTable({
       return [...fresh, ...rest];
     }
     return result;
-  }, [items, showSold, search, eventLabelById, events, sortMode, newIds]);
+  }, [items, showSold, search, eventLabelById, eventDateById, events, sortMode, newIds]);
 
   // Rendre 50 lignes à la fois au lieu de centaines d'un coup évite de monter
   // des centaines de champs éditables en même temps (lent).
@@ -660,8 +694,10 @@ export function StockTable({
           const margeCible =
             it.prixCibleVente !== null ? it.qty * (it.prixCibleVente - it.coutAchatUnit) : null;
           const isOpen = expanded.has(it.id);
+          const effectivePriorite =
+            (it.eventId ? autoPrioriteFromDate(eventDateById.get(it.eventId) ?? null) : null) ?? it.priorite;
           const prioriteEmoji = trackPriorite
-            ? (PRIORITE_OPTIONS.find((o) => o.value === it.priorite)?.label ?? "🟡 Normal").split(" ")[0]
+            ? (PRIORITE_OPTIONS.find((o) => o.value === effectivePriorite)?.label ?? "🟡 Normal").split(" ")[0]
             : null;
           const eventLabel = it.eventId ? eventOptions.find((e) => e.value === it.eventId)?.label : null;
 
@@ -765,11 +801,20 @@ export function StockTable({
                     ))}
                     {trackPriorite && (
                       <Field label="Priorité">
-                        <InlineSelect
-                          value={it.priorite ?? "NORMAL"}
-                          options={PRIORITE_OPTIONS}
-                          onSave={saveField(it.id, "priorite")}
-                        />
+                        {(() => {
+                          const auto = it.eventId ? autoPrioriteFromDate(eventDateById.get(it.eventId) ?? null) : null;
+                          return auto ? (
+                            <span title="Calculée automatiquement selon la date de l'événement">
+                              {PRIORITE_LABEL[auto]}
+                            </span>
+                          ) : (
+                            <InlineSelect
+                              value={it.priorite ?? "NORMAL"}
+                              options={PRIORITE_OPTIONS}
+                              onSave={saveField(it.id, "priorite")}
+                            />
+                          );
+                        })()}
                       </Field>
                     )}
                     {trackRecu && (
