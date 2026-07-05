@@ -7,9 +7,10 @@ import { CheckCircle2, ArrowRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { InlineDate } from "@/components/inline-field";
 import { eur } from "@/lib/format";
-import { cn } from "@/lib/utils";
+import { cn, normalizeForSearch } from "@/lib/utils";
 import { updateStockDate } from "@/lib/actions/stock-actions";
 import { updateSaleField } from "@/lib/actions/sale-actions";
 
@@ -29,11 +30,22 @@ export type AttenteRow = {
 
 export function AEncaisserList({ initialRows }: { initialRows: AttenteRow[] }) {
   const [rows, setRows] = useState(initialRows);
+  const [search, setSearch] = useState("");
   const [isPending, startTransition] = useTransition();
 
   useMemo(() => setRows(initialRows), [initialRows]);
 
-  const sorted = [...rows].sort((a, b) => a.dateVente.localeCompare(b.dateVente));
+  const filtered = useMemo(() => {
+    if (!search.trim()) return rows;
+    return rows.filter((r) => {
+      const haystack = normalizeForSearch(
+        [r.categoryName, r.description, r.eventLabel, r.source, String(r.montant)].join(" ")
+      );
+      return haystack.includes(normalizeForSearch(search));
+    });
+  }, [rows, search]);
+
+  const sorted = [...filtered].sort((a, b) => a.dateVente.localeCompare(b.dateVente));
   const total = sorted.reduce((sum, r) => sum + r.montant, 0);
 
   function saveDate(row: AttenteRow) {
@@ -72,10 +84,19 @@ export function AEncaisserList({ initialRows }: { initialRows: AttenteRow[] }) {
         </p>
       </div>
 
+      <Input
+        placeholder="Rechercher..."
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        className="h-8 w-48"
+      />
+
       {sorted.length === 0 && (
         <Card>
           <CardContent className="py-10 text-center text-sm text-muted-foreground">
-            Rien en attente d&apos;encaissement — tout est à jour. 🎉
+            {rows.length === 0
+              ? "Rien en attente d'encaissement — tout est à jour. 🎉"
+              : "Aucun résultat pour cette recherche."}
           </CardContent>
         </Card>
       )}
