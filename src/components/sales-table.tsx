@@ -3,9 +3,10 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useHorizontalWheelScroll } from "@/lib/use-horizontal-wheel-scroll";
 import { useColumnPrefs, type ColumnDef } from "@/lib/use-column-visibility";
+import { useColumnSort, compareValues } from "@/lib/use-column-sort";
 import { ColumnVisibilityMenu } from "@/components/column-visibility-menu";
 import { toast } from "sonner";
-import { Plus, MoreVertical, Copy, Trash2, CheckCircle2, Download } from "lucide-react";
+import { Plus, MoreVertical, Copy, Trash2, CheckCircle2, Download, ArrowUp, ArrowDown } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -147,6 +148,7 @@ export function SalesTable({
     [events, showDescription, fields]
   );
   const { order, isVisible, toggle: toggleColumn, move: moveColumn } = useColumnPrefs("sales", columnKeys);
+  const { sort: columnSort, toggleSort } = useColumnSort();
   const columns: ColumnDef[] = useMemo(
     () => [
       { key: "dateEncaissement", label: "Date encaissement" },
@@ -261,6 +263,51 @@ export function SalesTable({
   const eventLabelById = useMemo(() => new Map((events ?? []).map((e) => [e.id, e.label])), [events]);
   const eventDateById = useMemo(() => new Map((events ?? []).map((e) => [e.id, e.dateEvenement])), [events]);
 
+  function sortValueFor(key: string, s: SaleRow): string | number | null {
+    if (key.startsWith("custom:")) {
+      const fieldKey = key.slice("custom:".length);
+      const f = fields.find((fd) => fd.key === fieldKey);
+      const raw = s.customValues?.[fieldKey] ?? null;
+      if (f?.fieldType === "NUMBER") return raw !== null ? Number(raw) : null;
+      return raw;
+    }
+    const calc = computeSale(s);
+    switch (key) {
+      case "dateEncaissement":
+        return s.dateEncaissement;
+      case "statut":
+        return s.statut;
+      case "source":
+        return s.source;
+      case "evenement":
+        return s.eventId ? eventLabelById.get(s.eventId) ?? null : null;
+      case "description":
+        return s.description;
+      case "qty":
+        return s.qty;
+      case "prixVente":
+        return s.prixVenteUnit;
+      case "coutAchat":
+        return s.coutAchatUnit;
+      case "totalEncaisse":
+        return calc.totalEncaisse;
+      case "margeBrute":
+        return calc.margeBrute;
+      case "tvaVente":
+        return s.tauxTvaVente;
+      case "tvaCollectee":
+        return calc.tvaCollectee;
+      case "tvaAchat":
+        return s.tauxTvaAchat;
+      case "tvaDed":
+        return calc.tvaDeductibleAchat;
+      case "beneficeApresTva":
+        return calc.beneficeNetApresTva;
+      default:
+        return null;
+    }
+  }
+
   const filtered = useMemo(() => {
     const result = sales.filter((s) => {
       if (statutFilter !== "ALL" && s.statut !== statutFilter) return false;
@@ -281,7 +328,13 @@ export function SalesTable({
       return haystack.includes(normalizeForSearch(search));
     });
 
-    if (events && sortMode === "evenement") {
+    if (columnSort) {
+      const { key, dir } = columnSort;
+      result.sort((a, b) => {
+        const cmp = compareValues(sortValueFor(key, a), sortValueFor(key, b));
+        return dir === "asc" ? cmp : -cmp;
+      });
+    } else if (events && sortMode === "evenement") {
       result.sort((a, b) => {
         const la = a.eventId ? eventLabelById.get(a.eventId) ?? "" : "";
         const lb = b.eventId ? eventLabelById.get(b.eventId) ?? "" : "";
@@ -322,7 +375,7 @@ export function SalesTable({
       return [...fresh, ...rest];
     }
     return result;
-  }, [sales, statutFilter, search, eventLabelById, eventDateById, events, sortMode, newIds]);
+  }, [sales, statutFilter, search, eventLabelById, eventDateById, events, sortMode, newIds, columnSort, fields]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages - 1);
@@ -556,8 +609,16 @@ export function SalesTable({
                 </TableHead>
                 <StickyTableHead className="min-w-32" stickyClassName={STICKY_COL}>Date vente</StickyTableHead>
                 {visibleOrderedKeys.map((key) => (
-                  <TableHead key={key} className={headClassName(key)}>
-                    {labelByKey.get(key)}
+                  <TableHead
+                    key={key}
+                    className={cn(headClassName(key), "cursor-pointer select-none hover:bg-muted/50")}
+                    onClick={() => toggleSort(key)}
+                  >
+                    <span className="flex items-center gap-1">
+                      {labelByKey.get(key)}
+                      {columnSort?.key === key &&
+                        (columnSort.dir === "asc" ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />)}
+                    </span>
                   </TableHead>
                 ))}
                 <TableHead className="w-10" />

@@ -3,9 +3,10 @@
 import { useState, useTransition } from "react";
 import { useHorizontalWheelScroll } from "@/lib/use-horizontal-wheel-scroll";
 import { useColumnPrefs, type ColumnDef } from "@/lib/use-column-visibility";
+import { useColumnSort, compareValues } from "@/lib/use-column-sort";
 import { ColumnVisibilityMenu } from "@/components/column-visibility-menu";
 import { toast } from "sonner";
-import { Plus, MoreVertical, Copy, Trash2, Download } from "lucide-react";
+import { Plus, MoreVertical, Copy, Trash2, Download, ArrowUp, ArrowDown } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -59,6 +60,7 @@ export function ChargesPersoTable({ path, initialItems }: { path: string; initia
   const scrollRef = useHorizontalWheelScroll<HTMLDivElement>();
   const columnKeys = ["description", "categorie", "qty", "montant"];
   const { order, isVisible, toggle: toggleColumn, move: moveColumn } = useColumnPrefs("charges-perso", columnKeys);
+  const { sort: columnSort, toggleSort } = useColumnSort();
   const columns: ColumnDef[] = [
     { key: "description", label: "Description" },
     { key: "categorie", label: "Catégorie" },
@@ -91,6 +93,21 @@ export function ChargesPersoTable({ path, initialItems }: { path: string; initia
     }
   }
 
+  function sortValueFor(key: string, it: ChargePersoRow): string | number | null {
+    switch (key) {
+      case "description":
+        return it.description;
+      case "categorie":
+        return it.categorie;
+      case "qty":
+        return it.qty;
+      case "montant":
+        return it.montant;
+      default:
+        return null;
+    }
+  }
+
   const filtered = initialItems.filter((it) => {
     if (!search.trim()) return true;
     const haystack = normalizeForSearch(
@@ -98,6 +115,13 @@ export function ChargesPersoTable({ path, initialItems }: { path: string; initia
     );
     return haystack.includes(normalizeForSearch(search));
   });
+  if (columnSort) {
+    const { key, dir } = columnSort;
+    filtered.sort((a, b) => {
+      const cmp = compareValues(sortValueFor(key, a), sortValueFor(key, b));
+      return dir === "asc" ? cmp : -cmp;
+    });
+  }
 
   const total = filtered.reduce((sum, it) => sum + it.qty * it.montant, 0);
 
@@ -236,8 +260,16 @@ export function ChargesPersoTable({ path, initialItems }: { path: string; initia
                 </TableHead>
                 <StickyTableHead className="min-w-32" stickyClassName={STICKY_COL}>Date</StickyTableHead>
                 {visibleOrderedKeys.map((key) => (
-                  <TableHead key={key} className={headClassName(key)}>
-                    {labelByKey.get(key)}
+                  <TableHead
+                    key={key}
+                    className={cn(headClassName(key), "cursor-pointer select-none hover:bg-muted/50")}
+                    onClick={() => toggleSort(key)}
+                  >
+                    <span className="flex items-center gap-1">
+                      {labelByKey.get(key)}
+                      {columnSort?.key === key &&
+                        (columnSort.dir === "asc" ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />)}
+                    </span>
                   </TableHead>
                 ))}
                 <TableHead className="w-10" />

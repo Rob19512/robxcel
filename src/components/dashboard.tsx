@@ -437,18 +437,18 @@ export function Dashboard({
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>CA biens</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <DualStat vendu={caBienVendu} encaisse={caBienEncaisse} showVendu={showVendu} showEncaisse={showEncaisse} />
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
             <CardDescription>CA total</CardDescription>
           </CardHeader>
           <CardContent>
             <DualStat vendu={caTotalVendu} encaisse={caTotalEncaisse} showVendu={showVendu} showEncaisse={showEncaisse} />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>CA prestations</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <DualStat vendu={caServiceVendu} encaisse={caServiceEncaisse} showVendu={showVendu} showEncaisse={showEncaisse} />
           </CardContent>
         </Card>
         <Card>

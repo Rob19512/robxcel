@@ -3,9 +3,10 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useHorizontalWheelScroll } from "@/lib/use-horizontal-wheel-scroll";
 import { useColumnPrefs, type ColumnDef } from "@/lib/use-column-visibility";
+import { useColumnSort, compareValues } from "@/lib/use-column-sort";
 import { ColumnVisibilityMenu } from "@/components/column-visibility-menu";
 import { toast } from "sonner";
-import { Plus, MoreVertical, Copy, Trash2, PackageCheck, CheckCircle2, Download, ChevronDown } from "lucide-react";
+import { Plus, MoreVertical, Copy, Trash2, PackageCheck, CheckCircle2, Download, ChevronDown, ArrowUp, ArrowDown } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -171,6 +172,7 @@ export function StockTable({
     [showDescription, events, fields, trackPriorite, trackRecu, showCompteEmail]
   );
   const { order, isVisible, toggle: toggleColumn, move: moveColumn } = useColumnPrefs("stock", columnKeys);
+  const { sort: columnSort, toggleSort } = useColumnSort();
   const columns: ColumnDef[] = useMemo(
     () => [
       ...(showDescription ? [{ key: "description", label: "Description" }] : []),
@@ -316,6 +318,52 @@ export function StockTable({
   const eventLabelById = useMemo(() => new Map((events ?? []).map((e) => [e.id, e.label])), [events]);
   const eventDateById = useMemo(() => new Map((events ?? []).map((e) => [e.id, e.dateEvenement])), [events]);
 
+  function sortValueFor(key: string, it: StockRow): string | number | null {
+    if (key.startsWith("custom:")) {
+      const fieldKey = key.slice("custom:".length);
+      const f = fields.find((fd) => fd.key === fieldKey);
+      const raw = it.customValues?.[fieldKey] ?? null;
+      if (f?.fieldType === "NUMBER") return raw !== null ? Number(raw) : null;
+      return raw;
+    }
+    switch (key) {
+      case "description":
+        return it.description;
+      case "source":
+        return it.source;
+      case "evenement":
+        return it.eventId ? eventLabelById.get(it.eventId) ?? null : null;
+      case "qty":
+        return it.qty;
+      case "coutAchat":
+        return it.coutAchatUnit;
+      case "prixCible":
+        return it.prixCibleVente;
+      case "marge":
+        return it.prixCibleVente !== null ? it.qty * (it.prixCibleVente - it.coutAchatUnit) : null;
+      case "priorite": {
+        const auto = it.eventId ? autoPrioriteFromDate(eventDateById.get(it.eventId) ?? null) : null;
+        return auto ?? it.priorite;
+      }
+      case "recu":
+        return it.recu === null ? null : it.recu ? 1 : 0;
+      case "tvaAchat":
+        return it.tauxTvaAchat;
+      case "tvaDed":
+        return it.tauxTvaAchat > 0 ? it.qty * it.coutAchatUnit * (it.tauxTvaAchat / (100 + it.tauxTvaAchat)) : 0;
+      case "dateVente":
+        return it.dateVente;
+      case "dateEncaissement":
+        return it.dateEncaissement;
+      case "statut":
+        return it.statut;
+      case "compteEmail":
+        return it.compteEmail;
+      default:
+        return null;
+    }
+  }
+
   const filtered = useMemo(() => {
     const result = items.filter((it) => {
       if (!showSold && it.statut === "VENDU") return false;
@@ -337,7 +385,13 @@ export function StockTable({
       return haystack.includes(normalizeForSearch(search));
     });
 
-    if (events && sortMode === "evenement") {
+    if (columnSort) {
+      const { key, dir } = columnSort;
+      result.sort((a, b) => {
+        const cmp = compareValues(sortValueFor(key, a), sortValueFor(key, b));
+        return dir === "asc" ? cmp : -cmp;
+      });
+    } else if (events && sortMode === "evenement") {
       result.sort((a, b) => {
         const la = a.eventId ? eventLabelById.get(a.eventId) ?? "" : "";
         const lb = b.eventId ? eventLabelById.get(b.eventId) ?? "" : "";
@@ -378,7 +432,7 @@ export function StockTable({
       return [...fresh, ...rest];
     }
     return result;
-  }, [items, showSold, search, eventLabelById, eventDateById, events, sortMode, newIds]);
+  }, [items, showSold, search, eventLabelById, eventDateById, events, sortMode, newIds, columnSort, fields]);
 
   // Rendre 50 lignes à la fois au lieu de centaines d'un coup évite de monter
   // des centaines de champs éditables en même temps (lent).
@@ -620,8 +674,16 @@ export function StockTable({
                 </TableHead>
                 <StickyTableHead className="min-w-32" stickyClassName={STICKY_COL}>Date achat</StickyTableHead>
                 {visibleOrderedKeys.map((key) => (
-                  <TableHead key={key} className={headClassName(key)}>
-                    {labelByKey.get(key)}
+                  <TableHead
+                    key={key}
+                    className={cn(headClassName(key), "cursor-pointer select-none hover:bg-muted/50")}
+                    onClick={() => toggleSort(key)}
+                  >
+                    <span className="flex items-center gap-1">
+                      {labelByKey.get(key)}
+                      {columnSort?.key === key &&
+                        (columnSort.dir === "asc" ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />)}
+                    </span>
                   </TableHead>
                 ))}
                 <TableHead className="w-10" />

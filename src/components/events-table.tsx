@@ -3,9 +3,10 @@
 import { useState, useTransition } from "react";
 import { useHorizontalWheelScroll } from "@/lib/use-horizontal-wheel-scroll";
 import { useColumnPrefs, type ColumnDef } from "@/lib/use-column-visibility";
+import { useColumnSort, compareValues } from "@/lib/use-column-sort";
 import { ColumnVisibilityMenu } from "@/components/column-visibility-menu";
 import { toast } from "sonner";
-import { Plus, MoreVertical, Trash2, Eye } from "lucide-react";
+import { Plus, MoreVertical, Trash2, Eye, ArrowUp, ArrowDown } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -76,6 +77,7 @@ export function EventsTable({
   const scrollRef = useHorizontalWheelScroll<HTMLDivElement>();
   const columnKeys = ["date", "lieuSalle", "enStock", "vendus", "ca", "benefice"];
   const { order, isVisible, toggle: toggleColumn, move: moveColumn } = useColumnPrefs("events", columnKeys);
+  const { sort: columnSort, toggleSort } = useColumnSort();
   const columns: ColumnDef[] = [
     { key: "date", label: "Date" },
     { key: "lieuSalle", label: "Lieu / Salle" },
@@ -116,10 +118,36 @@ export function EventsTable({
     }
   }
 
+  function sortValueFor(key: string, e: EventRow): string | number | null {
+    switch (key) {
+      case "date":
+        return e.dateEvenement;
+      case "lieuSalle":
+        return e.lieuSalle;
+      case "enStock":
+        return statsFor(e.id).nbEnStock;
+      case "vendus":
+        return statsFor(e.id).nbVendus;
+      case "ca":
+        return statsFor(e.id).ca;
+      case "benefice":
+        return statsFor(e.id).benefice;
+      default:
+        return null;
+    }
+  }
+
   const filtered = initialEvents.filter((e) => {
     if (!search.trim()) return true;
     return normalizeForSearch([e.name, e.lieuSalle, e.notes].join(" ")).includes(normalizeForSearch(search));
   });
+  if (columnSort) {
+    const { key, dir } = columnSort;
+    filtered.sort((a, b) => {
+      const cmp = compareValues(sortValueFor(key, a), sortValueFor(key, b));
+      return dir === "asc" ? cmp : -cmp;
+    });
+  }
 
   function handleAdd() {
     startTransition(async () => {
@@ -222,8 +250,16 @@ export function EventsTable({
                 </TableHead>
                 <StickyTableHead className="min-w-48" stickyClassName={STICKY_COL}>Nom</StickyTableHead>
                 {visibleOrderedKeys.map((key) => (
-                  <TableHead key={key} className={headClassName(key)}>
-                    {labelByKey.get(key)}
+                  <TableHead
+                    key={key}
+                    className={cn(headClassName(key), "cursor-pointer select-none hover:bg-muted/50")}
+                    onClick={() => toggleSort(key)}
+                  >
+                    <span className="flex items-center gap-1">
+                      {labelByKey.get(key)}
+                      {columnSort?.key === key &&
+                        (columnSort.dir === "asc" ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />)}
+                    </span>
                   </TableHead>
                 ))}
                 <TableHead className="w-10" />
