@@ -32,6 +32,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { InlineText, InlineTextArea, InlineNumber, InlineDate, InlineSelect } from "@/components/inline-field";
+import { CategoriePlacementField } from "@/components/categorie-placement-field";
 import { BulkAddStockDialog } from "@/components/bulk-add-stock-dialog";
 import { TablePagination } from "@/components/table-pagination";
 import { eur, TVA_RATES } from "@/lib/format";
@@ -223,6 +224,9 @@ export function StockTable({
       const fieldKey = key.slice("custom:".length);
       const f = fields.find((fd) => fd.key === fieldKey);
       if (!f) return null;
+      if (fieldKey === "categoriePlacement") {
+        return <CategoriePlacementField value={it.customValues?.[f.key] ?? ""} onSave={saveCustom(it.id, f.key)} />;
+      }
       return f.fieldType === "DATE" ? (
         <InlineDate value={it.customValues?.[f.key] ?? ""} onSave={saveCustom(it.id, f.key)} />
       ) : f.fieldType === "NUMBER" ? (
@@ -849,7 +853,9 @@ export function StockTable({
                     </Field>
                     {fields.map((f) => (
                       <Field key={f.id} label={f.label}>
-                        {f.fieldType === "DATE" ? (
+                        {f.key === "categoriePlacement" ? (
+                          <CategoriePlacementField value={it.customValues?.[f.key] ?? ""} onSave={saveCustom(it.id, f.key)} />
+                        ) : f.fieldType === "DATE" ? (
                           <InlineDate value={it.customValues?.[f.key] ?? ""} onSave={saveCustom(it.id, f.key)} />
                         ) : f.fieldType === "NUMBER" ? (
                           <InlineNumber

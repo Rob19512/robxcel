@@ -35,6 +35,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { InlineTextArea, InlineNumber, InlineDate, InlineSelect } from "@/components/inline-field";
+import { CategoriePlacementField } from "@/components/categorie-placement-field";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { BulkDeleteButton } from "@/components/bulk-delete-button";
@@ -199,6 +200,9 @@ export function SalesTable({
       const fieldKey = key.slice("custom:".length);
       const f = fields.find((fd) => fd.key === fieldKey);
       if (!f) return null;
+      if (fieldKey === "categoriePlacement") {
+        return <CategoriePlacementField value={s.customValues?.[f.key] ?? ""} onSave={saveCustom(s.id, f.key)} />;
+      }
       return f.fieldType === "DATE" ? (
         <InlineDate value={s.customValues?.[f.key] ?? ""} onSave={saveCustom(s.id, f.key)} />
       ) : f.fieldType === "NUMBER" ? (
@@ -764,7 +768,12 @@ export function SalesTable({
                   </Field>
                   {fields.map((f) => (
                     <Field key={f.id} label={f.label}>
-                      {f.fieldType === "DATE" ? (
+                      {f.key === "categoriePlacement" ? (
+                        <CategoriePlacementField
+                          value={s.customValues?.[f.key] ?? ""}
+                          onSave={saveCustom(s.id, f.key)}
+                        />
+                      ) : f.fieldType === "DATE" ? (
                         <InlineDate
                           value={s.customValues?.[f.key] ?? ""}
                           onSave={saveCustom(s.id, f.key)}
