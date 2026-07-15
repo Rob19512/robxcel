@@ -242,10 +242,13 @@ export function EventsTable({
     const benefice =
       eventSales.reduce((sum, s) => sum + (s.qty * s.prixVenteUnit - s.qty * s.coutAchatUnit), 0) +
       pending.reduce((sum, s) => sum + (s.qty * (s.prixCibleVente ?? 0) - s.qty * s.coutAchatUnit), 0);
-    // Valeur retail = tout au prix de vente visé (stock + en attente) ou réellement obtenu
-    // (ventes déjà encaissées), pour voir la valeur totale du lot qu'il soit vendu ou non.
+    // Valeur retail = tout au prix de vente visé (stock + en attente, non encore facturé)
+    // ou réellement obtenu (ventes), pour voir la valeur totale du lot qu'il soit vendu ou
+    // non - on exclut les StockItem "VENDU" du 1er terme car ils ont déjà leur propre Sale
+    // (sinon un billet totalement vendu était compté deux fois : stock ET vente).
     const retail =
-      eventStock.reduce((sum, s) => sum + s.qty * (s.prixCibleVente ?? 0), 0) +
+      trueEnStock.reduce((sum, s) => sum + s.qty * (s.prixCibleVente ?? 0), 0) +
+      pending.reduce((sum, s) => sum + s.qty * (s.prixCibleVente ?? 0), 0) +
       eventSales.reduce((sum, s) => sum + s.qty * s.prixVenteUnit, 0);
 
     return { nbEnStock, nbVendus, ca, benefice, retail };
@@ -307,7 +310,9 @@ export function EventsTable({
             <span className="text-sm font-medium">
               {selectedIds.size > 0
                 ? `${selectedIds.size} événement${selectedIds.size > 1 ? "s" : ""} sélectionné${selectedIds.size > 1 ? "s" : ""}`
-                : `${summaryStats.count} événement${summaryStats.count > 1 ? "s" : ""} affiché${summaryStats.count > 1 ? "s" : ""}`}
+                : folderFilter && folderNameById.get(folderFilter)
+                  ? folderNameById.get(folderFilter)
+                  : `${summaryStats.count} événement${summaryStats.count > 1 ? "s" : ""} affiché${summaryStats.count > 1 ? "s" : ""}`}
             </span>
             <div className="flex flex-wrap gap-6">
               <div>
