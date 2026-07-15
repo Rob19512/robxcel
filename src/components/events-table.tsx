@@ -86,7 +86,7 @@ export function EventsTable({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
   const scrollRef = useHorizontalWheelScroll<HTMLDivElement>();
-  const columnKeys = ["dossier", "date", "lieuSalle", "enStock", "vendus", "ca", "benefice"];
+  const columnKeys = ["dossier", "date", "lieuSalle", "vendus", "ca", "benefice"];
   const { order, isVisible, toggle: toggleColumn, move: moveColumn } = useColumnPrefs("events", columnKeys);
   const { sort: columnSort, toggleSort } = useColumnSort();
   const folderNameById = new Map(folders.map((f) => [f.id, f.name]));
@@ -95,7 +95,6 @@ export function EventsTable({
     { key: "dossier", label: "Dossier" },
     { key: "date", label: "Date" },
     { key: "lieuSalle", label: "Lieu / Salle" },
-    { key: "enStock", label: "En stock" },
     { key: "vendus", label: "Vendus" },
     { key: "ca", label: "CA réalisé" },
     { key: "benefice", label: "Bénéfice" },
@@ -107,7 +106,6 @@ export function EventsTable({
       dossier: "min-w-40",
       date: "min-w-32",
       lieuSalle: "min-w-48",
-      enStock: "min-w-28",
       vendus: "min-w-28",
       ca: "min-w-28",
       benefice: "min-w-28",
@@ -122,14 +120,12 @@ export function EventsTable({
         return <InlineDate value={e.dateEvenement ?? ""} onSave={saveField(e.id, "dateEvenement")} />;
       case "lieuSalle":
         return <InlineText value={e.lieuSalle ?? ""} onSave={saveField(e.id, "lieuSalle")} />;
-      case "enStock":
-        return stats.nbEnStock;
       case "vendus":
-        return stats.nbVendus;
+        return `${stats.nbVendus}/${stats.nbVendus + stats.nbEnStock}`;
       case "ca":
         return eur.format(stats.ca);
       case "benefice":
-        return eur.format(stats.benefice);
+        return <span className="text-emerald-600 dark:text-emerald-500">{eur.format(stats.benefice)}</span>;
       default:
         return null;
     }
@@ -145,8 +141,6 @@ export function EventsTable({
         return e.dateEvenement;
       case "lieuSalle":
         return e.lieuSalle;
-      case "enStock":
-        return statsFor(e.id).nbEnStock;
       case "vendus":
         return statsFor(e.id).nbVendus;
       case "ca":
@@ -258,15 +252,16 @@ export function EventsTable({
   }
 
   // Cumul du bénéf/CA sur les événements cochés (ex : tous les matchs d'une compétition)
-  // pour répondre à "combien j'ai gagné sur la Coupe du monde" sans calcul à la main.
-  const selectionStats = useMemo(() => {
-    if (selectedIds.size === 0) return null;
+  // Par défaut (rien de coché), le total porte sur tout ce qui est actuellement filtré
+  // (recherche/dossier) ; cocher des lignes permet de le restreindre à un sous-ensemble.
+  const summaryStats = useMemo(() => {
+    const ids = selectedIds.size > 0 ? Array.from(selectedIds) : filtered.map((e) => e.id);
     let nbEnStock = 0;
     let nbVendus = 0;
     let ca = 0;
     let benefice = 0;
     let retail = 0;
-    for (const id of selectedIds) {
+    for (const id of ids) {
       const s = statsFor(id);
       nbEnStock += s.nbEnStock;
       nbVendus += s.nbVendus;
@@ -274,9 +269,9 @@ export function EventsTable({
       benefice += s.benefice;
       retail += s.retail;
     }
-    return { nbEnStock, nbVendus, ca, benefice, retail };
+    return { count: ids.length, nbEnStock, nbVendus, ca, benefice, retail };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedIds, stockItems, sales]);
+  }, [selectedIds, filtered, stockItems, sales]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -306,35 +301,34 @@ export function EventsTable({
         </span>
       </div>
 
-      {selectionStats && (
+      {summaryStats.count > 0 && (
         <Card className="border-primary/40 bg-primary/5">
           <CardContent className="flex flex-wrap items-center gap-6 py-4">
             <span className="text-sm font-medium">
-              {selectedIds.size} événement{selectedIds.size > 1 ? "s" : ""} sélectionné
-              {selectedIds.size > 1 ? "s" : ""}
+              {selectedIds.size > 0
+                ? `${selectedIds.size} événement${selectedIds.size > 1 ? "s" : ""} sélectionné${selectedIds.size > 1 ? "s" : ""}`
+                : `${summaryStats.count} événement${summaryStats.count > 1 ? "s" : ""} affiché${summaryStats.count > 1 ? "s" : ""}`}
             </span>
             <div className="flex flex-wrap gap-6">
               <div>
-                <p className="text-lg font-semibold tabular-nums">{eur.format(selectionStats.retail)}</p>
+                <p className="text-lg font-semibold tabular-nums">{eur.format(summaryStats.retail)}</p>
                 <p className="text-xs text-muted-foreground">Retail total</p>
               </div>
               <div>
-                <p className="text-lg font-semibold tabular-nums">{eur.format(selectionStats.ca)}</p>
+                <p className="text-lg font-semibold tabular-nums">{eur.format(summaryStats.ca)}</p>
                 <p className="text-xs text-muted-foreground">CA total</p>
               </div>
               <div>
                 <p className="text-lg font-semibold tabular-nums text-emerald-600 dark:text-emerald-500">
-                  {eur.format(selectionStats.benefice)}
+                  {eur.format(summaryStats.benefice)}
                 </p>
                 <p className="text-xs text-muted-foreground">Bénéf. total</p>
               </div>
               <div>
-                <p className="text-lg font-semibold tabular-nums">{selectionStats.nbVendus}</p>
+                <p className="text-lg font-semibold tabular-nums">
+                  {summaryStats.nbVendus}/{summaryStats.nbVendus + summaryStats.nbEnStock}
+                </p>
                 <p className="text-xs text-muted-foreground">Vendus</p>
-              </div>
-              <div>
-                <p className="text-lg font-semibold tabular-nums">{selectionStats.nbEnStock}</p>
-                <p className="text-xs text-muted-foreground">En stock</p>
               </div>
             </div>
           </CardContent>
@@ -394,7 +388,7 @@ export function EventsTable({
                       <TableCell
                         key={key}
                         className={cn(
-                          ["enStock", "vendus", "ca", "benefice"].includes(key) && "text-center tabular-nums",
+                          ["vendus", "ca", "benefice"].includes(key) && "text-center tabular-nums",
                           key === "benefice" && "font-medium"
                         )}
                       >
@@ -469,12 +463,10 @@ export function EventsTable({
                 </div>
                 <div className="grid grid-cols-2 gap-2 rounded-md bg-muted p-2 text-sm">
                   <div>
-                    <span className="text-muted-foreground">En stock</span>
-                    <p className="font-medium tabular-nums">{stats.nbEnStock}</p>
-                  </div>
-                  <div>
                     <span className="text-muted-foreground">Vendus</span>
-                    <p className="font-medium tabular-nums">{stats.nbVendus}</p>
+                    <p className="font-medium tabular-nums">
+                      {stats.nbVendus}/{stats.nbVendus + stats.nbEnStock}
+                    </p>
                   </div>
                   <div>
                     <span className="text-muted-foreground">CA réalisé</span>
@@ -482,7 +474,9 @@ export function EventsTable({
                   </div>
                   <div>
                     <span className="text-muted-foreground">Bénéfice</span>
-                    <p className="font-medium tabular-nums">{eur.format(stats.benefice)}</p>
+                    <p className="font-medium tabular-nums text-emerald-600 dark:text-emerald-500">
+                      {eur.format(stats.benefice)}
+                    </p>
                   </div>
                 </div>
               </CardContent>
