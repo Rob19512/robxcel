@@ -250,7 +250,7 @@ export function StockTable({
         );
       case "evenement":
         return (
-          <InlineSelect value={it.eventId ?? ""} options={eventOptionsFor(it.eventId)} placeholder="Événement" onSave={saveEvent(it.id)} />
+          <InlineSelect value={it.eventId ?? ""} options={eventOptionsSorted()} placeholder="Événement" onSave={saveEvent(it.id)} />
         );
       case "qty":
         return <InlineNumber value={it.qty} step="1" onSave={saveField(it.id, "qty")} />;
@@ -594,10 +594,13 @@ export function StockTable({
   // Les événements passés (date + 1 jour) ne sont plus proposés pour éviter de lier
   // un nouveau billet à un concert déjà terminé - mais un billet déjà lié à un
   // événement passé continue de l'afficher (juste retiré des NOUVEAUX choix).
-  function eventOptionsFor(currentEventId: string | null) {
-    return (events ?? [])
-      .filter((e) => e.id === currentEventId || !isEventPast(e.dateEvenement))
-      .map((e) => ({ value: e.id, label: e.label }));
+  // Les événements à venir passent en premier (moins de défilement pour l'usage courant),
+  // mais les événements passés restent dans la liste - pour pouvoir corriger un billet où
+  // l'événement avait été oublié avant que la date ne passe.
+  function eventOptionsSorted() {
+    const upcoming = (events ?? []).filter((e) => !isEventPast(e.dateEvenement));
+    const past = (events ?? []).filter((e) => isEventPast(e.dateEvenement));
+    return [...upcoming, ...past].map((e) => ({ value: e.id, label: e.label }));
   }
 
   function handleExport() {
@@ -868,7 +871,7 @@ export function StockTable({
                       <Field label="Événement">
                         <InlineSelect
                           value={it.eventId ?? ""}
-                          options={eventOptionsFor(it.eventId)}
+                          options={eventOptionsSorted()}
                           placeholder="Événement"
                           onSave={saveEvent(it.id)}
                         />

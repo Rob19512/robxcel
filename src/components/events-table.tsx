@@ -65,6 +65,11 @@ export type EventRow = {
 
 export type EventFolderOption = { id: string; name: string };
 
+function formatRoi(roi: number | null): string {
+  if (roi === null) return "—";
+  return `${roi >= 0 ? "+" : ""}${roi.toFixed(0)} %`;
+}
+
 export function EventsTable({
   categoryId,
   path,
@@ -125,7 +130,11 @@ export function EventsTable({
       case "ca":
         return eur.format(stats.ca);
       case "benefice":
-        return <span className="text-emerald-600 dark:text-emerald-500">{eur.format(stats.benefice)}</span>;
+        return (
+          <span className="text-emerald-600 dark:text-emerald-500">
+            {eur.format(stats.benefice)} <span className="text-xs">({formatRoi(stats.roi)})</span>
+          </span>
+        );
       default:
         return null;
     }
@@ -242,6 +251,12 @@ export function EventsTable({
     const benefice =
       eventSales.reduce((sum, s) => sum + (s.qty * s.prixVenteUnit - s.qty * s.coutAchatUnit), 0) +
       pending.reduce((sum, s) => sum + (s.qty * (s.prixCibleVente ?? 0) - s.qty * s.coutAchatUnit), 0);
+    // ROI = bénéfice rapporté au coût d'achat de ce qui est vendu (combien j'ai gagné pour
+    // chaque euro investi) - null si rien n'est encore vendu (pas de coût à rapporter).
+    const coutVendu =
+      eventSales.reduce((sum, s) => sum + s.qty * s.coutAchatUnit, 0) +
+      pending.reduce((sum, s) => sum + s.qty * s.coutAchatUnit, 0);
+    const roi = coutVendu > 0 ? (benefice / coutVendu) * 100 : null;
     // Valeur retail = tout au prix de vente visé (stock + en attente, non encore facturé)
     // ou réellement obtenu (ventes), pour voir la valeur totale du lot qu'il soit vendu ou
     // non - on exclut les StockItem "VENDU" du 1er terme car ils ont déjà leur propre Sale
@@ -251,7 +266,7 @@ export function EventsTable({
       pending.reduce((sum, s) => sum + s.qty * (s.prixCibleVente ?? 0), 0) +
       eventSales.reduce((sum, s) => sum + s.qty * s.prixVenteUnit, 0);
 
-    return { nbEnStock, nbVendus, ca, benefice, retail };
+    return { nbEnStock, nbVendus, ca, benefice, retail, coutVendu, roi };
   }
 
   // Cumul du bénéf/CA sur les événements cochés (ex : tous les matchs d'une compétition)
@@ -264,6 +279,7 @@ export function EventsTable({
     let ca = 0;
     let benefice = 0;
     let retail = 0;
+    let coutVendu = 0;
     for (const id of ids) {
       const s = statsFor(id);
       nbEnStock += s.nbEnStock;
@@ -271,8 +287,12 @@ export function EventsTable({
       ca += s.ca;
       benefice += s.benefice;
       retail += s.retail;
+      coutVendu += s.coutVendu;
     }
-    return { count: ids.length, nbEnStock, nbVendus, ca, benefice, retail };
+    // Le ROI global se recalcule sur les totaux cumulés, jamais comme une moyenne des
+    // ROI par événement (sinon un petit événement pèserait autant qu'un gros).
+    const roi = coutVendu > 0 ? (benefice / coutVendu) * 100 : null;
+    return { count: ids.length, nbEnStock, nbVendus, ca, benefice, retail, roi };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedIds, filtered, stockItems, sales]);
 
@@ -325,9 +345,10 @@ export function EventsTable({
               </div>
               <div>
                 <p className="text-lg font-semibold tabular-nums text-emerald-600 dark:text-emerald-500">
-                  {eur.format(summaryStats.benefice)}
+                  {eur.format(summaryStats.benefice)}{" "}
+                  <span className="text-sm">({formatRoi(summaryStats.roi)})</span>
                 </p>
-                <p className="text-xs text-muted-foreground">Bénéf. total</p>
+                <p className="text-xs text-muted-foreground">Bénéf. total (ROI)</p>
               </div>
               <div>
                 <p className="text-lg font-semibold tabular-nums">
@@ -478,9 +499,9 @@ export function EventsTable({
                     <p className="font-medium tabular-nums">{eur.format(stats.ca)}</p>
                   </div>
                   <div>
-                    <span className="text-muted-foreground">Bénéfice</span>
+                    <span className="text-muted-foreground">Bénéfice (ROI)</span>
                     <p className="font-medium tabular-nums text-emerald-600 dark:text-emerald-500">
-                      {eur.format(stats.benefice)}
+                      {eur.format(stats.benefice)} <span className="text-xs">({formatRoi(stats.roi)})</span>
                     </p>
                   </div>
                 </div>

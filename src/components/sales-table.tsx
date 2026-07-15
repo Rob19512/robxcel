@@ -232,7 +232,7 @@ export function SalesTable({
         );
       case "evenement":
         return (
-          <InlineSelect value={s.eventId ?? ""} options={eventOptionsFor(s.eventId)} placeholder="Événement" onSave={saveEvent(s.id)} />
+          <InlineSelect value={s.eventId ?? ""} options={eventOptionsSorted()} placeholder="Événement" onSave={saveEvent(s.id)} />
         );
       case "description":
         return (
@@ -548,10 +548,13 @@ export function SalesTable({
     return (value: string) => updateSaleEventId(id, path, value || null);
   }
 
-  function eventOptionsFor(currentEventId: string | null) {
-    return (events ?? [])
-      .filter((e) => e.id === currentEventId || !isEventPast(e.dateEvenement))
-      .map((e) => ({ value: e.id, label: e.label }));
+  // Les événements à venir passent en premier (moins de défilement pour l'usage courant),
+  // mais les événements passés restent dans la liste - pour pouvoir corriger une vente où
+  // l'événement avait été oublié avant que la date ne passe.
+  function eventOptionsSorted() {
+    const upcoming = (events ?? []).filter((e) => !isEventPast(e.dateEvenement));
+    const past = (events ?? []).filter((e) => isEventPast(e.dateEvenement));
+    return [...upcoming, ...past].map((e) => ({ value: e.id, label: e.label }));
   }
 
   return (
@@ -768,7 +771,7 @@ export function SalesTable({
                     <Field label="Événement">
                       <InlineSelect
                         value={s.eventId ?? ""}
-                        options={eventOptionsFor(s.eventId)}
+                        options={eventOptionsSorted()}
                         placeholder="Événement"
                         onSave={saveEvent(s.id)}
                       />
