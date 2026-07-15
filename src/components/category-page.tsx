@@ -98,6 +98,7 @@ export async function CategoryPageContent({
               trackPriorite={category.trackPriorite}
               trackRecu={category.trackRecu}
               events={category.trackEvents ? eventOptions : undefined}
+              folders={category.trackEvents ? eventFolders.map((f) => ({ id: f.id, name: f.name })) : undefined}
               showDescription={category.showDescription}
               showCompteEmail={category.showCompteEmail}
             />

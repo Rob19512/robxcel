@@ -35,6 +35,7 @@ import {
 import { InlineText, InlineTextArea, InlineNumber, InlineDate, InlineSelect } from "@/components/inline-field";
 import { CategoriePlacementField } from "@/components/categorie-placement-field";
 import { BulkAddStockDialog } from "@/components/bulk-add-stock-dialog";
+import { CreateListingDialog } from "@/components/create-listing-dialog";
 import { TablePagination } from "@/components/table-pagination";
 import { eur, TVA_RATES } from "@/lib/format";
 import { downloadCsv } from "@/lib/export-csv";
@@ -126,6 +127,7 @@ export function StockTable({
   trackPriorite,
   trackRecu,
   events,
+  folders,
   hideAddButtons,
   showDescription = true,
   showCompteEmail = true,
@@ -138,6 +140,7 @@ export function StockTable({
   trackPriorite: boolean;
   trackRecu: boolean;
   events?: EventOption[];
+  folders?: { id: string; name: string }[];
   hideAddButtons?: boolean;
   showDescription?: boolean;
   showCompteEmail?: boolean;
@@ -640,6 +643,15 @@ export function StockTable({
               trackRecu={trackRecu}
               events={events}
             />
+            {events && (
+              <CreateListingDialog
+                categoryId={categoryId}
+                path={path}
+                events={events}
+                folders={folders ?? []}
+                sources={sources}
+              />
+            )}
           </>
         )}
         <Input

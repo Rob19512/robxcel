@@ -47,6 +47,7 @@ import {
   bulkDeleteEvents,
   updateEventFolder,
   createEventFolder,
+  renameEventFolder,
   deleteEventFolder,
   type EventField,
 } from "@/lib/actions/event-actions";
@@ -230,16 +231,30 @@ export function EventsTable({
   }
 
   function statsFor(eventId: string) {
-    const enStock = stockItems.filter((s) => s.eventId === eventId && s.statut !== "VENDU");
-    const nbEnStock = enStock.reduce((sum, s) => sum + s.qty, 0);
+    const eventStock = stockItems.filter((s) => s.eventId === eventId);
+    // "En attente" = déjà vendu, juste pas encore encaissé (n'existe qu'en StockItem
+    // tant que l'encaissement n'est pas saisi) : ça compte comme "vendu", pas "en stock".
+    const trueEnStock = eventStock.filter((s) => s.statut === "EN_STOCK");
+    const pending = eventStock.filter((s) => s.statut === "EN_ATTENTE");
+    const nbEnStock = trueEnStock.reduce((sum, s) => sum + s.qty, 0);
+
     const eventSales = sales.filter((s) => s.eventId === eventId);
-    const nbVendus = eventSales.reduce((sum, s) => sum + s.qty, 0);
-    const ca = eventSales.reduce((sum, s) => sum + s.qty * s.prixVenteUnit, 0);
-    const benefice = eventSales.reduce(
-      (sum, s) => sum + (s.qty * s.prixVenteUnit - s.qty * s.coutAchatUnit),
-      0
-    );
-    return { nbEnStock, nbVendus, ca, benefice };
+
+    const nbVendus =
+      eventSales.reduce((sum, s) => sum + s.qty, 0) + pending.reduce((sum, s) => sum + s.qty, 0);
+    const ca =
+      eventSales.reduce((sum, s) => sum + s.qty * s.prixVenteUnit, 0) +
+      pending.reduce((sum, s) => sum + s.qty * (s.prixCibleVente ?? 0), 0);
+    const benefice =
+      eventSales.reduce((sum, s) => sum + (s.qty * s.prixVenteUnit - s.qty * s.coutAchatUnit), 0) +
+      pending.reduce((sum, s) => sum + (s.qty * (s.prixCibleVente ?? 0) - s.qty * s.coutAchatUnit), 0);
+    // Valeur retail = tout au prix de vente visé (stock + en attente) ou réellement obtenu
+    // (ventes déjà encaissées), pour voir la valeur totale du lot qu'il soit vendu ou non.
+    const retail =
+      eventStock.reduce((sum, s) => sum + s.qty * (s.prixCibleVente ?? 0), 0) +
+      eventSales.reduce((sum, s) => sum + s.qty * s.prixVenteUnit, 0);
+
+    return { nbEnStock, nbVendus, ca, benefice, retail };
   }
 
   // Cumul du bénéf/CA sur les événements cochés (ex : tous les matchs d'une compétition)
@@ -250,14 +265,16 @@ export function EventsTable({
     let nbVendus = 0;
     let ca = 0;
     let benefice = 0;
+    let retail = 0;
     for (const id of selectedIds) {
       const s = statsFor(id);
       nbEnStock += s.nbEnStock;
       nbVendus += s.nbVendus;
       ca += s.ca;
       benefice += s.benefice;
+      retail += s.retail;
     }
-    return { nbEnStock, nbVendus, ca, benefice };
+    return { nbEnStock, nbVendus, ca, benefice, retail };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedIds, stockItems, sales]);
 
@@ -279,6 +296,7 @@ export function EventsTable({
           activeFolderId={folderFilter}
           onFilterChange={setFolderFilter}
           onCreate={(name) => createEventFolder(categoryId, path, name)}
+          onRename={(id, name) => renameEventFolder(id, path, name)}
           onDelete={(id) => deleteEventFolder(id, path)}
         />
         <ColumnVisibilityMenu columns={columns} order={order} isVisible={isVisible} toggle={toggleColumn} move={moveColumn} />
@@ -297,22 +315,26 @@ export function EventsTable({
             </span>
             <div className="flex flex-wrap gap-6">
               <div>
-                <p className="text-lg font-semibold tabular-nums">{selectionStats.nbEnStock}</p>
-                <p className="text-xs text-muted-foreground">En stock</p>
+                <p className="text-lg font-semibold tabular-nums">{eur.format(selectionStats.retail)}</p>
+                <p className="text-xs text-muted-foreground">Retail total</p>
+              </div>
+              <div>
+                <p className="text-lg font-semibold tabular-nums">{eur.format(selectionStats.ca)}</p>
+                <p className="text-xs text-muted-foreground">CA total</p>
+              </div>
+              <div>
+                <p className="text-lg font-semibold tabular-nums text-emerald-600 dark:text-emerald-500">
+                  {eur.format(selectionStats.benefice)}
+                </p>
+                <p className="text-xs text-muted-foreground">Bénéf. total</p>
               </div>
               <div>
                 <p className="text-lg font-semibold tabular-nums">{selectionStats.nbVendus}</p>
                 <p className="text-xs text-muted-foreground">Vendus</p>
               </div>
               <div>
-                <p className="text-lg font-semibold tabular-nums">{eur.format(selectionStats.ca)}</p>
-                <p className="text-xs text-muted-foreground">CA réalisé</p>
-              </div>
-              <div>
-                <p className="text-lg font-semibold tabular-nums text-emerald-600 dark:text-emerald-500">
-                  {eur.format(selectionStats.benefice)}
-                </p>
-                <p className="text-xs text-muted-foreground">Bénéfice</p>
+                <p className="text-lg font-semibold tabular-nums">{selectionStats.nbEnStock}</p>
+                <p className="text-xs text-muted-foreground">En stock</p>
               </div>
             </div>
           </CardContent>

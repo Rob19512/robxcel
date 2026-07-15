@@ -18,6 +18,24 @@ export async function createEvent(categoryId: string, path: string) {
   revalidatePath(path);
 }
 
+export async function createEventWithDetails(
+  categoryId: string,
+  path: string,
+  data: { name: string; dateEvenement: string | null; lieuSalle: string | null; folderId: string | null }
+) {
+  const event = await prisma.event.create({
+    data: {
+      categoryId,
+      name: data.name.trim() || "Nouvel événement",
+      dateEvenement: toDate(data.dateEvenement),
+      lieuSalle: data.lieuSalle?.trim() || null,
+      folderId: data.folderId,
+    },
+  });
+  revalidatePath(path);
+  return event.id;
+}
+
 export async function updateEventField(
   id: string,
   path: string,

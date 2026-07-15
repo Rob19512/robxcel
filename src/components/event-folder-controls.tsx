@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { FolderPlus, FolderX } from "lucide-react";
+import { FolderPlus, FolderX, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,17 +29,23 @@ export function EventFolderControls({
   activeFolderId,
   onFilterChange,
   onCreate,
+  onRename,
   onDelete,
 }: {
   folders: EventFolderOption[];
   activeFolderId: string | null;
   onFilterChange: (folderId: string | null) => void;
   onCreate: (name: string) => Promise<string>;
+  onRename: (folderId: string, name: string) => Promise<void>;
   onDelete: (folderId: string) => Promise<void>;
 }) {
-  const [open, setOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
   const [name, setName] = useState("");
+  const [renameOpen, setRenameOpen] = useState(false);
+  const [renameValue, setRenameValue] = useState("");
   const [isPending, setIsPending] = useState(false);
+
+  const activeFolder = folders.find((f) => f.id === activeFolderId);
 
   async function handleCreate() {
     if (!name.trim()) return;
@@ -47,11 +53,31 @@ export function EventFolderControls({
     try {
       const id = await onCreate(name);
       toast.success("Dossier créé");
-      setOpen(false);
+      setCreateOpen(false);
       setName("");
       onFilterChange(id);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Impossible de créer le dossier");
+    } finally {
+      setIsPending(false);
+    }
+  }
+
+  function openRename() {
+    if (!activeFolder) return;
+    setRenameValue(activeFolder.name);
+    setRenameOpen(true);
+  }
+
+  async function handleRename() {
+    if (!activeFolderId || !renameValue.trim()) return;
+    setIsPending(true);
+    try {
+      await onRename(activeFolderId, renameValue);
+      toast.success("Dossier renommé");
+      setRenameOpen(false);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Impossible de renommer le dossier");
     } finally {
       setIsPending(false);
     }
@@ -86,16 +112,21 @@ export function EventFolderControls({
           ))}
         </SelectContent>
       </Select>
-      <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+      <Button variant="outline" size="sm" onClick={() => setCreateOpen(true)}>
         <FolderPlus />
         Nouveau dossier
       </Button>
       {activeFolderId && (
-        <Button variant="outline" size="sm" onClick={handleDelete} title="Supprimer ce dossier">
-          <FolderX />
-        </Button>
+        <>
+          <Button variant="outline" size="sm" onClick={openRename} title="Renommer ce dossier">
+            <Pencil />
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleDelete} title="Supprimer ce dossier">
+            <FolderX />
+          </Button>
+        </>
       )}
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Nouveau dossier</DialogTitle>
@@ -118,6 +149,28 @@ export function EventFolderControls({
             <DialogClose render={<Button variant="outline" />}>Annuler</DialogClose>
             <Button onClick={handleCreate} disabled={isPending || !name.trim()}>
               Créer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={renameOpen} onOpenChange={setRenameOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Renommer le dossier</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="folder-rename">Nom du dossier</Label>
+            <Input
+              id="folder-rename"
+              value={renameValue}
+              onChange={(e) => setRenameValue(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleRename()}
+            />
+          </div>
+          <DialogFooter>
+            <DialogClose render={<Button variant="outline" />}>Annuler</DialogClose>
+            <Button onClick={handleRename} disabled={isPending || !renameValue.trim()}>
+              Renommer
             </Button>
           </DialogFooter>
         </DialogContent>
