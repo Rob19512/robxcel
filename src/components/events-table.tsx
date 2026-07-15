@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useHorizontalWheelScroll } from "@/lib/use-horizontal-wheel-scroll";
 import { useColumnPrefs, type ColumnDef } from "@/lib/use-column-visibility";
 import { useColumnSort, compareValues } from "@/lib/use-column-sort";
@@ -217,6 +217,25 @@ export function EventsTable({
     return { nbEnStock, nbVendus, ca, benefice };
   }
 
+  // Cumul du bénéf/CA sur les événements cochés (ex : tous les matchs d'une compétition)
+  // pour répondre à "combien j'ai gagné sur la Coupe du monde" sans calcul à la main.
+  const selectionStats = useMemo(() => {
+    if (selectedIds.size === 0) return null;
+    let nbEnStock = 0;
+    let nbVendus = 0;
+    let ca = 0;
+    let benefice = 0;
+    for (const id of selectedIds) {
+      const s = statsFor(id);
+      nbEnStock += s.nbEnStock;
+      nbVendus += s.nbVendus;
+      ca += s.ca;
+      benefice += s.benefice;
+    }
+    return { nbEnStock, nbVendus, ca, benefice };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedIds, stockItems, sales]);
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-2">
@@ -236,6 +255,37 @@ export function EventsTable({
           {filtered.length} événement{filtered.length > 1 ? "s" : ""}
         </span>
       </div>
+
+      {selectionStats && (
+        <Card className="border-primary/40 bg-primary/5">
+          <CardContent className="flex flex-wrap items-center gap-6 py-4">
+            <span className="text-sm font-medium">
+              {selectedIds.size} événement{selectedIds.size > 1 ? "s" : ""} sélectionné
+              {selectedIds.size > 1 ? "s" : ""}
+            </span>
+            <div className="flex flex-wrap gap-6">
+              <div>
+                <p className="text-lg font-semibold tabular-nums">{selectionStats.nbEnStock}</p>
+                <p className="text-xs text-muted-foreground">En stock</p>
+              </div>
+              <div>
+                <p className="text-lg font-semibold tabular-nums">{selectionStats.nbVendus}</p>
+                <p className="text-xs text-muted-foreground">Vendus</p>
+              </div>
+              <div>
+                <p className="text-lg font-semibold tabular-nums">{eur.format(selectionStats.ca)}</p>
+                <p className="text-xs text-muted-foreground">CA réalisé</p>
+              </div>
+              <div>
+                <p className="text-lg font-semibold tabular-nums text-emerald-600 dark:text-emerald-500">
+                  {eur.format(selectionStats.benefice)}
+                </p>
+                <p className="text-xs text-muted-foreground">Bénéfice</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Desktop table */}
       <Card className="hidden overflow-hidden py-0 md:block">
