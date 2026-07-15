@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import { useHorizontalWheelScroll } from "@/lib/use-horizontal-wheel-scroll";
 import { useColumnPrefs, type ColumnDef } from "@/lib/use-column-visibility";
 import { useColumnSort, compareValues } from "@/lib/use-column-sort";
+import { isEventPast } from "@/lib/event-utils";
 import { ColumnVisibilityMenu } from "@/components/column-visibility-menu";
 import { toast } from "sonner";
 import { Plus, MoreVertical, Copy, Trash2, PackageCheck, CheckCircle2, Download, ChevronDown, ArrowUp, ArrowDown } from "lucide-react";
@@ -246,7 +247,7 @@ export function StockTable({
         );
       case "evenement":
         return (
-          <InlineSelect value={it.eventId ?? ""} options={eventOptions} placeholder="Événement" onSave={saveEvent(it.id)} />
+          <InlineSelect value={it.eventId ?? ""} options={eventOptionsFor(it.eventId)} placeholder="Événement" onSave={saveEvent(it.id)} />
         );
       case "qty":
         return <InlineNumber value={it.qty} step="1" onSave={saveField(it.id, "qty")} />;
@@ -587,7 +588,14 @@ export function StockTable({
     return (value: string) => updateStockEventId(id, path, value || null);
   }
 
-  const eventOptions = (events ?? []).map((e) => ({ value: e.id, label: e.label }));
+  // Les événements passés (date + 1 jour) ne sont plus proposés pour éviter de lier
+  // un nouveau billet à un concert déjà terminé - mais un billet déjà lié à un
+  // événement passé continue de l'afficher (juste retiré des NOUVEAUX choix).
+  function eventOptionsFor(currentEventId: string | null) {
+    return (events ?? [])
+      .filter((e) => e.id === currentEventId || !isEventPast(e.dateEvenement))
+      .map((e) => ({ value: e.id, label: e.label }));
+  }
 
   function handleExport() {
     downloadCsv(
@@ -777,7 +785,7 @@ export function StockTable({
           const prioriteEmoji = trackPriorite
             ? (PRIORITE_OPTIONS.find((o) => o.value === effectivePriorite)?.label ?? "🟡 Normal").split(" ")[0]
             : null;
-          const eventLabel = it.eventId ? eventOptions.find((e) => e.value === it.eventId)?.label : null;
+          const eventLabel = it.eventId ? eventLabelById.get(it.eventId) : null;
 
           return (
             <Card key={it.id} className="py-0">
@@ -848,7 +856,7 @@ export function StockTable({
                       <Field label="Événement">
                         <InlineSelect
                           value={it.eventId ?? ""}
-                          options={eventOptions}
+                          options={eventOptionsFor(it.eventId)}
                           placeholder="Événement"
                           onSave={saveEvent(it.id)}
                         />

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import { useHorizontalWheelScroll } from "@/lib/use-horizontal-wheel-scroll";
 import { useColumnPrefs, type ColumnDef } from "@/lib/use-column-visibility";
 import { useColumnSort, compareValues } from "@/lib/use-column-sort";
+import { isEventPast } from "@/lib/event-utils";
 import { ColumnVisibilityMenu } from "@/components/column-visibility-menu";
 import { toast } from "sonner";
 import { Plus, MoreVertical, Copy, Trash2, CheckCircle2, Download, ArrowUp, ArrowDown } from "lucide-react";
@@ -231,7 +232,7 @@ export function SalesTable({
         );
       case "evenement":
         return (
-          <InlineSelect value={s.eventId ?? ""} options={eventOptions} placeholder="Événement" onSave={saveEvent(s.id)} />
+          <InlineSelect value={s.eventId ?? ""} options={eventOptionsFor(s.eventId)} placeholder="Événement" onSave={saveEvent(s.id)} />
         );
       case "description":
         return (
@@ -547,7 +548,11 @@ export function SalesTable({
     return (value: string) => updateSaleEventId(id, path, value || null);
   }
 
-  const eventOptions = (events ?? []).map((e) => ({ value: e.id, label: e.label }));
+  function eventOptionsFor(currentEventId: string | null) {
+    return (events ?? [])
+      .filter((e) => e.id === currentEventId || !isEventPast(e.dateEvenement))
+      .map((e) => ({ value: e.id, label: e.label }));
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -763,7 +768,7 @@ export function SalesTable({
                     <Field label="Événement">
                       <InlineSelect
                         value={s.eventId ?? ""}
-                        options={eventOptions}
+                        options={eventOptionsFor(s.eventId)}
                         placeholder="Événement"
                         onSave={saveEvent(s.id)}
                       />
