@@ -252,14 +252,11 @@ export function EventsTable({
       eventSales.reduce((sum, s) => sum + s.qty * s.coutAchatUnit, 0) +
       pending.reduce((sum, s) => sum + s.qty * s.coutAchatUnit, 0);
     const roi = coutVendu > 0 ? (benefice / coutVendu) * 100 : null;
-    // Valeur retail = tout au prix de vente visé (stock + en attente, non encore facturé)
-    // ou réellement obtenu (ventes), pour voir la valeur totale du lot qu'il soit vendu ou
-    // non - on exclut les StockItem "VENDU" du 1er terme car ils ont déjà leur propre Sale
-    // (sinon un billet totalement vendu était compté deux fois : stock ET vente).
-    const retail =
-      trueEnStock.reduce((sum, s) => sum + s.qty * (s.prixCibleVente ?? 0), 0) +
-      pending.reduce((sum, s) => sum + s.qty * (s.prixCibleVente ?? 0), 0) +
-      eventSales.reduce((sum, s) => sum + s.qty * s.prixVenteUnit, 0);
+    // Retail total = coût d'achat total (tout ce qui a été investi dans ce lot, vendu ou
+    // non) - à comparer au CA (vente globale). Le coût vit uniquement sur le StockItem
+    // (repris tel quel sur la Sale au moment de la promotion), donc on somme eventStock
+    // sans jamais toucher aux Sales pour éviter tout double comptage.
+    const retail = eventStock.reduce((sum, s) => sum + s.qty * s.coutAchatUnit, 0);
 
     return { nbEnStock, nbVendus, ca, benefice, retail, coutVendu, roi };
   }
