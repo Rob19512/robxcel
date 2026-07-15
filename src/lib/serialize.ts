@@ -83,5 +83,6 @@ export function serializeEvent(event: Event): EventRow {
     dateEvenement: toDateString(event.dateEvenement),
     lieuSalle: event.lieuSalle,
     notes: event.notes,
+    folderId: event.folderId,
   };
 }

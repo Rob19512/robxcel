@@ -331,6 +331,8 @@ export function StockTable({
       return raw;
     }
     switch (key) {
+      case "dateAchat":
+        return it.dateAchat;
       case "description":
         return it.description;
       case "source":
@@ -676,7 +678,17 @@ export function StockTable({
                     onCheckedChange={toggleSelectAll}
                   />
                 </TableHead>
-                <StickyTableHead className="min-w-32" stickyClassName={STICKY_COL}>Date achat</StickyTableHead>
+                <StickyTableHead
+                  className="min-w-32 cursor-pointer select-none"
+                  stickyClassName={STICKY_COL}
+                  onClick={() => toggleSort("dateAchat")}
+                >
+                  <span className="flex items-center gap-1">
+                    Date achat
+                    {columnSort?.key === "dateAchat" &&
+                      (columnSort.dir === "asc" ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />)}
+                  </span>
+                </StickyTableHead>
                 {visibleOrderedKeys.map((key) => (
                   <TableHead
                     key={key}

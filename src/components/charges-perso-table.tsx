@@ -95,6 +95,8 @@ export function ChargesPersoTable({ path, initialItems }: { path: string; initia
 
   function sortValueFor(key: string, it: ChargePersoRow): string | number | null {
     switch (key) {
+      case "date":
+        return it.date;
       case "description":
         return it.description;
       case "categorie":
@@ -258,7 +260,17 @@ export function ChargesPersoTable({ path, initialItems }: { path: string; initia
                     onCheckedChange={toggleSelectAll}
                   />
                 </TableHead>
-                <StickyTableHead className="min-w-32" stickyClassName={STICKY_COL}>Date</StickyTableHead>
+                <StickyTableHead
+                  className="min-w-32 cursor-pointer select-none"
+                  stickyClassName={STICKY_COL}
+                  onClick={() => toggleSort("date")}
+                >
+                  <span className="flex items-center gap-1">
+                    Date
+                    {columnSort?.key === "date" &&
+                      (columnSort.dir === "asc" ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />)}
+                  </span>
+                </StickyTableHead>
                 {visibleOrderedKeys.map((key) => (
                   <TableHead
                     key={key}

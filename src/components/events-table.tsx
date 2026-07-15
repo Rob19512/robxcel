@@ -34,9 +34,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { InlineText, InlineDate } from "@/components/inline-field";
+import { InlineText, InlineDate, InlineSelect } from "@/components/inline-field";
 import { Checkbox } from "@/components/ui/checkbox";
 import { BulkDeleteButton } from "@/components/bulk-delete-button";
+import { EventFolderControls } from "@/components/event-folder-controls";
 import { eur } from "@/lib/format";
 import { cn, STICKY_COL, normalizeForSearch } from "@/lib/utils";
 import {
@@ -44,6 +45,9 @@ import {
   updateEventField,
   deleteEvent,
   bulkDeleteEvents,
+  updateEventFolder,
+  createEventFolder,
+  deleteEventFolder,
   type EventField,
 } from "@/lib/actions/event-actions";
 import type { StockRow } from "@/components/stock-table";
@@ -55,7 +59,10 @@ export type EventRow = {
   dateEvenement: string | null;
   lieuSalle: string | null;
   notes: string | null;
+  folderId: string | null;
 };
+
+export type EventFolderOption = { id: string; name: string };
 
 export function EventsTable({
   categoryId,
@@ -63,22 +70,28 @@ export function EventsTable({
   initialEvents,
   stockItems,
   sales,
+  folders,
 }: {
   categoryId: string;
   path: string;
   initialEvents: EventRow[];
   stockItems: StockRow[];
   sales: SaleRow[];
+  folders: EventFolderOption[];
 }) {
   const [search, setSearch] = useState("");
+  const [folderFilter, setFolderFilter] = useState<string | null>(null);
   const [detailEventId, setDetailEventId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
   const scrollRef = useHorizontalWheelScroll<HTMLDivElement>();
-  const columnKeys = ["date", "lieuSalle", "enStock", "vendus", "ca", "benefice"];
+  const columnKeys = ["dossier", "date", "lieuSalle", "enStock", "vendus", "ca", "benefice"];
   const { order, isVisible, toggle: toggleColumn, move: moveColumn } = useColumnPrefs("events", columnKeys);
   const { sort: columnSort, toggleSort } = useColumnSort();
+  const folderNameById = new Map(folders.map((f) => [f.id, f.name]));
+  const folderOptions = [{ value: "", label: "Aucun dossier" }, ...folders.map((f) => ({ value: f.id, label: f.name }))];
   const columns: ColumnDef[] = [
+    { key: "dossier", label: "Dossier" },
     { key: "date", label: "Date" },
     { key: "lieuSalle", label: "Lieu / Salle" },
     { key: "enStock", label: "En stock" },
@@ -90,6 +103,7 @@ export function EventsTable({
   const labelByKey = new Map(columns.map((c) => [c.key, c.label]));
   function headClassName(key: string) {
     const widths: Record<string, string> = {
+      dossier: "min-w-40",
       date: "min-w-32",
       lieuSalle: "min-w-48",
       enStock: "min-w-28",
@@ -101,6 +115,8 @@ export function EventsTable({
   }
   function renderBodyCell(key: string, e: EventRow, stats: ReturnType<typeof statsFor>) {
     switch (key) {
+      case "dossier":
+        return <InlineSelect value={e.folderId ?? ""} options={folderOptions} onSave={saveFolder(e.id)} />;
       case "date":
         return <InlineDate value={e.dateEvenement ?? ""} onSave={saveField(e.id, "dateEvenement")} />;
       case "lieuSalle":
@@ -120,6 +136,10 @@ export function EventsTable({
 
   function sortValueFor(key: string, e: EventRow): string | number | null {
     switch (key) {
+      case "name":
+        return e.name;
+      case "dossier":
+        return e.folderId ? folderNameById.get(e.folderId) ?? null : null;
       case "date":
         return e.dateEvenement;
       case "lieuSalle":
@@ -138,6 +158,7 @@ export function EventsTable({
   }
 
   const filtered = initialEvents.filter((e) => {
+    if (folderFilter && e.folderId !== folderFilter) return false;
     if (!search.trim()) return true;
     return normalizeForSearch([e.name, e.lieuSalle, e.notes].join(" ")).includes(normalizeForSearch(search));
   });
@@ -204,6 +225,10 @@ export function EventsTable({
     return (value: string) => updateEventField(id, path, field, value);
   }
 
+  function saveFolder(id: string) {
+    return (value: string) => updateEventFolder(id, path, value || null);
+  }
+
   function statsFor(eventId: string) {
     const enStock = stockItems.filter((s) => s.eventId === eventId && s.statut !== "VENDU");
     const nbEnStock = enStock.reduce((sum, s) => sum + s.qty, 0);
@@ -248,6 +273,13 @@ export function EventsTable({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="h-8 w-48"
+        />
+        <EventFolderControls
+          folders={folders}
+          activeFolderId={folderFilter}
+          onFilterChange={setFolderFilter}
+          onCreate={(name) => createEventFolder(categoryId, path, name)}
+          onDelete={(id) => deleteEventFolder(id, path)}
         />
         <ColumnVisibilityMenu columns={columns} order={order} isVisible={isVisible} toggle={toggleColumn} move={moveColumn} />
         <BulkDeleteButton count={selectedIds.size} onConfirm={handleBulkDelete} permanent />
@@ -298,7 +330,17 @@ export function EventsTable({
                     onCheckedChange={toggleSelectAll}
                   />
                 </TableHead>
-                <StickyTableHead className="min-w-48" stickyClassName={STICKY_COL}>Nom</StickyTableHead>
+                <StickyTableHead
+                  className="min-w-48 cursor-pointer select-none"
+                  stickyClassName={STICKY_COL}
+                  onClick={() => toggleSort("name")}
+                >
+                  <span className="flex items-center gap-1">
+                    Nom
+                    {columnSort?.key === "name" &&
+                      (columnSort.dir === "asc" ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />)}
+                  </span>
+                </StickyTableHead>
                 {visibleOrderedKeys.map((key) => (
                   <TableHead
                     key={key}
@@ -398,6 +440,9 @@ export function EventsTable({
                   </Field>
                   <Field label="Lieu / Salle">
                     <InlineText value={e.lieuSalle ?? ""} onSave={saveField(e.id, "lieuSalle")} />
+                  </Field>
+                  <Field label="Dossier">
+                    <InlineSelect value={e.folderId ?? ""} options={folderOptions} onSave={saveFolder(e.id)} />
                   </Field>
                 </div>
                 <div className="grid grid-cols-2 gap-2 rounded-md bg-muted p-2 text-sm">

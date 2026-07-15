@@ -19,7 +19,7 @@ export async function CategoryPageContent({
   // (sortMode="evenement"), donc l'ordre exact renvoyé ici n'a pas besoin d'attendre
   // category.trackEvents/hasStock : les 4 requêtes partent en parallèle sans dépendance,
   // au lieu d'un aller-retour "category" puis un second aller-retour pour le reste.
-  const [category, sales, stockItems, events] = await Promise.all([
+  const [category, sales, stockItems, events, eventFolders] = await Promise.all([
     prisma.category.findUniqueOrThrow({
       where: { id: categoryId },
       include: { fields: { orderBy: { sortOrder: "asc" } }, sources: { orderBy: { sortOrder: "asc" } } },
@@ -27,6 +27,7 @@ export async function CategoryPageContent({
     prisma.sale.findMany({ where: { categoryId, deletedAt: null }, orderBy: { dateVente: "desc" } }),
     prisma.stockItem.findMany({ where: { categoryId, deletedAt: null }, orderBy: { dateAchat: "desc" } }),
     prisma.event.findMany({ where: { categoryId }, orderBy: { dateEvenement: "desc" } }),
+    prisma.eventFolder.findMany({ where: { categoryId }, orderBy: { name: "asc" } }),
   ]);
 
   const stockFields = category.fields.filter((f) => f.showInStock);
@@ -87,7 +88,7 @@ export async function CategoryPageContent({
           />
         </TabsContent>
         {category.hasStock && (
-          <TabsContent value="stock">
+          <TabsContent value="stock" keepMounted>
             <StockTable
               categoryId={categoryId}
               path={path}
@@ -103,7 +104,7 @@ export async function CategoryPageContent({
           </TabsContent>
         )}
         {category.hasStock && (
-          <TabsContent value="attente">
+          <TabsContent value="attente" keepMounted>
             <StockTable
               categoryId={categoryId}
               path={path}
@@ -120,13 +121,14 @@ export async function CategoryPageContent({
           </TabsContent>
         )}
         {category.trackEvents && (
-          <TabsContent value="evenements">
+          <TabsContent value="evenements" keepMounted>
             <EventsTable
               categoryId={categoryId}
               path={path}
               initialEvents={events.map(serializeEvent)}
               stockItems={serializedStock}
               sales={serializedSales}
+              folders={eventFolders.map((f) => ({ id: f.id, name: f.name }))}
             />
           </TabsContent>
         )}

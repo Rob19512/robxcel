@@ -277,6 +277,8 @@ export function SalesTable({
     }
     const calc = computeSale(s);
     switch (key) {
+      case "dateVente":
+        return s.dateVente;
       case "dateEncaissement":
         return s.dateEncaissement;
       case "statut":
@@ -611,7 +613,17 @@ export function SalesTable({
                     onCheckedChange={toggleSelectAll}
                   />
                 </TableHead>
-                <StickyTableHead className="min-w-32" stickyClassName={STICKY_COL}>Date vente</StickyTableHead>
+                <StickyTableHead
+                  className="min-w-32 cursor-pointer select-none"
+                  stickyClassName={STICKY_COL}
+                  onClick={() => toggleSort("dateVente")}
+                >
+                  <span className="flex items-center gap-1">
+                    Date vente
+                    {columnSort?.key === "dateVente" &&
+                      (columnSort.dir === "asc" ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />)}
+                  </span>
+                </StickyTableHead>
                 {visibleOrderedKeys.map((key) => (
                   <TableHead
                     key={key}

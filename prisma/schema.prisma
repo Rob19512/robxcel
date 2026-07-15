@@ -69,28 +69,46 @@ model Category {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  fields     CategoryField[]
-  sources    CategorySource[]
-  stockItems StockItem[]
-  sales      Sale[]
-  events     Event[]
+  fields       CategoryField[]
+  sources      CategorySource[]
+  stockItems   StockItem[]
+  sales        Sale[]
+  events       Event[]
+  eventFolders EventFolder[]
+}
+
+// Regroupe des événements entre eux (ex: dossier "Coupe du monde" contenant tous les
+// matchs) pour pouvoir filtrer/sélectionner le lot en un clic et voir le bénéf cumulé.
+model EventFolder {
+  id         String   @id @default(cuid())
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  name       String
+  createdAt  DateTime @default(now())
+
+  events Event[]
+
+  @@unique([categoryId, name])
 }
 
 model Event {
-  id            String    @id @default(cuid())
+  id            String       @id @default(cuid())
   categoryId    String
-  category      Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  category      Category     @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   name          String
   dateEvenement DateTime?
   lieuSalle     String?
   notes         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  folderId      String?
+  folder        EventFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 
   stockItems StockItem[]
   sales      Sale[]
 
   @@index([categoryId])
+  @@index([folderId])
 }
 
 model CategoryField {
