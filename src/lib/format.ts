@@ -14,3 +14,8 @@ export function parseDateInputValue(value: string) {
   if (!value) return null;
   return new Date(`${value}T00:00:00.000Z`);
 }
+
+export function formatRoi(roi: number | null): string {
+  if (roi === null) return "—";
+  return `${roi >= 0 ? "+" : ""}${roi.toFixed(0)} %`;
+}

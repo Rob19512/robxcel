@@ -21,7 +21,7 @@ import {
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Ticket, Wrench, ShoppingBag, Eye, EyeOff } from "lucide-react";
 import { EvolutionChart, type SaleForChart } from "@/components/evolution-chart";
-import { eur } from "@/lib/format";
+import { eur, formatRoi } from "@/lib/format";
 import { SEUIL_BIEN, SEUIL_SERVICE } from "@/lib/tva-seuils";
 import { cn } from "@/lib/utils";
 import { useHorizontalWheelScroll } from "@/lib/use-horizontal-wheel-scroll";
@@ -82,6 +82,8 @@ function DualStat({
   size = "text-xl",
   valueClassName,
   format = (n: number) => eur.format(n),
+  roiVendu,
+  roiEncaisse,
 }: {
   vendu: number;
   encaisse: number;
@@ -92,16 +94,28 @@ function DualStat({
   size?: string;
   valueClassName?: string;
   format?: (n: number) => string;
+  roiVendu?: number | null;
+  roiEncaisse?: number | null;
 }) {
   if (showVendu && showEncaisse) {
     return (
       <div className="flex items-end justify-between gap-2">
         <div>
-          <p className={cn(size, "font-semibold tabular-nums", valueClassName)}>{format(vendu)}</p>
+          <p className={cn(size, "font-semibold tabular-nums", valueClassName)}>
+            {format(vendu)}
+            {roiVendu !== undefined && (
+              <span className="ml-1 text-xs font-normal text-muted-foreground">({formatRoi(roiVendu)})</span>
+            )}
+          </p>
           <p className="text-xs text-muted-foreground">{venduLabel}</p>
         </div>
         <div className="text-right">
-          <p className={cn(size, "font-semibold tabular-nums", valueClassName ?? "text-primary")}>{format(encaisse)}</p>
+          <p className={cn(size, "font-semibold tabular-nums", valueClassName ?? "text-primary")}>
+            {format(encaisse)}
+            {roiEncaisse !== undefined && (
+              <span className="ml-1 text-xs font-normal text-muted-foreground">({formatRoi(roiEncaisse)})</span>
+            )}
+          </p>
           <p className="text-xs text-muted-foreground">{encaisseLabel}</p>
         </div>
       </div>
@@ -109,10 +123,14 @@ function DualStat({
   }
   const value = showVendu ? vendu : encaisse;
   const label = showVendu ? venduLabel : encaisseLabel;
+  const roi = showVendu ? roiVendu : roiEncaisse;
   return (
     <div>
       <p className={cn(size, "font-semibold tabular-nums", valueClassName ?? (showEncaisse && "text-primary"))}>
         {format(value)}
+        {roi !== undefined && (
+          <span className="ml-1 text-xs font-normal text-muted-foreground">({formatRoi(roi)})</span>
+        )}
       </p>
       <p className="text-xs text-muted-foreground">{label}</p>
     </div>
@@ -211,6 +229,7 @@ export function Dashboard({
   let caBienVendu = 0;
   let caServiceVendu = 0;
   let beneficeVendu = 0;
+  let coutVendu = 0;
   let caEnAttente = 0;
   let nbTicketsVendu = 0;
 
@@ -222,6 +241,7 @@ export function Dashboard({
     if (cat.kind === "BIEN") caBienVendu += total;
     else caServiceVendu += total;
     beneficeVendu += total - cout;
+    coutVendu += cout;
     if (s.statut === "EN_ATTENTE") caEnAttente += total;
     if (cat.trackEvents) nbTicketsVendu += s.qty;
   }
@@ -229,6 +249,7 @@ export function Dashboard({
   let caBienEncaisse = 0;
   let caServiceEncaisse = 0;
   let beneficeNetTotal = 0;
+  let coutEncaisse = 0;
   let nbTicketsEncaisse = 0;
 
   for (const s of periodSalesEncaisse) {
@@ -239,6 +260,7 @@ export function Dashboard({
     if (cat.kind === "BIEN") caBienEncaisse += total;
     else caServiceEncaisse += total;
     beneficeNetTotal += total - cout;
+    coutEncaisse += cout;
     if (cat.trackEvents) nbTicketsEncaisse += s.qty;
   }
 
@@ -287,6 +309,11 @@ export function Dashboard({
   const beneficeVenduNet = beneficeVendu - achatsProDeduction;
   const beneficeNetTotalNet = beneficeNetTotal - achatsProDeduction;
 
+  const coutVenduTotal = coutVendu + achatsProDeduction;
+  const coutEncaisseTotal = coutEncaisse + achatsProDeduction;
+  const roiVendu = coutVenduTotal > 0 ? (beneficeVenduNet / coutVenduTotal) * 100 : null;
+  const roiEncaisse = coutEncaisseTotal > 0 ? (beneficeNetTotalNet / coutEncaisseTotal) * 100 : null;
+
   const pctBien = Math.min(100, (caBienProAnnee / SEUIL_BIEN) * 100);
   const pctService = Math.min(100, (caServiceProAnnee / SEUIL_SERVICE) * 100);
 
@@ -304,8 +331,10 @@ export function Dashboard({
     return MONTHS.map((label, m) => {
       let venduCA = 0;
       let venduBenefice = 0;
+      let venduCout = 0;
       let encaisseCA = 0;
       let encaisseBenefice = 0;
+      let encaisseCout = 0;
       for (const s of scopedSales) {
         const total = s.qty * s.prixVenteUnit;
         const cout = s.qty * s.coutAchatUnit;
@@ -313,19 +342,25 @@ export function Dashboard({
         if (ymVente.year === year && ymVente.month === m) {
           venduCA += total;
           venduBenefice += total - cout;
+          venduCout += cout;
         }
         if (s.statut === "ENCAISSE" && s.dateEncaissement) {
           const ymEnc = yearMonthOf(s.dateEncaissement);
           if (ymEnc.year === year && ymEnc.month === m) {
             encaisseCA += total;
             encaisseBenefice += total - cout;
+            encaisseCout += cout;
           }
         }
       }
       const achatsProMonth = achatsProByMonth.get(m) ?? 0;
       venduBenefice -= achatsProMonth;
       encaisseBenefice -= achatsProMonth;
-      return { label, venduCA, venduBenefice, encaisseCA, encaisseBenefice };
+      venduCout += achatsProMonth;
+      encaisseCout += achatsProMonth;
+      const venduRoi = venduCout > 0 ? (venduBenefice / venduCout) * 100 : null;
+      const encaisseRoi = encaisseCout > 0 ? (encaisseBenefice / encaisseCout) * 100 : null;
+      return { label, venduCA, venduBenefice, venduCout, venduRoi, encaisseCA, encaisseBenefice, encaisseCout, encaisseRoi };
     });
   }, [scopedSales, achatsPro, year, scope]);
 
@@ -333,11 +368,15 @@ export function Dashboard({
     (acc, m) => ({
       venduCA: acc.venduCA + m.venduCA,
       venduBenefice: acc.venduBenefice + m.venduBenefice,
+      venduCout: acc.venduCout + m.venduCout,
       encaisseCA: acc.encaisseCA + m.encaisseCA,
       encaisseBenefice: acc.encaisseBenefice + m.encaisseBenefice,
+      encaisseCout: acc.encaisseCout + m.encaisseCout,
     }),
-    { venduCA: 0, venduBenefice: 0, encaisseCA: 0, encaisseBenefice: 0 }
+    { venduCA: 0, venduBenefice: 0, venduCout: 0, encaisseCA: 0, encaisseBenefice: 0, encaisseCout: 0 }
   );
+  const monthlyTotalsVenduRoi = monthlyTotals.venduCout > 0 ? (monthlyTotals.venduBenefice / monthlyTotals.venduCout) * 100 : null;
+  const monthlyTotalsEncaisseRoi = monthlyTotals.encaisseCout > 0 ? (monthlyTotals.encaisseBenefice / monthlyTotals.encaisseCout) * 100 : null;
 
   const chartSales: SaleForChart[] = scopedSales;
 
@@ -432,6 +471,8 @@ export function Dashboard({
               showVendu={showVendu}
               showEncaisse={showEncaisse}
               valueClassName={BENEFICE_COLOR}
+              roiVendu={roiVendu}
+              roiEncaisse={roiEncaisse}
             />
           </CardContent>
         </Card>
@@ -545,14 +586,18 @@ export function Dashboard({
                   {showVendu && (
                     <>
                       <td className="px-3 py-1.5 text-right tabular-nums">{eur.format(m.venduCA)}</td>
-                      <td className={cn("px-3 py-1.5 text-right tabular-nums", BENEFICE_COLOR)}>{eur.format(m.venduBenefice)}</td>
+                      <td className={cn("px-3 py-1.5 text-right tabular-nums", BENEFICE_COLOR)}>
+                        {eur.format(m.venduBenefice)}{" "}
+                        <span className="text-xs font-normal text-muted-foreground">({formatRoi(m.venduRoi)})</span>
+                      </td>
                     </>
                   )}
                   {showEncaisse && (
                     <>
                       <td className="px-3 py-1.5 text-right tabular-nums text-primary">{eur.format(m.encaisseCA)}</td>
                       <td className={cn("px-4 py-1.5 text-right tabular-nums", BENEFICE_COLOR)}>
-                        {eur.format(m.encaisseBenefice)}
+                        {eur.format(m.encaisseBenefice)}{" "}
+                        <span className="text-xs font-normal text-muted-foreground">({formatRoi(m.encaisseRoi)})</span>
                       </td>
                     </>
                   )}
@@ -565,7 +610,10 @@ export function Dashboard({
                 {showVendu && (
                   <>
                     <td className="px-3 py-2 text-right tabular-nums">{eur.format(monthlyTotals.venduCA)}</td>
-                    <td className={cn("px-3 py-2 text-right tabular-nums", BENEFICE_COLOR)}>{eur.format(monthlyTotals.venduBenefice)}</td>
+                    <td className={cn("px-3 py-2 text-right tabular-nums", BENEFICE_COLOR)}>
+                      {eur.format(monthlyTotals.venduBenefice)}{" "}
+                      <span className="text-xs font-normal text-muted-foreground">({formatRoi(monthlyTotalsVenduRoi)})</span>
+                    </td>
                   </>
                 )}
                 {showEncaisse && (
@@ -574,7 +622,8 @@ export function Dashboard({
                       {eur.format(monthlyTotals.encaisseCA)}
                     </td>
                     <td className={cn("px-4 py-2 text-right tabular-nums", BENEFICE_COLOR)}>
-                      {eur.format(monthlyTotals.encaisseBenefice)}
+                      {eur.format(monthlyTotals.encaisseBenefice)}{" "}
+                      <span className="text-xs font-normal text-muted-foreground">({formatRoi(monthlyTotalsEncaisseRoi)})</span>
                     </td>
                   </>
                 )}
@@ -623,15 +672,19 @@ export function Dashboard({
             const catSalesVendu = periodSalesAllScopesVendu.filter((s) => s.categoryId === c.id);
             const catSalesEncaisse = periodSalesAllScopesEncaisse.filter((s) => s.categoryId === c.id);
             const caVendu = catSalesVendu.reduce((sum, s) => sum + s.qty * s.prixVenteUnit, 0);
+            const coutVenduCat = catSalesVendu.reduce((sum, s) => sum + s.qty * s.coutAchatUnit, 0);
             const beneficeVenduCat = catSalesVendu.reduce(
               (sum, s) => sum + (s.qty * s.prixVenteUnit - s.qty * s.coutAchatUnit),
               0
             );
+            const roiVenduCat = coutVenduCat > 0 ? (beneficeVenduCat / coutVenduCat) * 100 : null;
             const caEncaisseCat = catSalesEncaisse.reduce((sum, s) => sum + s.qty * s.prixVenteUnit, 0);
+            const coutEncaisseCat = catSalesEncaisse.reduce((sum, s) => sum + s.qty * s.coutAchatUnit, 0);
             const beneficeEncaisseCat = catSalesEncaisse.reduce(
               (sum, s) => sum + (s.qty * s.prixVenteUnit - s.qty * s.coutAchatUnit),
               0
             );
+            const roiEncaisseCat = coutEncaisseCat > 0 ? (beneficeEncaisseCat / coutEncaisseCat) * 100 : null;
             const color = c.color;
             return (
               <Card key={c.id}>
@@ -663,7 +716,10 @@ export function Dashboard({
                         <p className="text-xs text-muted-foreground">CA vendu</p>
                       </div>
                       <div className="text-right">
-                        <p className={cn("text-base font-semibold tabular-nums", BENEFICE_COLOR)}>{eur.format(beneficeVenduCat)}</p>
+                        <p className={cn("text-base font-semibold tabular-nums", BENEFICE_COLOR)}>
+                          {eur.format(beneficeVenduCat)}
+                          <span className="ml-1 text-xs font-normal text-muted-foreground">({formatRoi(roiVenduCat)})</span>
+                        </p>
                         <p className="text-xs text-muted-foreground">Bénéf. vendu</p>
                       </div>
                     </div>
@@ -679,6 +735,7 @@ export function Dashboard({
                       <div className="text-right">
                         <p className={cn("text-base font-semibold tabular-nums", BENEFICE_COLOR)}>
                           {eur.format(beneficeEncaisseCat)}
+                          <span className="ml-1 text-xs font-normal text-muted-foreground">({formatRoi(roiEncaisseCat)})</span>
                         </p>
                         <p className="text-xs text-muted-foreground">Bénéf. encaissé</p>
                       </div>

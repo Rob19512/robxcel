@@ -38,7 +38,7 @@ import { InlineText, InlineDate, InlineSelect } from "@/components/inline-field"
 import { Checkbox } from "@/components/ui/checkbox";
 import { BulkDeleteButton } from "@/components/bulk-delete-button";
 import { EventFolderControls } from "@/components/event-folder-controls";
-import { eur } from "@/lib/format";
+import { eur, formatRoi } from "@/lib/format";
 import { cn, STICKY_COL, normalizeForSearch } from "@/lib/utils";
 import {
   createEvent,
@@ -64,11 +64,6 @@ export type EventRow = {
 };
 
 export type EventFolderOption = { id: string; name: string };
-
-function formatRoi(roi: number | null): string {
-  if (roi === null) return "—";
-  return `${roi >= 0 ? "+" : ""}${roi.toFixed(0)} %`;
-}
 
 export function EventsTable({
   categoryId,
