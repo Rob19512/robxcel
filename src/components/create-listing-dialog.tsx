@@ -94,7 +94,10 @@ export function CreateListingDialog({
   const [numeroCommande, setNumeroCommande] = useState("");
   const [compteEmail, setCompteEmail] = useState("");
 
-  const upcomingEvents = (events ?? []).filter((e) => !isEventPast(e.dateEvenement));
+  const eventsSorted = [
+    ...(events ?? []).filter((e) => !isEventPast(e.dateEvenement)),
+    ...(events ?? []).filter((e) => isEventPast(e.dateEvenement)),
+  ];
   const seatCount = parseSeatRange(seat).length;
 
   function reset() {
@@ -206,7 +209,7 @@ export function CreateListingDialog({
                       <SelectValue placeholder="Sélectionner..." />
                     </SelectTrigger>
                     <SelectContent>
-                      {upcomingEvents.map((e) => (
+                      {eventsSorted.map((e) => (
                         <SelectItem key={e.id} value={e.id}>
                           {e.label}
                         </SelectItem>
