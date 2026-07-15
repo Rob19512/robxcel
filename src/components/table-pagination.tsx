@@ -2,6 +2,7 @@
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 export function TablePagination({
   page,
@@ -9,12 +10,14 @@ export function TablePagination({
   total,
   pageSize,
   onPageChange,
+  className,
 }: {
   page: number;
   totalPages: number;
   total: number;
   pageSize: number;
   onPageChange: (page: number) => void;
+  className?: string;
 }) {
   if (total <= pageSize) return null;
 
@@ -22,7 +25,7 @@ export function TablePagination({
   const end = Math.min(total, (page + 1) * pageSize);
 
   return (
-    <div className="flex items-center justify-between gap-2 text-sm text-muted-foreground">
+    <div className={cn("flex items-center justify-between gap-2 text-sm text-muted-foreground", className)}>
       <span>
         {start}–{end} sur {total}
       </span>

@@ -26,6 +26,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { isEventPast } from "@/lib/event-utils";
 import { createEventWithDetails } from "@/lib/actions/event-actions";
 import { bulkCreateStockItems, type BulkStockRowInput } from "@/lib/actions/stock-actions";
+import { TICKETING_SITES } from "@/lib/ticketing-sites";
 import type { EventOption } from "@/components/sales-table";
 
 type EventFolderOption = { id: string; name: string };
@@ -64,13 +65,11 @@ export function CreateListingDialog({
   path,
   events,
   folders,
-  sources,
 }: {
   categoryId: string;
   path: string;
   events?: EventOption[];
   folders: EventFolderOption[];
-  sources: string[];
 }) {
   const [open, setOpen] = useState(false);
   const [isPending, setIsPending] = useState(false);
@@ -83,7 +82,8 @@ export function CreateListingDialog({
   const [newEventFolderId, setNewEventFolderId] = useState("");
 
   const [dateAchat, setDateAchat] = useState(today());
-  const [source, setSource] = useState("");
+  const [siteAchat, setSiteAchat] = useState("");
+  const [siteAchatCustom, setSiteAchatCustom] = useState("");
   const [categorie, setCategorie] = useState("");
   const [section, setSection] = useState("");
   const [rang, setRang] = useState("");
@@ -108,7 +108,8 @@ export function CreateListingDialog({
     setNewEventLieuSalle("");
     setNewEventFolderId("");
     setDateAchat(today());
-    setSource("");
+    setSiteAchat("");
+    setSiteAchatCustom("");
     setCategorie("");
     setSection("");
     setRang("");
@@ -141,11 +142,12 @@ export function CreateListingDialog({
         eventId = selectedEventId;
       }
 
+      const finalSiteAchat = siteAchat === "CUSTOM" ? siteAchatCustom.trim() : siteAchat;
       const seats = parseSeatRange(seat);
       const rows: BulkStockRowInput[] = seats.map((seatValue) => ({
         dateAchat,
         description: "",
-        source,
+        source: finalSiteAchat,
         eventId,
         qty: seats.length > 1 ? 1 : Math.max(1, Number(qty) || 1),
         coutAchatUnit: Number(coutAchatUnit) || 0,
@@ -204,7 +206,11 @@ export function CreateListingDialog({
               {eventMode === "existing" ? (
                 <div className="flex flex-col gap-1.5">
                   <Label>Choisir l&apos;événement</Label>
-                  <Select value={selectedEventId} onValueChange={(v) => setSelectedEventId(v ?? "")}>
+                  <Select
+                    value={selectedEventId}
+                    onValueChange={(v) => setSelectedEventId(v ?? "")}
+                    items={eventsSorted.map((e) => ({ value: e.id, label: e.label }))}
+                  >
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="Sélectionner..." />
                     </SelectTrigger>
@@ -233,7 +239,11 @@ export function CreateListingDialog({
                   </div>
                   <div className="col-span-2 flex flex-col gap-1.5">
                     <Label>Dossier (optionnel)</Label>
-                    <Select value={newEventFolderId || "NONE"} onValueChange={(v) => setNewEventFolderId(v === "NONE" || !v ? "" : v)}>
+                    <Select
+                      value={newEventFolderId || "NONE"}
+                      onValueChange={(v) => setNewEventFolderId(v === "NONE" || !v ? "" : v)}
+                      items={[{ value: "NONE", label: "Aucun dossier" }, ...folders.map((f) => ({ value: f.id, label: f.name }))]}
+                    >
                       <SelectTrigger className="w-full">
                         <SelectValue />
                       </SelectTrigger>
@@ -259,20 +269,37 @@ export function CreateListingDialog({
                   <Input type="date" value={dateAchat} onChange={(e) => setDateAchat(e.target.value)} />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <Label>Source</Label>
-                  <Select value={source || "NONE"} onValueChange={(v) => setSource(v === "NONE" || !v ? "" : v)}>
+                  <Label>Site d&apos;achat</Label>
+                  <Select
+                    value={siteAchat || "NONE"}
+                    onValueChange={(v) => setSiteAchat(v === "NONE" || !v ? "" : v)}
+                    items={[
+                      { value: "NONE", label: "—" },
+                      { value: "CUSTOM", label: "Autre (saisie libre)" },
+                      ...TICKETING_SITES.map((s) => ({ value: s, label: s })),
+                    ]}
+                  >
                     <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Source" />
+                      <SelectValue placeholder="Site d'achat" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="NONE">—</SelectItem>
-                      {sources.map((s) => (
+                      <SelectItem value="CUSTOM">Autre (saisie libre)</SelectItem>
+                      {TICKETING_SITES.map((s) => (
                         <SelectItem key={s} value={s}>
                           {s}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                  {siteAchat === "CUSTOM" && (
+                    <Input
+                      className="mt-1.5"
+                      placeholder="Nom du site"
+                      value={siteAchatCustom}
+                      onChange={(e) => setSiteAchatCustom(e.target.value)}
+                    />
+                  )}
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <Label>Quantité{seatCount > 1 ? " (ignorée - plage de places)" : ""}</Label>

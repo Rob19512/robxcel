@@ -1,0 +1,16 @@
+export const TICKETING_SITES = [
+  "Ticketmaster",
+  "Fnac Spectacles",
+  "France Billet",
+  "See Tickets",
+  "AXS",
+  "Eventim",
+  "Digitick",
+  "Weezevent",
+  "Shotgun",
+  "Billetweb",
+  "TicketOne",
+  "Vivaticket",
+  "Ticketek",
+  "Dice",
+];

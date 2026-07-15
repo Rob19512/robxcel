@@ -7,7 +7,8 @@ import { useColumnSort, compareValues } from "@/lib/use-column-sort";
 import { isEventPast } from "@/lib/event-utils";
 import { ColumnVisibilityMenu } from "@/components/column-visibility-menu";
 import { toast } from "sonner";
-import { Plus, MoreVertical, Copy, Trash2, PackageCheck, CheckCircle2, Download, ChevronDown, ArrowUp, ArrowDown } from "lucide-react";
+import { Plus, MoreVertical, Copy, Trash2, PackageCheck, CheckCircle2, Download, ChevronDown, ArrowUp, ArrowDown, Table2, LayoutGrid } from "lucide-react";
+import { useTableViewMode } from "@/lib/use-table-view-mode";
 import {
   Table,
   TableBody,
@@ -148,6 +149,7 @@ export function StockTable({
   const [search, setSearch] = useState("");
   const [showSold, setShowSold] = useState(false);
   const [sortMode, setSortMode] = useState<"date" | "evenement">("evenement");
+  const [viewMode, setViewMode] = useTableViewMode();
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(0);
@@ -652,7 +654,6 @@ export function StockTable({
                 path={path}
                 events={events}
                 folders={folders ?? []}
-                sources={sources}
               />
             )}
           </>
@@ -685,13 +686,26 @@ export function StockTable({
         <ColumnVisibilityMenu columns={columns} order={order} isVisible={isVisible} toggle={toggleColumn} move={moveColumn} />
         <BulkEncaissementButton count={selectedIds.size} onConfirm={handleBulkEncaissement} />
         <BulkDeleteButton count={selectedIds.size} onConfirm={handleBulkDelete} />
+        <ToggleGroup
+          value={[viewMode]}
+          onValueChange={(v) => v[0] && setViewMode(v[0] as typeof viewMode)}
+          variant="outline"
+          size="sm"
+        >
+          <ToggleGroupItem value="table" title="Vue tableau">
+            <Table2 />
+          </ToggleGroupItem>
+          <ToggleGroupItem value="cards" title="Vue carte">
+            <LayoutGrid />
+          </ToggleGroupItem>
+        </ToggleGroup>
         <span className="ml-auto text-xs text-muted-foreground">
           {filtered.length} article{filtered.length > 1 ? "s" : ""}
         </span>
       </div>
 
-      {/* Desktop table */}
-      <Card className="hidden overflow-hidden py-0 md:block">
+      {/* Vue tableau (desktop) */}
+      <Card className={cn("overflow-hidden py-0", viewMode === "cards" ? "hidden" : "hidden md:block")}>
         <Table containerRef={scrollRef}>
             <TableHeader>
               <TableRow>
@@ -789,8 +803,13 @@ export function StockTable({
         </div>
       </Card>
 
-      {/* Mobile cards : repliées par défaut pour un coup d'œil rapide sur le stock */}
-      <div className="flex flex-col gap-2 md:hidden">
+      {/* Vue carte : repliée par défaut, forcée sur mobile, en grille compacte en mode carte explicite */}
+      <div
+        className={cn(
+          "grid grid-cols-1 gap-2",
+          viewMode === "cards" ? "sm:grid-cols-2 xl:grid-cols-3" : "md:hidden"
+        )}
+      >
         {paginated.map((it) => {
           const margeCible =
             it.prixCibleVente !== null ? it.qty * (it.prixCibleVente - it.coutAchatUnit) : null;
@@ -973,9 +992,10 @@ export function StockTable({
           );
         })}
         {filtered.length === 0 && (
-          <p className="py-8 text-center text-sm text-muted-foreground">Aucun article en stock.</p>
+          <p className="col-span-full py-8 text-center text-sm text-muted-foreground">Aucun article en stock.</p>
         )}
         <TablePagination
+          className="col-span-full"
           page={currentPage}
           totalPages={totalPages}
           total={filtered.length}

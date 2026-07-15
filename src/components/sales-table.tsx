@@ -7,7 +7,8 @@ import { useColumnSort, compareValues } from "@/lib/use-column-sort";
 import { isEventPast } from "@/lib/event-utils";
 import { ColumnVisibilityMenu } from "@/components/column-visibility-menu";
 import { toast } from "sonner";
-import { Plus, MoreVertical, Copy, Trash2, CheckCircle2, Download, ArrowUp, ArrowDown } from "lucide-react";
+import { Plus, MoreVertical, Copy, Trash2, CheckCircle2, Download, ArrowUp, ArrowDown, Table2, LayoutGrid } from "lucide-react";
+import { useTableViewMode } from "@/lib/use-table-view-mode";
 import {
   Table,
   TableBody,
@@ -124,6 +125,7 @@ export function SalesTable({
   const [page, setPage] = useState(0);
   const PAGE_SIZE = 50;
   const [sortMode, setSortMode] = useState<"date" | "evenement">("evenement");
+  const [viewMode, setViewMode] = useTableViewMode();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
   const [newIds, setNewIds] = useState<Set<string>>(new Set());
@@ -605,13 +607,26 @@ export function SalesTable({
         <ColumnVisibilityMenu columns={columns} order={order} isVisible={isVisible} toggle={toggleColumn} move={moveColumn} />
         <BulkEncaissementButton count={selectedIds.size} onConfirm={handleBulkEncaissement} />
         <BulkDeleteButton count={selectedIds.size} onConfirm={handleBulkDelete} />
+        <ToggleGroup
+          value={[viewMode]}
+          onValueChange={(v) => v[0] && setViewMode(v[0] as typeof viewMode)}
+          variant="outline"
+          size="sm"
+        >
+          <ToggleGroupItem value="table" title="Vue tableau">
+            <Table2 />
+          </ToggleGroupItem>
+          <ToggleGroupItem value="cards" title="Vue carte">
+            <LayoutGrid />
+          </ToggleGroupItem>
+        </ToggleGroup>
         <span className="ml-auto text-xs text-muted-foreground">
           {filtered.length} ligne{filtered.length > 1 ? "s" : ""}
         </span>
       </div>
 
-      {/* Desktop table */}
-      <Card className="hidden overflow-hidden py-0 md:block">
+      {/* Vue tableau (desktop) */}
+      <Card className={cn("overflow-hidden py-0", viewMode === "cards" ? "hidden" : "hidden md:block")}>
         <Table containerRef={scrollRef}>
             <TableHeader>
               <TableRow>
@@ -706,8 +721,13 @@ export function SalesTable({
         </div>
       </Card>
 
-      {/* Mobile cards */}
-      <div className="flex flex-col gap-3 md:hidden">
+      {/* Vue carte : forcée sur mobile, en grille compacte en mode carte explicite */}
+      <div
+        className={cn(
+          "grid grid-cols-1 gap-3",
+          viewMode === "cards" ? "sm:grid-cols-2 xl:grid-cols-3" : "md:hidden"
+        )}
+      >
         {paginated.map((s) => {
           const calc = computeSale(s);
           return (
@@ -837,11 +857,12 @@ export function SalesTable({
           );
         })}
         {filtered.length === 0 && (
-          <p className="py-8 text-center text-sm text-muted-foreground">
+          <p className="col-span-full py-8 text-center text-sm text-muted-foreground">
             Aucune vente pour l&apos;instant.
           </p>
         )}
         <TablePagination
+          className="col-span-full"
           page={currentPage}
           totalPages={totalPages}
           total={filtered.length}
