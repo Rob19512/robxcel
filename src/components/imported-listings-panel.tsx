@@ -31,6 +31,20 @@ function today() {
   return new Date().toISOString().slice(0, 10);
 }
 
+// Essaie de retrouver un événement déjà créé pour ne pas en recréer un doublon à chaque
+// validation d'une commande séparée pour le même concert (nom + même jour).
+function findMatchingEventId(listing: ImportedListingRow, events: EventOption[]): string | null {
+  const name = listing.eventName.trim().toLowerCase();
+  if (!name) return null;
+  const listingDate = listing.eventDate ? listing.eventDate.slice(0, 10) : null;
+  const match = events.find((e) => {
+    const matchesName = e.label.toLowerCase().startsWith(name);
+    const matchesDate = !listingDate || !e.dateEvenement || e.dateEvenement === listingDate;
+    return matchesName && matchesDate;
+  });
+  return match?.id ?? null;
+}
+
 function ValidateImportDialog({
   listing,
   events,
@@ -43,8 +57,9 @@ function ValidateImportDialog({
   const [open, setOpen] = useState(false);
   const [isPending, setIsPending] = useState(false);
 
-  const [eventMode, setEventMode] = useState<"existing" | "new">("new");
-  const [selectedEventId, setSelectedEventId] = useState("");
+  const matchedEventId = findMatchingEventId(listing, events);
+  const [eventMode, setEventMode] = useState<"existing" | "new">(matchedEventId ? "existing" : "new");
+  const [selectedEventId, setSelectedEventId] = useState(matchedEventId ?? "");
   const [newEventName, setNewEventName] = useState(listing.eventName);
   const [newEventDate, setNewEventDate] = useState(listing.eventDate ? listing.eventDate.slice(0, 10) : "");
   const [newEventLieuSalle, setNewEventLieuSalle] = useState(listing.lieuSalle ?? "");
@@ -52,7 +67,7 @@ function ValidateImportDialog({
   const [dateAchat, setDateAchat] = useState(today());
   const [coutAchatUnit, setCoutAchatUnit] = useState(String(listing.coutAchatUnit));
   const [prixCibleVente, setPrixCibleVente] = useState("");
-  const [compte, setCompte] = useState("");
+  const [compte, setCompte] = useState(listing.recipientEmail ?? "");
 
   const eventsSorted = [
     ...events.filter((e) => !isEventPast(e.dateEvenement)),
@@ -106,7 +121,7 @@ function ValidateImportDialog({
               <ul className="flex flex-col gap-1 text-sm text-muted-foreground">
                 {listing.seats.map((s, i) => (
                   <li key={i}>
-                    {[s.section, s.rang ? `Rang ${s.rang}` : null, s.place ? `Place ${s.place}` : null, s.tag]
+                    {[s.section, s.rang ? `Rang ${s.rang}` : null, s.place ? `Place ${s.place}` : null]
                       .filter(Boolean)
                       .join(" - ")}
                   </li>
@@ -116,6 +131,11 @@ function ValidateImportDialog({
 
             <section className="flex flex-col gap-3 rounded-lg border p-3">
               <h3 className="text-sm font-medium">Événement</h3>
+              {matchedEventId && (
+                <p className="text-xs text-muted-foreground">
+                  Événement existant détecté automatiquement pour ce concert — change si ce n&apos;est pas le bon.
+                </p>
+              )}
               <div className="flex gap-2">
                 <Button
                   type="button"
@@ -290,6 +310,7 @@ export function ImportedListingsPanel({
                   {listing.lieuSalle ? ` · ${listing.lieuSalle}` : ""}
                   {listing.categorie ? ` · Catégorie ${listing.categorie}` : ""}
                   {listing.numeroCommande ? ` · Commande n°${listing.numeroCommande}` : ""}
+                  {listing.recipientEmail ? ` · ${listing.recipientEmail}` : ""}
                   {` · ${listing.qty} billet${listing.qty > 1 ? "s" : ""}`}
                   {` · ${listing.coutAchatUnit.toFixed(2)} €/billet`}
                 </p>

@@ -6,6 +6,7 @@ export type FetchedEmail = {
   gmailMessageId: string;
   subject: string;
   text: string;
+  recipientEmail: string | null;
 };
 
 const DEFAULT_TICKETMASTER_QUERY =
@@ -48,10 +49,16 @@ export async function fetchUnreadTicketmasterEmails(): Promise<FetchedEmail[]> {
             wordwrap: false,
             selectors: [{ selector: "a", options: { ignoreHref: true } }],
           });
+        // L'adresse à laquelle Ticketmaster a envoyé la confirmation (utile quand plusieurs
+        // comptes/alias reçoivent leurs mails dans cette même boîte).
+        const toAddress = Array.isArray(parsed.to) ? parsed.to[0] : parsed.to;
+        const recipientEmail = toAddress?.value?.[0]?.address ?? null;
+
         results.push({
           gmailMessageId: parsed.messageId ?? `ticketmaster-uid-${message.uid}`,
           subject: parsed.subject ?? "",
           text,
+          recipientEmail,
         });
       }
 

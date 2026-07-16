@@ -211,6 +211,7 @@ model ImportedListing {
   gmailMessageId  String                @unique
   status          ImportedListingStatus @default(PENDING)
   numeroCommande  String?
+  recipientEmail  String?
   eventName       String
   eventDate       DateTime?
   lieuSalle       String?
