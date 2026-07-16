@@ -133,6 +133,7 @@ export function SalesTable({
 }) {
   const [sales, setSales] = useState(initialSales);
   const [search, setSearch] = useState("");
+  const [dateSearch, setDateSearch] = useState("");
   const [statutFilter, setStatutFilter] = useState<string>("ALL");
   const [page, setPage] = useState(0);
   const PAGE_SIZE = 50;
@@ -333,6 +334,7 @@ export function SalesTable({
   const filtered = useMemo(() => {
     const result = sales.filter((s) => {
       if (statutFilter !== "ALL" && s.statut !== statutFilter) return false;
+      if (dateSearch && s.dateVente !== dateSearch) return false;
       if (!search.trim()) return true;
       const haystack = normalizeForSearch(
         [
@@ -397,7 +399,7 @@ export function SalesTable({
       return [...fresh, ...rest];
     }
     return result;
-  }, [sales, statutFilter, search, eventLabelById, eventDateById, events, sortMode, newIds, columnSort, fields]);
+  }, [sales, statutFilter, dateSearch, search, eventLabelById, eventDateById, events, sortMode, newIds, columnSort, fields]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages - 1);
@@ -406,11 +408,27 @@ export function SalesTable({
     [filtered, currentPage]
   );
 
+  // Total encaissé et coût des lignes cochées - ou de tout ce qui est affiché si rien n'est
+  // coché - pour recouper rapidement un mouvement de banque du jour avec les ventes.
+  const selectionStats = useMemo(() => {
+    const rows = selectedIds.size > 0 ? filtered.filter((s) => selectedIds.has(s.id)) : filtered;
+    const totals = rows.reduce(
+      (acc, s) => {
+        const calc = computeSale(s);
+        acc.totalEncaisse += calc.totalEncaisse;
+        acc.coutTotal += calc.coutTotal;
+        return acc;
+      },
+      { totalEncaisse: 0, coutTotal: 0 }
+    );
+    return { count: rows.length, ...totals };
+  }, [selectedIds, filtered]);
+
   // Repart à la première page quand le filtre/tri change, pour ne pas rester
   // coincé au milieu d'un nouveau résultat de recherche.
   useEffect(() => {
     setPage(0);
-  }, [search, statutFilter, sortMode]);
+  }, [search, dateSearch, statutFilter, sortMode]);
 
   // Vue carte : réunit dans une même carte les ventes d'un même bloc de places (même
   // événement + même catégorie/rang, places différentes) plutôt qu'une carte par vente.
@@ -624,6 +642,18 @@ export function SalesTable({
           onChange={(e) => setSearch(e.target.value)}
           className="h-8 w-48"
         />
+        <Input
+          type="date"
+          value={dateSearch}
+          onChange={(e) => setDateSearch(e.target.value)}
+          title="Filtrer par date de vente"
+          className="h-8 w-36"
+        />
+        {dateSearch && (
+          <Button variant="ghost" size="sm" onClick={() => setDateSearch("")}>
+            Effacer la date
+          </Button>
+        )}
         <Select
           value={statutFilter}
           onValueChange={(v) => setStatutFilter(v ?? "ALL")}
@@ -676,6 +706,22 @@ export function SalesTable({
           {filtered.length} ligne{filtered.length > 1 ? "s" : ""}
         </span>
       </div>
+
+      {selectionStats.count > 0 && (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+          <span className="text-muted-foreground">
+            {selectedIds.size > 0
+              ? `${selectionStats.count} sélectionnée${selectionStats.count > 1 ? "s" : ""}`
+              : `${selectionStats.count} affichée${selectionStats.count > 1 ? "s" : ""}`}
+          </span>
+          <span className="font-semibold tabular-nums">
+            Total encaissé : {eur.format(selectionStats.totalEncaisse)}
+          </span>
+          <span className="font-semibold tabular-nums text-muted-foreground">
+            Coût : {eur.format(selectionStats.coutTotal)}
+          </span>
+        </div>
+      )}
 
       {/* Vue tableau (desktop) */}
       <Card className={cn("overflow-hidden py-0", viewMode === "cards" ? "hidden" : "hidden md:block")}>

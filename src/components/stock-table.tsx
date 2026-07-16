@@ -159,6 +159,7 @@ export function StockTable({
   showCompteEmail?: boolean;
 }) {
   const [search, setSearch] = useState("");
+  const [dateSearch, setDateSearch] = useState("");
   const [showSold, setShowSold] = useState(false);
   const [sortMode, setSortMode] = useState<"date" | "evenement">("evenement");
   const [viewMode, setViewMode] = useTableViewMode();
@@ -391,6 +392,7 @@ export function StockTable({
   const filtered = useMemo(() => {
     const result = items.filter((it) => {
       if (!showSold && it.statut === "VENDU") return false;
+      if (dateSearch && it.dateAchat !== dateSearch) return false;
       if (!search.trim()) return true;
       const haystack = normalizeForSearch(
         [
@@ -456,7 +458,7 @@ export function StockTable({
       return [...fresh, ...rest];
     }
     return result;
-  }, [items, showSold, search, eventLabelById, eventDateById, events, sortMode, newIds, columnSort, fields]);
+  }, [items, showSold, dateSearch, search, eventLabelById, eventDateById, events, sortMode, newIds, columnSort, fields]);
 
   // Rendre 50 lignes à la fois au lieu de centaines d'un coup évite de monter
   // des centaines de champs éditables en même temps (lent).
@@ -467,11 +469,19 @@ export function StockTable({
   // coincé au milieu d'un nouveau résultat de recherche.
   useEffect(() => {
     setPage(0);
-  }, [search, showSold, sortMode]);
+  }, [search, dateSearch, showSold, sortMode]);
   const paginated = useMemo(
     () => filtered.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE),
     [filtered, currentPage]
   );
+
+  // Total retail (coût d'achat) des lignes cochées - ou de tout ce qui est affiché si rien
+  // n'est coché - pour recouper rapidement un débit de banque du jour avec les achats du stock.
+  const selectionStats = useMemo(() => {
+    const rows = selectedIds.size > 0 ? filtered.filter((it) => selectedIds.has(it.id)) : filtered;
+    const totalRetail = rows.reduce((sum, it) => sum + it.qty * it.coutAchatUnit, 0);
+    return { count: rows.length, totalRetail };
+  }, [selectedIds, filtered]);
 
   // Vue carte : réunit dans une même carte les billets d'un même bloc de places (même
   // événement + même catégorie/rang, places différentes) plutôt qu'une carte par billet -
@@ -708,6 +718,18 @@ export function StockTable({
           onChange={(e) => setSearch(e.target.value)}
           className="h-8 w-48"
         />
+        <Input
+          type="date"
+          value={dateSearch}
+          onChange={(e) => setDateSearch(e.target.value)}
+          title="Filtrer par date d'achat"
+          className="h-8 w-36"
+        />
+        {dateSearch && (
+          <Button variant="ghost" size="sm" onClick={() => setDateSearch("")}>
+            Effacer la date
+          </Button>
+        )}
         <label className="flex items-center gap-2 text-sm text-muted-foreground">
           <Checkbox checked={showSold} onCheckedChange={(v) => setShowSold(!!v)} />
           Afficher les vendus
@@ -747,6 +769,19 @@ export function StockTable({
           {filtered.length} article{filtered.length > 1 ? "s" : ""}
         </span>
       </div>
+
+      {selectionStats.count > 0 && (
+        <div className="flex items-center gap-2 text-sm">
+          <span className="text-muted-foreground">
+            {selectedIds.size > 0
+              ? `${selectionStats.count} sélectionné${selectionStats.count > 1 ? "s" : ""}`
+              : `${selectionStats.count} affiché${selectionStats.count > 1 ? "s" : ""}`}
+          </span>
+          <span className="font-semibold tabular-nums">
+            Total retail : {eur.format(selectionStats.totalRetail)}
+          </span>
+        </div>
+      )}
 
       {/* Vue tableau (desktop) */}
       <Card className={cn("overflow-hidden py-0", viewMode === "cards" ? "hidden" : "hidden md:block")}>

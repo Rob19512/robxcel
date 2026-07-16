@@ -55,6 +55,7 @@ export type ChargePersoRow = {
 
 export function ChargesPersoTable({ path, initialItems }: { path: string; initialItems: ChargePersoRow[] }) {
   const [search, setSearch] = useState("");
+  const [dateSearch, setDateSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
   const scrollRef = useHorizontalWheelScroll<HTMLDivElement>();
@@ -111,6 +112,7 @@ export function ChargesPersoTable({ path, initialItems }: { path: string; initia
   }
 
   const filtered = initialItems.filter((it) => {
+    if (dateSearch && it.date !== dateSearch) return false;
     if (!search.trim()) return true;
     const haystack = normalizeForSearch(
       [it.description, it.categorie, it.notes, String(it.qty), String(it.montant)].join(" ")
@@ -125,7 +127,8 @@ export function ChargesPersoTable({ path, initialItems }: { path: string; initia
     });
   }
 
-  const total = filtered.reduce((sum, it) => sum + it.qty * it.montant, 0);
+  const totalRows = selectedIds.size > 0 ? filtered.filter((it) => selectedIds.has(it.id)) : filtered;
+  const total = totalRows.reduce((sum, it) => sum + it.qty * it.montant, 0);
 
   function handleAdd() {
     startTransition(async () => {
@@ -238,6 +241,18 @@ export function ChargesPersoTable({ path, initialItems }: { path: string; initia
           onChange={(e) => setSearch(e.target.value)}
           className="h-8 w-48"
         />
+        <Input
+          type="date"
+          value={dateSearch}
+          onChange={(e) => setDateSearch(e.target.value)}
+          title="Filtrer par date"
+          className="h-8 w-36"
+        />
+        {dateSearch && (
+          <Button variant="ghost" size="sm" onClick={() => setDateSearch("")}>
+            Effacer la date
+          </Button>
+        )}
         <Button variant="outline" size="sm" onClick={handleExport}>
           <Download />
           Exporter CSV
@@ -245,7 +260,10 @@ export function ChargesPersoTable({ path, initialItems }: { path: string; initia
         <ColumnVisibilityMenu columns={columns} order={order} isVisible={isVisible} toggle={toggleColumn} move={moveColumn} />
         <BulkDeleteButton count={selectedIds.size} onConfirm={handleBulkDelete} />
         <span className="ml-auto text-xs text-muted-foreground">
-          {filtered.length} ligne{filtered.length > 1 ? "s" : ""} · {eur.format(total)}
+          {selectedIds.size > 0
+            ? `${totalRows.length} sélectionnée${totalRows.length > 1 ? "s" : ""}`
+            : `${filtered.length} ligne${filtered.length > 1 ? "s" : ""}`}{" "}
+          · {eur.format(total)}
         </span>
       </div>
 

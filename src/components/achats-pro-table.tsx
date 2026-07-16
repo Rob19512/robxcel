@@ -70,6 +70,7 @@ const tvaOptions = TVA_RATES.map((r) => ({ value: String(r), label: r === 0 ? "0
 
 export function AchatsProTable({ path, initialItems }: { path: string; initialItems: AchatProRow[] }) {
   const [search, setSearch] = useState("");
+  const [dateSearch, setDateSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
   const scrollRef = useHorizontalWheelScroll<HTMLDivElement>();
@@ -142,12 +143,19 @@ export function AchatsProTable({ path, initialItems }: { path: string; initialIt
   }
 
   const filtered = initialItems.filter((it) => {
+    if (dateSearch && it.dateAchat !== dateSearch) return false;
     if (!search.trim()) return true;
     const haystack = normalizeForSearch(
       [it.description, it.categorie, it.notes, String(it.qty), String(it.montantHt)].join(" ")
     );
     return haystack.includes(normalizeForSearch(search));
   });
+
+  const selectionStats = (() => {
+    const rows = selectedIds.size > 0 ? filtered.filter((it) => selectedIds.has(it.id)) : filtered;
+    const totalMontant = rows.reduce((sum, it) => sum + it.qty * it.montantHt, 0);
+    return { count: rows.length, totalMontant };
+  })();
   if (columnSort) {
     const { key, dir } = columnSort;
     filtered.sort((a, b) => {
@@ -272,6 +280,18 @@ export function AchatsProTable({ path, initialItems }: { path: string; initialIt
           onChange={(e) => setSearch(e.target.value)}
           className="h-8 w-48"
         />
+        <Input
+          type="date"
+          value={dateSearch}
+          onChange={(e) => setDateSearch(e.target.value)}
+          title="Filtrer par date d'achat"
+          className="h-8 w-36"
+        />
+        {dateSearch && (
+          <Button variant="ghost" size="sm" onClick={() => setDateSearch("")}>
+            Effacer la date
+          </Button>
+        )}
         <Button variant="outline" size="sm" onClick={handleExport}>
           <Download />
           Exporter CSV
@@ -282,6 +302,19 @@ export function AchatsProTable({ path, initialItems }: { path: string; initialIt
           {filtered.length} ligne{filtered.length > 1 ? "s" : ""}
         </span>
       </div>
+
+      {selectionStats.count > 0 && (
+        <div className="flex items-center gap-2 text-sm">
+          <span className="text-muted-foreground">
+            {selectedIds.size > 0
+              ? `${selectionStats.count} sélectionné${selectionStats.count > 1 ? "s" : ""}`
+              : `${selectionStats.count} affiché${selectionStats.count > 1 ? "s" : ""}`}
+          </span>
+          <span className="font-semibold tabular-nums">
+            Total : {eur.format(selectionStats.totalMontant)}
+          </span>
+        </div>
+      )}
 
       {/* Desktop table */}
       <Card className="hidden overflow-hidden py-0 md:block">
