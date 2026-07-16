@@ -6,7 +6,8 @@ import { EventsTable } from "@/components/events-table";
 import { CategorySettings } from "@/components/category-settings";
 import { ImportedListingsPanel } from "@/components/imported-listings-panel";
 import { listPendingImports } from "@/lib/actions/import-actions";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PersistentTabs } from "@/components/persistent-tabs";
+import { TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const GMAIL_IMPORT_CATEGORY_ID = "cat-billets";
 
@@ -70,7 +71,7 @@ export async function CategoryPageContent({
           {category.trackEvents ? ` · ${events.length} événement${events.length > 1 ? "s" : ""}` : ""}
         </p>
       </div>
-      <Tabs defaultValue="ventes">
+      <PersistentTabs defaultValue="ventes">
         <TabsList>
           <TabsTrigger value="ventes">Ventes</TabsTrigger>
           {category.hasStock && <TabsTrigger value="stock">Stock</TabsTrigger>}
@@ -174,7 +175,7 @@ export async function CategoryPageContent({
             />
           </TabsContent>
         )}
-      </Tabs>
+      </PersistentTabs>
     </div>
   );
 }

@@ -217,7 +217,17 @@ export function ImportedListingsPanel({
 }) {
   const router = useRouter();
   const [pending, setPending] = useState(initialPending);
+  const [prevInitialPending, setPrevInitialPending] = useState(initialPending);
   const [isSyncing, startSync] = useTransition();
+
+  // router.refresh() re-fetches server data et passe un nouveau tableau en prop, mais
+  // useState(initialPending) n'est lu qu'au premier rendu : sans ce sync, la liste reste
+  // figée tant que la page n'est pas rechargée manuellement. Ajustement pendant le rendu
+  // (plutôt qu'un effect) suivant le pattern React recommandé pour l'état dérivé des props.
+  if (initialPending !== prevInitialPending) {
+    setPrevInitialPending(initialPending);
+    setPending(initialPending);
+  }
 
   function handleSync() {
     startSync(async () => {
