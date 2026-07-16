@@ -4,7 +4,11 @@ import { SalesTable } from "@/components/sales-table";
 import { StockTable } from "@/components/stock-table";
 import { EventsTable } from "@/components/events-table";
 import { CategorySettings } from "@/components/category-settings";
+import { ImportedListingsPanel } from "@/components/imported-listings-panel";
+import { listPendingImports } from "@/lib/actions/import-actions";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+const GMAIL_IMPORT_CATEGORY_ID = "cat-billets";
 
 export async function CategoryPageContent({
   categoryId,
@@ -19,7 +23,9 @@ export async function CategoryPageContent({
   // (sortMode="evenement"), donc l'ordre exact renvoyé ici n'a pas besoin d'attendre
   // category.trackEvents/hasStock : les 4 requêtes partent en parallèle sans dépendance,
   // au lieu d'un aller-retour "category" puis un second aller-retour pour le reste.
-  const [category, sales, stockItems, events, eventFolders] = await Promise.all([
+  const isGmailImportCategory = categoryId === GMAIL_IMPORT_CATEGORY_ID;
+
+  const [category, sales, stockItems, events, eventFolders, pendingImports] = await Promise.all([
     prisma.category.findUniqueOrThrow({
       where: { id: categoryId },
       include: { fields: { orderBy: { sortOrder: "asc" } }, sources: { orderBy: { sortOrder: "asc" } } },
@@ -28,6 +34,7 @@ export async function CategoryPageContent({
     prisma.stockItem.findMany({ where: { categoryId, deletedAt: null }, orderBy: { dateAchat: "desc" } }),
     prisma.event.findMany({ where: { categoryId }, orderBy: { dateEvenement: "desc" } }),
     prisma.eventFolder.findMany({ where: { categoryId }, orderBy: { name: "asc" } }),
+    isGmailImportCategory ? listPendingImports() : Promise.resolve([]),
   ]);
 
   const stockFields = category.fields.filter((f) => f.showInStock);
@@ -74,6 +81,12 @@ export async function CategoryPageContent({
             </TabsTrigger>
           )}
           {category.trackEvents && <TabsTrigger value="evenements">Événements</TabsTrigger>}
+          {isGmailImportCategory && (
+            <TabsTrigger value="import-gmail">
+              Import Gmail
+              {pendingImports.length > 0 ? ` (${pendingImports.length})` : ""}
+            </TabsTrigger>
+          )}
           {!category.isBuiltin && <TabsTrigger value="parametres">Paramètres</TabsTrigger>}
         </TabsList>
         <TabsContent value="ventes">
@@ -131,6 +144,11 @@ export async function CategoryPageContent({
               sales={serializedSales}
               folders={eventFolders.map((f) => ({ id: f.id, name: f.name }))}
             />
+          </TabsContent>
+        )}
+        {isGmailImportCategory && (
+          <TabsContent value="import-gmail" keepMounted>
+            <ImportedListingsPanel initialPending={pendingImports} events={eventOptions} />
           </TabsContent>
         )}
         {!category.isBuiltin && (

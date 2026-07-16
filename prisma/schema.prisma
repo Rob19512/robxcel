@@ -44,6 +44,12 @@ enum CategoryScope {
   PERSO
 }
 
+enum ImportedListingStatus {
+  PENDING
+  VALIDATED
+  REJECTED
+}
+
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
@@ -194,6 +200,30 @@ model Sale {
 
   @@index([categoryId, deletedAt])
   @@index([deletedAt, statut])
+}
+
+// Billet détecté dans un email de confirmation (Ticketmaster, etc.) via l'import Gmail,
+// en attente de validation manuelle avant de devenir un vrai StockItem. Le dédoublonnage
+// se fait sur gmailMessageId pour ne jamais réimporter deux fois le même mail.
+model ImportedListing {
+  id              String                @id @default(cuid())
+  provider        String
+  gmailMessageId  String                @unique
+  status          ImportedListingStatus @default(PENDING)
+  numeroCommande  String?
+  eventName       String
+  eventDate       DateTime?
+  lieuSalle       String?
+  categorie       String?
+  qty             Int
+  coutAchatUnit   Decimal               @db.Decimal(12, 2)
+  seats           Json
+  rawEmailText    String
+  createdStockItemIds String[]          @default([])
+  createdAt       DateTime              @default(now())
+  validatedAt     DateTime?
+
+  @@index([status])
 }
 
 model AchatPro {
