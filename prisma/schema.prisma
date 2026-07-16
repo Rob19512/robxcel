@@ -212,6 +212,7 @@ model ImportedListing {
   status          ImportedListingStatus @default(PENDING)
   numeroCommande  String?
   recipientEmail  String?
+  orderDate       DateTime?
   eventName       String
   eventDate       DateTime?
   lieuSalle       String?

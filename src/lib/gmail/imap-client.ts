@@ -7,6 +7,7 @@ export type FetchedEmail = {
   subject: string;
   text: string;
   recipientEmail: string | null;
+  orderDate: Date | null;
 };
 
 const DEFAULT_TICKETMASTER_QUERY =
@@ -59,6 +60,9 @@ export async function fetchUnreadTicketmasterEmails(): Promise<FetchedEmail[]> {
           subject: parsed.subject ?? "",
           text,
           recipientEmail,
+          // Date d'envoi du mail de confirmation = date réelle de l'achat, pas la date de
+          // synchronisation (on peut valider plusieurs jours après avoir acheté les billets).
+          orderDate: parsed.date ?? null,
         });
       }
 

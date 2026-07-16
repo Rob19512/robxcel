@@ -64,7 +64,7 @@ function ValidateImportDialog({
   const [newEventDate, setNewEventDate] = useState(listing.eventDate ? listing.eventDate.slice(0, 10) : "");
   const [newEventLieuSalle, setNewEventLieuSalle] = useState(listing.lieuSalle ?? "");
 
-  const [dateAchat, setDateAchat] = useState(today());
+  const [dateAchat, setDateAchat] = useState(listing.orderDate ? listing.orderDate.slice(0, 10) : today());
   const [coutAchatUnit, setCoutAchatUnit] = useState(String(listing.coutAchatUnit));
   const [prixCibleVente, setPrixCibleVente] = useState("");
   const [compte, setCompte] = useState(listing.recipientEmail ?? "");

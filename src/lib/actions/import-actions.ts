@@ -15,6 +15,7 @@ export type ImportedListingRow = {
   provider: string;
   numeroCommande: string | null;
   recipientEmail: string | null;
+  orderDate: string | null;
   eventName: string;
   eventDate: string | null;
   lieuSalle: string | null;
@@ -35,6 +36,7 @@ export async function listPendingImports(): Promise<ImportedListingRow[]> {
     provider: r.provider,
     numeroCommande: r.numeroCommande,
     recipientEmail: r.recipientEmail,
+    orderDate: r.orderDate ? r.orderDate.toISOString() : null,
     eventName: r.eventName,
     eventDate: r.eventDate ? r.eventDate.toISOString() : null,
     lieuSalle: r.lieuSalle,
@@ -72,6 +74,7 @@ export async function syncTicketmasterImports() {
         gmailMessageId: email.gmailMessageId,
         numeroCommande: parsed.numeroCommande,
         recipientEmail: email.recipientEmail,
+        orderDate: email.orderDate,
         eventName: parsed.eventName,
         eventDate: parsed.eventDate,
         lieuSalle: parsed.lieuSalle,
