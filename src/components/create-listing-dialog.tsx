@@ -27,7 +27,7 @@ import { isEventPast } from "@/lib/event-utils";
 import { createEventWithDetails } from "@/lib/actions/event-actions";
 import { bulkCreateStockItems, type BulkStockRowInput } from "@/lib/actions/stock-actions";
 import { TICKETING_SITES } from "@/lib/ticketing-sites";
-import type { EventOption } from "@/components/sales-table";
+import type { EventOption, CategoryFieldDef } from "@/components/sales-table";
 
 type EventFolderOption = { id: string; name: string };
 
@@ -65,11 +65,13 @@ export function CreateListingDialog({
   path,
   events,
   folders,
+  fields,
 }: {
   categoryId: string;
   path: string;
   events?: EventOption[];
   folders: EventFolderOption[];
+  fields: CategoryFieldDef[];
 }) {
   const [open, setOpen] = useState(false);
   const [isPending, setIsPending] = useState(false);
@@ -143,6 +145,10 @@ export function CreateListingDialog({
       }
 
       const finalSiteAchat = siteAchat === "CUSTOM" ? siteAchatCustom.trim() : siteAchat;
+      // Certaines catégories (ex. Billets) affichent le "Compte" via un champ personnalisé
+      // (customValues.compte) plutôt que la colonne compteEmail intégrée - il faut écrire au
+      // bon endroit sinon la valeur est bien enregistrée mais jamais visible nulle part.
+      const hasCompteField = fields.some((f) => f.key === "compte");
       const seats = parseSeatRange(seat);
       const rows: BulkStockRowInput[] = seats.map((seatValue) => ({
         dateAchat,
@@ -154,11 +160,12 @@ export function CreateListingDialog({
         prixCibleVente: prixCibleVente.trim() ? Number(prixCibleVente) : null,
         priorite: null,
         recu: null,
-        compteEmail,
+        compteEmail: hasCompteField ? "" : compteEmail,
         notes: "",
         customValues: {
           categoriePlacement: buildPlacement(categorie, section, rang, seatValue),
           numeroCommande,
+          ...(hasCompteField ? { compte: compteEmail } : {}),
         },
       }));
 

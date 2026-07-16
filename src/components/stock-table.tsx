@@ -697,6 +697,7 @@ export function StockTable({
                 path={path}
                 events={events}
                 folders={folders ?? []}
+                fields={fields}
               />
             )}
           </>
