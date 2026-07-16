@@ -269,8 +269,8 @@ export function ImportedListingsPanel({
       ) : (
         <div className="flex flex-col gap-3">
           {pending.map((listing) => (
-            <div key={listing.id} className="flex flex-col gap-2 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex flex-col gap-1">
+            <div key={listing.id} className="flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex flex-col gap-1.5">
                 <div className="flex items-center gap-2">
                   <span className="font-medium">{listing.eventName}</span>
                   <Badge variant="outline">{listing.provider}</Badge>
@@ -279,11 +279,21 @@ export function ImportedListingsPanel({
                   {listing.eventDate ? new Date(listing.eventDate).toLocaleString("fr-FR") : "Date inconnue"}
                   {listing.lieuSalle ? ` · ${listing.lieuSalle}` : ""}
                   {listing.categorie ? ` · Catégorie ${listing.categorie}` : ""}
+                  {listing.numeroCommande ? ` · Commande n°${listing.numeroCommande}` : ""}
                   {` · ${listing.qty} billet${listing.qty > 1 ? "s" : ""}`}
                   {` · ${listing.coutAchatUnit.toFixed(2)} €/billet`}
                 </p>
+                <ul className="flex flex-col gap-0.5 text-sm">
+                  {listing.seats.map((s, i) => (
+                    <li key={i} className="text-muted-foreground">
+                      {[s.section, s.rang ? `Rang ${s.rang}` : null, s.place ? `Place ${s.place}` : null, s.tag]
+                        .filter(Boolean)
+                        .join(" - ")}
+                    </li>
+                  ))}
+                </ul>
               </div>
-              <div className="flex gap-2">
+              <div className="flex shrink-0 gap-2">
                 <ValidateImportDialog listing={listing} events={events} onDone={handleDone} />
                 <Button size="sm" variant="outline" onClick={() => handleReject(listing.id)}>
                   <X />
