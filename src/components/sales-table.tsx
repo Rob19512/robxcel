@@ -98,6 +98,18 @@ const statutBadgeVariant: Record<SaleRow["statut"], string> = {
   LITIGE: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300",
 };
 
+const STATUT_LABEL_SHORT: Record<SaleRow["statut"], string> = {
+  ENCAISSE: "Encaissé",
+  EN_ATTENTE: "En attente",
+  LITIGE: "Litige",
+};
+
+const statutDotColor: Record<SaleRow["statut"], string> = {
+  ENCAISSE: "bg-emerald-500",
+  EN_ATTENTE: "bg-amber-500",
+  LITIGE: "bg-red-500",
+};
+
 const tvaOptions = TVA_RATES.map((r) => ({ value: String(r), label: r === 0 ? "0 % (exo)" : `${r} %` }));
 
 export type EventOption = { id: string; label: string; dateEvenement: string | null };
@@ -766,7 +778,7 @@ export function SalesTable({
           en grille compacte en mode carte explicite. */}
       <div
         className={cn(
-          "grid grid-cols-1 gap-3",
+          "grid grid-cols-1 items-start gap-3",
           viewMode === "cards" ? "sm:grid-cols-2 xl:grid-cols-3" : "md:hidden"
         )}
       >
@@ -780,16 +792,22 @@ export function SalesTable({
           const encaisseCount = group.items.filter((s) => s.statut === "ENCAISSE").length;
 
           return (
-            <Card key={group.key} className="overflow-hidden py-0">
+            <Card key={group.key} className="gap-0 overflow-hidden py-0">
               {showGroupHeader && (
-                <div className="flex items-center justify-between gap-2 border-b bg-muted/40 px-3 py-2">
+                <div className="flex items-start justify-between gap-3 border-b bg-muted/30 px-3.5 py-2.5">
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{groupEventLabel ?? "Sans événement"}</p>
+                    <p className="truncate text-sm font-semibold">{groupEventLabel ?? "Sans événement"}</p>
                     {placementLabel && <p className="truncate text-xs text-muted-foreground">{placementLabel}</p>}
                   </div>
-                  <div className="flex shrink-0 items-center gap-2">
+                  <div className="flex shrink-0 flex-col items-end gap-1">
                     {group.items.length > 1 && (
-                      <Badge variant="secondary" className="tabular-nums">
+                      <Badge
+                        variant="secondary"
+                        className={cn(
+                          "tabular-nums",
+                          encaisseCount === group.items.length && "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                        )}
+                      >
                         {encaisseCount}/{group.items.length}
                       </Badge>
                     )}
@@ -810,10 +828,11 @@ export function SalesTable({
                       ? `Place ${seatPlace}`
                       : s.description || "Vente"
                     : s.description || itemEventLabel || "Sans description";
+                  const headerSubLabel = showGroupHeader ? null : itemEventLabel && s.description ? itemEventLabel : null;
 
                   return (
                     <div key={s.id}>
-                      <div className="flex w-full items-center gap-1 p-3">
+                      <div className="flex w-full items-center gap-1 py-1 pr-1 pl-2">
                         <Checkbox
                           checked={selectedIds.has(s.id)}
                           onCheckedChange={() => toggleSelected(s.id)}
@@ -822,12 +841,17 @@ export function SalesTable({
                         <button
                           type="button"
                           onClick={() => toggleExpanded(s.id)}
-                          className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
+                          className="flex min-w-0 flex-1 items-center gap-2.5 rounded-md px-1.5 py-1.5 text-left hover:bg-muted/50"
                         >
+                          <span
+                            className={cn("size-2 shrink-0 rounded-full", statutDotColor[s.statut])}
+                            title={STATUT_LABEL_SHORT[s.statut]}
+                          />
                           <div className="flex min-w-0 flex-1 flex-col">
                             <span className="truncate text-sm font-medium">{headerLabel}</span>
                             <span className="truncate text-xs text-muted-foreground">
-                              {STATUT_OPTIONS.find((o) => o.value === s.statut)?.label}
+                              {STATUT_LABEL_SHORT[s.statut]}
+                              {headerSubLabel ? ` · ${headerSubLabel}` : ""}
                             </span>
                           </div>
                           <span className="shrink-0 text-sm font-semibold tabular-nums">
@@ -837,19 +861,14 @@ export function SalesTable({
                             className={cn("size-4 shrink-0 text-muted-foreground transition-transform", isOpen && "rotate-180")}
                           />
                         </button>
+                        <RowMenu
+                          onDuplicate={() => handleDuplicate(s.id)}
+                          onDelete={() => handleDelete(s.id)}
+                        />
                       </div>
 
                       {isOpen && (
                         <CardContent className="flex flex-col gap-3 border-t pt-3">
-                          <div className="flex items-center justify-between">
-                            <Badge className={statutBadgeVariant[s.statut]}>
-                              {STATUT_OPTIONS.find((o) => o.value === s.statut)?.label}
-                            </Badge>
-                            <RowMenu
-                              onDuplicate={() => handleDuplicate(s.id)}
-                              onDelete={() => handleDelete(s.id)}
-                            />
-                          </div>
                           {showDescription && (
                             <InlineTextArea
                               value={s.description ?? ""}

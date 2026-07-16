@@ -91,6 +91,18 @@ const statutBadgeVariant: Record<StockRow["statut"], string> = {
   VENDU: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300",
 };
 
+const STATUT_LABEL_SHORT: Record<StockRow["statut"], string> = {
+  EN_STOCK: "En stock",
+  EN_ATTENTE: "En attente",
+  VENDU: "Vendu",
+};
+
+const statutDotColor: Record<StockRow["statut"], string> = {
+  EN_STOCK: "bg-zinc-400 dark:bg-zinc-500",
+  EN_ATTENTE: "bg-amber-500",
+  VENDU: "bg-emerald-500",
+};
+
 const PRIORITE_OPTIONS = [
   { value: "URGENT", label: "🔴 Urgent" },
   { value: "NORMAL", label: "🟡 Normal" },
@@ -839,7 +851,7 @@ export function StockTable({
           forcée sur mobile, en grille compacte en mode carte explicite. */}
       <div
         className={cn(
-          "grid grid-cols-1 gap-2",
+          "grid grid-cols-1 items-start gap-3",
           viewMode === "cards" ? "sm:grid-cols-2 xl:grid-cols-3" : "md:hidden"
         )}
       >
@@ -853,16 +865,22 @@ export function StockTable({
           const totalCible = group.items.reduce((sum, it) => sum + (it.prixCibleVente ?? 0) * it.qty, 0);
 
           return (
-            <Card key={group.key} className="overflow-hidden py-0">
+            <Card key={group.key} className="gap-0 overflow-hidden py-0">
               {showGroupHeader && (
-                <div className="flex items-center justify-between gap-2 border-b bg-muted/40 px-3 py-2">
+                <div className="flex items-start justify-between gap-3 border-b bg-muted/30 px-3.5 py-2.5">
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{groupEventLabel ?? "Sans événement"}</p>
+                    <p className="truncate text-sm font-semibold">{groupEventLabel ?? "Sans événement"}</p>
                     {placementLabel && <p className="truncate text-xs text-muted-foreground">{placementLabel}</p>}
                   </div>
-                  <div className="flex shrink-0 items-center gap-2">
+                  <div className="flex shrink-0 flex-col items-end gap-1">
                     {group.items.length > 1 && (
-                      <Badge variant="secondary" className="tabular-nums">
+                      <Badge
+                        variant="secondary"
+                        className={cn(
+                          "tabular-nums",
+                          soldCount === group.items.length && "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                        )}
+                      >
                         {soldCount}/{group.items.length}
                       </Badge>
                     )}
@@ -879,9 +897,7 @@ export function StockTable({
                   const isOpen = expanded.has(it.id);
                   const effectivePriorite =
                     (it.eventId ? autoPrioriteFromDate(eventDateById.get(it.eventId) ?? null) : null) ?? it.priorite;
-                  const prioriteEmoji = trackPriorite
-                    ? (PRIORITE_OPTIONS.find((o) => o.value === effectivePriorite)?.label ?? "🟡 Normal").split(" ")[0]
-                    : null;
+                  const isUrgent = trackPriorite && effectivePriorite === "URGENT";
                   const itemEventLabel = it.eventId ? eventLabelById.get(it.eventId) : null;
                   const seatPlace = showGroupHeader
                     ? parseCategoriePlacement(it.customValues?.categoriePlacement ?? "").place
@@ -892,12 +908,14 @@ export function StockTable({
                       : it.description || "Billet"
                     : it.description || itemEventLabel || "Sans description";
                   const headerSubLabel = showGroupHeader
-                    ? STATUT_LABEL[it.statut]
-                    : `${STATUT_LABEL[it.statut]}${itemEventLabel && it.description ? ` · ${itemEventLabel}` : ""}`;
+                    ? null
+                    : itemEventLabel && it.description
+                      ? itemEventLabel
+                      : null;
 
                   return (
                     <div key={it.id}>
-                      <div className="flex w-full items-center gap-1 p-3">
+                      <div className="flex w-full items-center gap-1 py-1 pr-1 pl-2">
                         <Checkbox
                           checked={selectedIds.has(it.id)}
                           onCheckedChange={() => toggleSelected(it.id)}
@@ -906,15 +924,27 @@ export function StockTable({
                         <button
                           type="button"
                           onClick={() => toggleExpanded(it.id)}
-                          className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
+                          className="flex min-w-0 flex-1 items-center gap-2.5 rounded-md px-1.5 py-1.5 text-left hover:bg-muted/50"
                         >
-                          {prioriteEmoji && <span className="shrink-0 text-base leading-none">{prioriteEmoji}</span>}
+                          <span
+                            className={cn("size-2 shrink-0 rounded-full", statutDotColor[it.statut])}
+                            title={STATUT_LABEL_SHORT[it.statut]}
+                          />
+                          {isUrgent && <span className="size-1.5 shrink-0 rounded-full bg-red-500" title="Urgent" />}
                           <div className="flex min-w-0 flex-1 flex-col">
                             <span className="truncate text-sm font-medium">{headerLabel}</span>
-                            <span className="truncate text-xs text-muted-foreground">{headerSubLabel}</span>
+                            <span className="truncate text-xs text-muted-foreground">
+                              {STATUT_LABEL_SHORT[it.statut]}
+                              {headerSubLabel ? ` · ${headerSubLabel}` : ""}
+                            </span>
                           </div>
                           <div className="flex shrink-0 flex-col items-end">
-                            <span className="text-sm font-semibold tabular-nums">
+                            <span
+                              className={cn(
+                                "text-sm font-semibold tabular-nums",
+                                it.prixCibleVente === null && "text-muted-foreground/50"
+                              )}
+                            >
                               {it.prixCibleVente !== null ? eur.format(it.prixCibleVente) : "—"}
                             </span>
                             {margeCible !== null && (
@@ -927,14 +957,11 @@ export function StockTable({
                             className={cn("size-4 shrink-0 text-muted-foreground transition-transform", isOpen && "rotate-180")}
                           />
                         </button>
+                        <RowMenu onDuplicate={() => handleDuplicate(it.id)} onDelete={() => handleDelete(it.id)} />
                       </div>
 
                       {isOpen && (
                         <CardContent className="flex flex-col gap-3 border-t pt-3">
-                          <div className="flex items-center justify-between">
-                            <Badge className={statutBadgeVariant[it.statut]}>{STATUT_LABEL[it.statut]}</Badge>
-                            <RowMenu onDuplicate={() => handleDuplicate(it.id)} onDelete={() => handleDelete(it.id)} />
-                          </div>
                           {showDescription && (
                             <InlineTextArea
                               value={it.description ?? ""}
