@@ -34,7 +34,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { InlineText, InlineTextArea, InlineNumber, InlineDate, InlineSelect } from "@/components/inline-field";
-import { CategoriePlacementField } from "@/components/categorie-placement-field";
+import { CategoriePlacementField, parseCategoriePlacement } from "@/components/categorie-placement-field";
 import { BulkAddStockDialog } from "@/components/bulk-add-stock-dialog";
 import { CreateListingDialog } from "@/components/create-listing-dialog";
 import { TablePagination } from "@/components/table-pagination";
@@ -461,6 +461,37 @@ export function StockTable({
     [filtered, currentPage]
   );
 
+  // Vue carte : réunit dans une même carte les billets d'un même bloc de places (même
+  // événement + même catégorie/rang, places différentes) plutôt qu'une carte par billet -
+  // ex. "Cat 1, Rang 76, Places 1-4" en une seule carte au lieu de 4 cartes identiques.
+  const hasPlacementGrouping = fields.some((f) => f.key === "categoriePlacement");
+  const groupedForCards = useMemo(() => {
+    type StockGroup = { key: string; eventId: string | null; categorie: string; rang: string; items: StockRow[] };
+    if (!hasPlacementGrouping) {
+      return filtered.map((it): StockGroup => ({ key: it.id, eventId: it.eventId, categorie: "", rang: "", items: [it] }));
+    }
+    const map = new Map<string, StockGroup>();
+    const order: string[] = [];
+    for (const it of filtered) {
+      const parsed = parseCategoriePlacement(it.customValues?.categoriePlacement ?? "");
+      const key = `${it.eventId ?? "none"}|${parsed.categorie.toLowerCase()}|${parsed.rang.toLowerCase()}`;
+      let g = map.get(key);
+      if (!g) {
+        g = { key, eventId: it.eventId, categorie: parsed.categorie, rang: parsed.rang, items: [] };
+        map.set(key, g);
+        order.push(key);
+      }
+      g.items.push(it);
+    }
+    return order.map((k) => map.get(k)!);
+  }, [filtered, hasPlacementGrouping]);
+  const totalCardPages = Math.max(1, Math.ceil(groupedForCards.length / PAGE_SIZE));
+  const currentCardPage = Math.min(page, totalCardPages - 1);
+  const paginatedGroups = useMemo(
+    () => groupedForCards.slice(currentCardPage * PAGE_SIZE, (currentCardPage + 1) * PAGE_SIZE),
+    [groupedForCards, currentCardPage]
+  );
+
   function handleAdd() {
     startTransition(async () => {
       try {
@@ -803,202 +834,244 @@ export function StockTable({
         </div>
       </Card>
 
-      {/* Vue carte : repliée par défaut, forcée sur mobile, en grille compacte en mode carte explicite */}
+      {/* Vue carte : réunit dans une même carte les billets d'un même bloc de places (même
+          événement + même catégorie/rang) plutôt qu'une carte par billet. Repliée par défaut,
+          forcée sur mobile, en grille compacte en mode carte explicite. */}
       <div
         className={cn(
           "grid grid-cols-1 gap-2",
           viewMode === "cards" ? "sm:grid-cols-2 xl:grid-cols-3" : "md:hidden"
         )}
       >
-        {paginated.map((it) => {
-          const margeCible =
-            it.prixCibleVente !== null ? it.qty * (it.prixCibleVente - it.coutAchatUnit) : null;
-          const isOpen = expanded.has(it.id);
-          const effectivePriorite =
-            (it.eventId ? autoPrioriteFromDate(eventDateById.get(it.eventId) ?? null) : null) ?? it.priorite;
-          const prioriteEmoji = trackPriorite
-            ? (PRIORITE_OPTIONS.find((o) => o.value === effectivePriorite)?.label ?? "🟡 Normal").split(" ")[0]
-            : null;
-          const eventLabel = it.eventId ? eventLabelById.get(it.eventId) : null;
+        {paginatedGroups.map((group) => {
+          const groupEventLabel = group.eventId ? eventLabelById.get(group.eventId) : null;
+          const placementLabel = [group.categorie, group.rang ? `Rang ${group.rang}` : ""]
+            .filter(Boolean)
+            .join(" · ");
+          const showGroupHeader = group.items.length > 1 || !!groupEventLabel || !!placementLabel;
+          const soldCount = group.items.filter((it) => it.statut !== "EN_STOCK").length;
+          const totalCible = group.items.reduce((sum, it) => sum + (it.prixCibleVente ?? 0) * it.qty, 0);
 
           return (
-            <Card key={it.id} className="py-0">
-              <div className="flex w-full items-center gap-1 p-3">
-                <Checkbox
-                  checked={selectedIds.has(it.id)}
-                  onCheckedChange={() => toggleSelected(it.id)}
-                  className="mr-1 shrink-0"
-                />
-                <button
-                  type="button"
-                  onClick={() => toggleExpanded(it.id)}
-                  className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
-                >
-                  {prioriteEmoji && <span className="shrink-0 text-base leading-none">{prioriteEmoji}</span>}
-                  <div className="flex min-w-0 flex-1 flex-col">
-                    <span className="truncate text-sm font-medium">
-                      {it.description || eventLabel || "Sans description"}
-                    </span>
-                    <span className="truncate text-xs text-muted-foreground">
-                      {STATUT_LABEL[it.statut]}
-                      {eventLabel && it.description ? ` · ${eventLabel}` : ""}
-                    </span>
+            <Card key={group.key} className="overflow-hidden py-0">
+              {showGroupHeader && (
+                <div className="flex items-center justify-between gap-2 border-b bg-muted/40 px-3 py-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{groupEventLabel ?? "Sans événement"}</p>
+                    {placementLabel && <p className="truncate text-xs text-muted-foreground">{placementLabel}</p>}
                   </div>
-                  <div className="flex shrink-0 flex-col items-end">
-                    <span className="text-sm font-semibold tabular-nums">
-                      {it.prixCibleVente !== null ? eur.format(it.prixCibleVente) : "—"}
-                    </span>
-                    {margeCible !== null && (
-                      <span className="text-xs text-muted-foreground tabular-nums">
-                        +{eur.format(margeCible)}
-                      </span>
+                  <div className="flex shrink-0 items-center gap-2">
+                    {group.items.length > 1 && (
+                      <Badge variant="secondary" className="tabular-nums">
+                        {soldCount}/{group.items.length}
+                      </Badge>
+                    )}
+                    {totalCible > 0 && (
+                      <span className="text-sm font-semibold tabular-nums">{eur.format(totalCible)}</span>
                     )}
                   </div>
-                  <ChevronDown
-                    className={cn("size-4 shrink-0 text-muted-foreground transition-transform", isOpen && "rotate-180")}
-                  />
-                </button>
-              </div>
-
-              {isOpen && (
-                <CardContent className="flex flex-col gap-3 border-t pt-3">
-                  <div className="flex items-center justify-between">
-                    <Badge className={statutBadgeVariant[it.statut]}>{STATUT_LABEL[it.statut]}</Badge>
-                    <RowMenu onDuplicate={() => handleDuplicate(it.id)} onDelete={() => handleDelete(it.id)} />
-                  </div>
-                  {showDescription && (
-                    <InlineTextArea
-                      value={it.description ?? ""}
-                      placeholder="Description"
-                      onSave={saveField(it.id, "description")}
-                      className="text-base font-medium"
-                    />
-                  )}
-                  <div className="grid grid-cols-2 gap-2">
-                    <Field label="Date achat">
-                      <InlineDate value={it.dateAchat} onSave={saveField(it.id, "dateAchat")} />
-                    </Field>
-                    <Field label="Source cible">
-                      <InlineSelect
-                        value={it.source ?? ""}
-                        options={sourceOptions}
-                        placeholder="Source"
-                        onSave={saveField(it.id, "source")}
-                      />
-                    </Field>
-                    {events && (
-                      <Field label="Événement">
-                        <InlineSelect
-                          value={it.eventId ?? ""}
-                          options={eventOptionsSorted()}
-                          placeholder="Événement"
-                          onSave={saveEvent(it.id)}
-                        />
-                      </Field>
-                    )}
-                    <Field label="Qté">
-                      <InlineNumber value={it.qty} step="1" onSave={saveField(it.id, "qty")} />
-                    </Field>
-                    <Field label="Coût achat unit.">
-                      <InlineNumber value={it.coutAchatUnit} onSave={saveField(it.id, "coutAchatUnit")} />
-                    </Field>
-                    <Field label="Prix cible vente">
-                      <InlineNumber value={it.prixCibleVente ?? 0} onSave={saveField(it.id, "prixCibleVente")} />
-                    </Field>
-                    {fields.map((f) => (
-                      <Field key={f.id} label={f.label}>
-                        {f.key === "categoriePlacement" ? (
-                          <CategoriePlacementField value={it.customValues?.[f.key] ?? ""} onSave={saveCustom(it.id, f.key)} />
-                        ) : f.fieldType === "DATE" ? (
-                          <InlineDate value={it.customValues?.[f.key] ?? ""} onSave={saveCustom(it.id, f.key)} />
-                        ) : f.fieldType === "NUMBER" ? (
-                          <InlineNumber
-                            value={Number(it.customValues?.[f.key] ?? 0)}
-                            onSave={saveCustom(it.id, f.key)}
-                          />
-                        ) : (
-                          <InlineTextArea value={it.customValues?.[f.key] ?? ""} onSave={saveCustom(it.id, f.key)} />
-                        )}
-                      </Field>
-                    ))}
-                    {trackPriorite && (
-                      <Field label="Priorité">
-                        {(() => {
-                          const auto = it.eventId ? autoPrioriteFromDate(eventDateById.get(it.eventId) ?? null) : null;
-                          return auto ? (
-                            <span title="Calculée automatiquement selon la date de l'événement">
-                              {PRIORITE_LABEL[auto]}
-                            </span>
-                          ) : (
-                            <InlineSelect
-                              value={it.priorite ?? "NORMAL"}
-                              options={PRIORITE_OPTIONS}
-                              onSave={saveField(it.id, "priorite")}
-                            />
-                          );
-                        })()}
-                      </Field>
-                    )}
-                    {trackRecu && (
-                      <Field label="Reçu">
-                        <InlineSelect
-                          value={String(it.recu ?? false)}
-                          options={RECU_OPTIONS}
-                          onSave={saveField(it.id, "recu")}
-                        />
-                      </Field>
-                    )}
-                    <Field label="TVA achat">
-                      <InlineSelect
-                        value={String(it.tauxTvaAchat)}
-                        options={tvaOptions}
-                        onSave={saveField(it.id, "tauxTvaAchat")}
-                      />
-                    </Field>
-                    {showCompteEmail && (
-                      <Field label="Compte (email)">
-                        <InlineText value={it.compteEmail ?? ""} onSave={saveField(it.id, "compteEmail")} />
-                      </Field>
-                    )}
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 rounded-md bg-muted p-2">
-                    <Field label="Date de vente">
-                      <div className="flex items-center gap-1">
-                        <InlineDate value={it.dateVente ?? ""} onSave={saveDate(it.id, "dateVente")} />
-                        {!it.dateVente && (
-                          <Button variant="ghost" size="icon-sm" onClick={() => handleMarkVendu(it.id)}>
-                            <PackageCheck className="text-amber-600" />
-                          </Button>
-                        )}
-                      </div>
-                    </Field>
-                    <Field label="Date encaissement">
-                      <div className="flex items-center gap-1">
-                        <InlineDate
-                          value={it.dateEncaissement ?? ""}
-                          onSave={saveDate(it.id, "dateEncaissement")}
-                        />
-                        {it.dateVente && !it.dateEncaissement && (
-                          <Button variant="ghost" size="icon-sm" onClick={() => handleMarkEncaisse(it.id)}>
-                            <CheckCircle2 className="text-emerald-600" />
-                          </Button>
-                        )}
-                      </div>
-                    </Field>
-                  </div>
-                </CardContent>
+                </div>
               )}
+              <div className="divide-y">
+                {group.items.map((it) => {
+                  const margeCible =
+                    it.prixCibleVente !== null ? it.qty * (it.prixCibleVente - it.coutAchatUnit) : null;
+                  const isOpen = expanded.has(it.id);
+                  const effectivePriorite =
+                    (it.eventId ? autoPrioriteFromDate(eventDateById.get(it.eventId) ?? null) : null) ?? it.priorite;
+                  const prioriteEmoji = trackPriorite
+                    ? (PRIORITE_OPTIONS.find((o) => o.value === effectivePriorite)?.label ?? "🟡 Normal").split(" ")[0]
+                    : null;
+                  const itemEventLabel = it.eventId ? eventLabelById.get(it.eventId) : null;
+                  const seatPlace = showGroupHeader
+                    ? parseCategoriePlacement(it.customValues?.categoriePlacement ?? "").place
+                    : "";
+                  const headerLabel = showGroupHeader
+                    ? seatPlace
+                      ? `Place ${seatPlace}`
+                      : it.description || "Billet"
+                    : it.description || itemEventLabel || "Sans description";
+                  const headerSubLabel = showGroupHeader
+                    ? STATUT_LABEL[it.statut]
+                    : `${STATUT_LABEL[it.statut]}${itemEventLabel && it.description ? ` · ${itemEventLabel}` : ""}`;
+
+                  return (
+                    <div key={it.id}>
+                      <div className="flex w-full items-center gap-1 p-3">
+                        <Checkbox
+                          checked={selectedIds.has(it.id)}
+                          onCheckedChange={() => toggleSelected(it.id)}
+                          className="mr-1 shrink-0"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => toggleExpanded(it.id)}
+                          className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
+                        >
+                          {prioriteEmoji && <span className="shrink-0 text-base leading-none">{prioriteEmoji}</span>}
+                          <div className="flex min-w-0 flex-1 flex-col">
+                            <span className="truncate text-sm font-medium">{headerLabel}</span>
+                            <span className="truncate text-xs text-muted-foreground">{headerSubLabel}</span>
+                          </div>
+                          <div className="flex shrink-0 flex-col items-end">
+                            <span className="text-sm font-semibold tabular-nums">
+                              {it.prixCibleVente !== null ? eur.format(it.prixCibleVente) : "—"}
+                            </span>
+                            {margeCible !== null && (
+                              <span className="text-xs text-muted-foreground tabular-nums">
+                                +{eur.format(margeCible)}
+                              </span>
+                            )}
+                          </div>
+                          <ChevronDown
+                            className={cn("size-4 shrink-0 text-muted-foreground transition-transform", isOpen && "rotate-180")}
+                          />
+                        </button>
+                      </div>
+
+                      {isOpen && (
+                        <CardContent className="flex flex-col gap-3 border-t pt-3">
+                          <div className="flex items-center justify-between">
+                            <Badge className={statutBadgeVariant[it.statut]}>{STATUT_LABEL[it.statut]}</Badge>
+                            <RowMenu onDuplicate={() => handleDuplicate(it.id)} onDelete={() => handleDelete(it.id)} />
+                          </div>
+                          {showDescription && (
+                            <InlineTextArea
+                              value={it.description ?? ""}
+                              placeholder="Description"
+                              onSave={saveField(it.id, "description")}
+                              className="text-base font-medium"
+                            />
+                          )}
+                          <div className="grid grid-cols-2 gap-2">
+                            <Field label="Date achat">
+                              <InlineDate value={it.dateAchat} onSave={saveField(it.id, "dateAchat")} />
+                            </Field>
+                            <Field label="Source cible">
+                              <InlineSelect
+                                value={it.source ?? ""}
+                                options={sourceOptions}
+                                placeholder="Source"
+                                onSave={saveField(it.id, "source")}
+                              />
+                            </Field>
+                            {events && (
+                              <Field label="Événement">
+                                <InlineSelect
+                                  value={it.eventId ?? ""}
+                                  options={eventOptionsSorted()}
+                                  placeholder="Événement"
+                                  onSave={saveEvent(it.id)}
+                                />
+                              </Field>
+                            )}
+                            <Field label="Qté">
+                              <InlineNumber value={it.qty} step="1" onSave={saveField(it.id, "qty")} />
+                            </Field>
+                            <Field label="Coût achat unit.">
+                              <InlineNumber value={it.coutAchatUnit} onSave={saveField(it.id, "coutAchatUnit")} />
+                            </Field>
+                            <Field label="Prix cible vente">
+                              <InlineNumber value={it.prixCibleVente ?? 0} onSave={saveField(it.id, "prixCibleVente")} />
+                            </Field>
+                            {fields.map((f) => (
+                              <Field key={f.id} label={f.label}>
+                                {f.key === "categoriePlacement" ? (
+                                  <CategoriePlacementField value={it.customValues?.[f.key] ?? ""} onSave={saveCustom(it.id, f.key)} />
+                                ) : f.fieldType === "DATE" ? (
+                                  <InlineDate value={it.customValues?.[f.key] ?? ""} onSave={saveCustom(it.id, f.key)} />
+                                ) : f.fieldType === "NUMBER" ? (
+                                  <InlineNumber
+                                    value={Number(it.customValues?.[f.key] ?? 0)}
+                                    onSave={saveCustom(it.id, f.key)}
+                                  />
+                                ) : (
+                                  <InlineTextArea value={it.customValues?.[f.key] ?? ""} onSave={saveCustom(it.id, f.key)} />
+                                )}
+                              </Field>
+                            ))}
+                            {trackPriorite && (
+                              <Field label="Priorité">
+                                {(() => {
+                                  const auto = it.eventId ? autoPrioriteFromDate(eventDateById.get(it.eventId) ?? null) : null;
+                                  return auto ? (
+                                    <span title="Calculée automatiquement selon la date de l'événement">
+                                      {PRIORITE_LABEL[auto]}
+                                    </span>
+                                  ) : (
+                                    <InlineSelect
+                                      value={it.priorite ?? "NORMAL"}
+                                      options={PRIORITE_OPTIONS}
+                                      onSave={saveField(it.id, "priorite")}
+                                    />
+                                  );
+                                })()}
+                              </Field>
+                            )}
+                            {trackRecu && (
+                              <Field label="Reçu">
+                                <InlineSelect
+                                  value={String(it.recu ?? false)}
+                                  options={RECU_OPTIONS}
+                                  onSave={saveField(it.id, "recu")}
+                                />
+                              </Field>
+                            )}
+                            <Field label="TVA achat">
+                              <InlineSelect
+                                value={String(it.tauxTvaAchat)}
+                                options={tvaOptions}
+                                onSave={saveField(it.id, "tauxTvaAchat")}
+                              />
+                            </Field>
+                            {showCompteEmail && (
+                              <Field label="Compte (email)">
+                                <InlineText value={it.compteEmail ?? ""} onSave={saveField(it.id, "compteEmail")} />
+                              </Field>
+                            )}
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 rounded-md bg-muted p-2">
+                            <Field label="Date de vente">
+                              <div className="flex items-center gap-1">
+                                <InlineDate value={it.dateVente ?? ""} onSave={saveDate(it.id, "dateVente")} />
+                                {!it.dateVente && (
+                                  <Button variant="ghost" size="icon-sm" onClick={() => handleMarkVendu(it.id)}>
+                                    <PackageCheck className="text-amber-600" />
+                                  </Button>
+                                )}
+                              </div>
+                            </Field>
+                            <Field label="Date encaissement">
+                              <div className="flex items-center gap-1">
+                                <InlineDate
+                                  value={it.dateEncaissement ?? ""}
+                                  onSave={saveDate(it.id, "dateEncaissement")}
+                                />
+                                {it.dateVente && !it.dateEncaissement && (
+                                  <Button variant="ghost" size="icon-sm" onClick={() => handleMarkEncaisse(it.id)}>
+                                    <CheckCircle2 className="text-emerald-600" />
+                                  </Button>
+                                )}
+                              </div>
+                            </Field>
+                          </div>
+                        </CardContent>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </Card>
           );
         })}
-        {filtered.length === 0 && (
+        {groupedForCards.length === 0 && (
           <p className="col-span-full py-8 text-center text-sm text-muted-foreground">Aucun article en stock.</p>
         )}
         <TablePagination
           className="col-span-full"
-          page={currentPage}
-          totalPages={totalPages}
-          total={filtered.length}
+          page={currentCardPage}
+          totalPages={totalCardPages}
+          total={groupedForCards.length}
           pageSize={PAGE_SIZE}
           onPageChange={setPage}
         />
