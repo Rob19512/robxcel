@@ -103,6 +103,15 @@ const statutDotColor: Record<StockRow["statut"], string> = {
   VENDU: "bg-emerald-500",
 };
 
+// Couleurs pleines (pas les pastels des badges) pour le plan de placement : besoin de
+// distinguer le statut d'un coup d'œil dans une grille dense de sièges, pas juste dans
+// une puce de texte isolée.
+const seatCellColor: Record<StockRow["statut"], string> = {
+  EN_STOCK: "bg-zinc-200 text-zinc-800 hover:bg-zinc-300 dark:bg-zinc-700 dark:text-zinc-100 dark:hover:bg-zinc-600",
+  EN_ATTENTE: "bg-amber-400 text-amber-950 hover:bg-amber-300 dark:bg-amber-500 dark:text-amber-950 dark:hover:bg-amber-400",
+  VENDU: "bg-emerald-500 text-white hover:bg-emerald-400 dark:bg-emerald-600 dark:hover:bg-emerald-500",
+};
+
 const PRIORITE_OPTIONS = [
   { value: "URGENT", label: "🔴 Urgent" },
   { value: "NORMAL", label: "🟡 Normal" },
@@ -1160,6 +1169,24 @@ export function StockTable({
           plus facile pour repérer un doublon/oubli qu'une liste ou des cartes empilées. */}
       {hasPlacementGrouping && (
         <div className={cn("flex-col gap-4", effectiveViewMode === "seatmap" ? "hidden md:flex" : "hidden")}>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
+            {(["EN_STOCK", "EN_ATTENTE", "VENDU"] as const).map((s) => (
+              <span key={s} className="flex items-center gap-1.5">
+                <span className={cn("size-3 rounded-sm", seatCellColor[s].split(" ")[0])} />
+                {STATUT_LABEL_SHORT[s]}
+              </span>
+            ))}
+            <span className="flex items-center gap-1.5">
+              <span className="size-3 rounded-sm border-2 border-dashed border-muted-foreground/25" />
+              Place vide dans le bloc
+            </span>
+            {trackPriorite && (
+              <span className="flex items-center gap-1.5">
+                <span className="size-2.5 rounded-full bg-red-500" />
+                Urgent
+              </span>
+            )}
+          </div>
           {paginatedGroups.map((group) => {
             const parsedItems = group.items.map((it) => {
               const p = parseCategoriePlacement(it.customValues?.categoriePlacement ?? "");
@@ -1180,10 +1207,26 @@ export function StockTable({
               .join(" · ");
             const soldCount = group.items.filter((it) => it.statut !== "EN_STOCK").length;
             const openItems = group.items.filter((it) => expanded.has(it.id));
+            const groupIds = group.items.map((it) => it.id);
+            const allGroupSelected = groupIds.length > 0 && groupIds.every((id) => selectedIds.has(id));
+
+            function toggleGroupSelected() {
+              setSelectedIds((prev) => {
+                const next = new Set(prev);
+                if (allGroupSelected) {
+                  for (const id of groupIds) next.delete(id);
+                } else {
+                  for (const id of groupIds) next.add(id);
+                }
+                return next;
+              });
+            }
 
             function seatCell(it: StockRow, label: string, key: string) {
               const isOpen = expanded.has(it.id);
               const isSelected = selectedIds.has(it.id);
+              const auto = it.eventId ? autoPrioriteFromDate(eventDateById.get(it.eventId) ?? null) : null;
+              const isUrgent = trackPriorite && (auto ?? it.priorite) === "URGENT";
               return (
                 <div
                   key={key}
@@ -1197,12 +1240,18 @@ export function StockTable({
                     }
                   }}
                   className={cn(
-                    "relative flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-md text-xs font-medium tabular-nums outline-none transition-colors",
-                    statutBadgeVariant[it.statut],
-                    isOpen && "ring-2 ring-ring ring-offset-1 ring-offset-background"
+                    "relative flex size-12 shrink-0 cursor-pointer flex-col items-center justify-center gap-0 rounded-md text-sm font-semibold tabular-nums shadow-sm outline-none transition-all hover:scale-105 hover:shadow-md",
+                    seatCellColor[it.statut],
+                    isOpen && "ring-2 ring-ring ring-offset-2 ring-offset-background"
                   )}
-                  title={`${label || "Billet"} · ${STATUT_LABEL_SHORT[it.statut]}`}
+                  title={`${label || "Billet"} · ${STATUT_LABEL_SHORT[it.statut]}${it.prixCibleVente ? ` · ${eur.format(it.prixCibleVente)}` : ""}`}
                 >
+                  {isUrgent && (
+                    <span
+                      className="absolute -top-1 -left-1 size-2.5 rounded-full bg-red-500 ring-2 ring-background"
+                      title="Urgent"
+                    />
+                  )}
                   <div
                     className="absolute -top-1.5 -right-1.5"
                     onClick={(e) => e.stopPropagation()}
@@ -1211,10 +1260,15 @@ export function StockTable({
                     <Checkbox
                       checked={isSelected}
                       onCheckedChange={() => toggleSelected(it.id)}
-                      className="size-3.5 bg-background"
+                      className="size-4 bg-background"
                     />
                   </div>
-                  <span className="truncate px-0.5">{label || "—"}</span>
+                  <span className="truncate px-0.5 leading-tight">{label || "—"}</span>
+                  {it.prixCibleVente ? (
+                    <span className="truncate px-0.5 text-[10px] leading-tight font-normal opacity-80">
+                      {eur.format(it.prixCibleVente)}
+                    </span>
+                  ) : null}
                 </div>
               );
             }
@@ -1222,10 +1276,17 @@ export function StockTable({
             return (
               <Card key={group.key} className="gap-0 overflow-hidden py-0">
                 <div className="flex items-center justify-between gap-3 border-b bg-muted/30 px-3.5 py-2.5">
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold">{groupEventLabel ?? "Sans événement"}</p>
-                    {placementLabel && <p className="truncate text-xs text-muted-foreground">{placementLabel}</p>}
-                  </div>
+                  <label className="flex min-w-0 flex-1 items-center gap-2.5">
+                    <Checkbox
+                      checked={allGroupSelected}
+                      onCheckedChange={toggleGroupSelected}
+                      title="Sélectionner tout le bloc"
+                    />
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold">{groupEventLabel ?? "Sans événement"}</p>
+                      {placementLabel && <p className="truncate text-xs text-muted-foreground">{placementLabel}</p>}
+                    </div>
+                  </label>
                   {group.items.length > 1 && (
                     <Badge
                       variant="secondary"
@@ -1241,14 +1302,14 @@ export function StockTable({
                 </div>
                 <div className="flex flex-col gap-3 p-3.5">
                   {min !== null && max !== null && (
-                    <div className="flex flex-wrap gap-1.5">
+                    <div className="flex flex-wrap gap-2">
                       {Array.from({ length: max - min + 1 }, (_, i) => min + i).map((num) => {
                         const match = byNum.get(num);
                         if (!match) {
                           return (
                             <div
                               key={num}
-                              className="flex size-10 shrink-0 items-center justify-center rounded-md border border-dashed text-xs text-muted-foreground/40"
+                              className="flex size-12 shrink-0 items-center justify-center rounded-md border-2 border-dashed border-muted-foreground/25 text-sm text-muted-foreground/50"
                               title="Aucun billet à cette place"
                             >
                               {num}
@@ -1260,7 +1321,7 @@ export function StockTable({
                     </div>
                   )}
                   {otherItems.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5">
+                    <div className="flex flex-wrap gap-2">
                       {otherItems.map(({ it, place }) => seatCell(it, place || it.description || "Billet", it.id))}
                     </div>
                   )}
