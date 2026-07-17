@@ -378,7 +378,13 @@ export function Dashboard({
   const monthlyTotalsVenduRoi = monthlyTotals.venduCout > 0 ? (monthlyTotals.venduBenefice / monthlyTotals.venduCout) * 100 : null;
   const monthlyTotalsEncaisseRoi = monthlyTotals.encaisseCout > 0 ? (monthlyTotals.encaisseBenefice / monthlyTotals.encaisseCout) * 100 : null;
 
-  const chartSales: SaleForChart[] = scopedSales;
+  // Le graphique gère son propre filtre Pro/Perso/Tout (indépendant de celui du haut), donc
+  // on lui passe toutes les ventes avec le scope de leur catégorie plutôt que scopedSales.
+  const chartSales: SaleForChart[] = sales.flatMap((s) => {
+    const cat = categoryById.get(s.categoryId);
+    if (!cat) return [];
+    return [{ ...s, scope: cat.scope }];
+  });
 
   const periodLabel = month !== null ? `${MONTHS[month]} ${year}` : `Année ${year}`;
 

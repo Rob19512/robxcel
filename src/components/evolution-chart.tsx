@@ -32,10 +32,12 @@ export type SaleForChart = {
   qty: number;
   prixVenteUnit: number;
   coutAchatUnit: number;
+  scope: "PRO" | "PERSO";
 };
 
 type Period = "jour" | "3mois" | "mois" | "annee";
 type Basis = "encaisse" | "vente";
+type ChartScope = "PRO" | "PERSO" | "ALL";
 
 const PERIOD_OPTIONS: { value: Period; label: string }[] = [
   { value: "jour", label: "Jours" },
@@ -108,13 +110,15 @@ const chartConfig = {
 export function EvolutionChart({ sales }: { sales: SaleForChart[] }) {
   const [period, setPeriod] = useState<Period>("mois");
   const [basis, setBasis] = useState<Basis>("encaisse");
+  const [chartScope, setChartScope] = useState<ChartScope>("PRO");
 
   const data = useMemo(() => {
     const buckets = getBuckets(period);
+    const scoped = chartScope === "ALL" ? sales : sales.filter((s) => s.scope === chartScope);
     const relevant =
       basis === "encaisse"
-        ? sales.filter((s) => s.statut === "ENCAISSE" && s.dateEncaissement)
-        : sales;
+        ? scoped.filter((s) => s.statut === "ENCAISSE" && s.dateEncaissement)
+        : scoped;
 
     return buckets.map((b) => {
       let benefice = 0;
@@ -128,7 +132,7 @@ export function EvolutionChart({ sales }: { sales: SaleForChart[] }) {
       }
       return { label: b.label, benefice: Math.round(benefice * 100) / 100 };
     });
-  }, [sales, period, basis]);
+  }, [sales, period, basis, chartScope]);
 
   return (
     <Card>
@@ -140,6 +144,16 @@ export function EvolutionChart({ sales }: { sales: SaleForChart[] }) {
           </CardDescription>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <ToggleGroup
+            value={[chartScope]}
+            onValueChange={(v) => v[0] && setChartScope(v[0] as ChartScope)}
+            variant="outline"
+            size="sm"
+          >
+            <ToggleGroupItem value="PRO">Pro</ToggleGroupItem>
+            <ToggleGroupItem value="PERSO">Perso</ToggleGroupItem>
+            <ToggleGroupItem value="ALL">Tout</ToggleGroupItem>
+          </ToggleGroup>
           <ToggleGroup
             value={[basis]}
             onValueChange={(v) => v[0] && setBasis(v[0] as Basis)}
