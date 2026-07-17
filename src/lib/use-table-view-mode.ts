@@ -4,14 +4,14 @@ import { useEffect, useState } from "react";
 
 const STORAGE_KEY = "robxcel:table-view-mode";
 
-export type TableViewMode = "table" | "cards";
+export type TableViewMode = "table" | "cards" | "seatmap";
 
 export function useTableViewMode() {
   const [viewMode, setViewMode] = useState<TableViewMode>("table");
   useEffect(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored === "cards" || stored === "table") setViewMode(stored);
+      if (stored === "cards" || stored === "table" || stored === "seatmap") setViewMode(stored);
     } catch {
       // ignore
     }

@@ -7,7 +7,7 @@ import { useColumnSort, compareValues } from "@/lib/use-column-sort";
 import { isEventPast } from "@/lib/event-utils";
 import { ColumnVisibilityMenu } from "@/components/column-visibility-menu";
 import { toast } from "sonner";
-import { Plus, MoreVertical, Copy, Trash2, PackageCheck, CheckCircle2, Download, ChevronDown, ArrowUp, ArrowDown, Table2, LayoutGrid } from "lucide-react";
+import { Plus, MoreVertical, Copy, Trash2, PackageCheck, CheckCircle2, Download, ChevronDown, ArrowUp, ArrowDown, Table2, LayoutGrid, Grid3x3 } from "lucide-react";
 import { useTableViewMode } from "@/lib/use-table-view-mode";
 import {
   Table,
@@ -513,6 +513,10 @@ export function StockTable({
     () => groupedForCards.slice(currentCardPage * PAGE_SIZE, (currentCardPage + 1) * PAGE_SIZE),
     [groupedForCards, currentCardPage]
   );
+  // Le plan de placement n'a de sens que pour les catégories qui suivent categoriePlacement -
+  // si le mode "seatmap" était choisi ailleurs (préférence partagée entre pages) mais que
+  // cette catégorie n'a pas ce champ, on retombe sur la vue tableau plutôt qu'un écran vide.
+  const effectiveViewMode = viewMode === "seatmap" && !hasPlacementGrouping ? "table" : viewMode;
 
   function handleAdd() {
     startTransition(async () => {
@@ -658,6 +662,135 @@ export function StockTable({
     return [...upcoming, ...past].map((e) => ({ value: e.id, label: e.label }));
   }
 
+  // Panneau d'édition détaillé d'un billet, partagé entre la vue carte et le plan de
+  // placement pour ne jamais avoir deux copies des mêmes champs qui pourraient diverger.
+  function renderEditFields(it: StockRow) {
+    return (
+      <CardContent className="flex flex-col gap-3 border-t pt-3">
+        {showDescription && (
+          <InlineTextArea
+            value={it.description ?? ""}
+            placeholder="Description"
+            onSave={saveField(it.id, "description")}
+            className="text-base font-medium"
+          />
+        )}
+        <div className="grid grid-cols-2 gap-2">
+          <Field label="Date achat">
+            <InlineDate value={it.dateAchat} onSave={saveField(it.id, "dateAchat")} />
+          </Field>
+          <Field label="Source cible">
+            <InlineSelect
+              value={it.source ?? ""}
+              options={sourceOptions}
+              placeholder="Source"
+              onSave={saveField(it.id, "source")}
+            />
+          </Field>
+          {events && (
+            <Field label="Événement">
+              <InlineSelect
+                value={it.eventId ?? ""}
+                options={eventOptionsSorted()}
+                placeholder="Événement"
+                onSave={saveEvent(it.id)}
+              />
+            </Field>
+          )}
+          <Field label="Qté">
+            <InlineNumber value={it.qty} step="1" onSave={saveField(it.id, "qty")} />
+          </Field>
+          <Field label="Coût achat unit.">
+            <InlineNumber value={it.coutAchatUnit} onSave={saveField(it.id, "coutAchatUnit")} />
+          </Field>
+          <Field label="Prix cible vente">
+            <InlineNumber value={it.prixCibleVente ?? 0} onSave={saveField(it.id, "prixCibleVente")} />
+          </Field>
+          {fields.map((f) => (
+            <Field key={f.id} label={f.label}>
+              {f.key === "categoriePlacement" ? (
+                <CategoriePlacementField value={it.customValues?.[f.key] ?? ""} onSave={saveCustom(it.id, f.key)} />
+              ) : f.fieldType === "DATE" ? (
+                <InlineDate value={it.customValues?.[f.key] ?? ""} onSave={saveCustom(it.id, f.key)} />
+              ) : f.fieldType === "NUMBER" ? (
+                <InlineNumber
+                  value={Number(it.customValues?.[f.key] ?? 0)}
+                  onSave={saveCustom(it.id, f.key)}
+                />
+              ) : (
+                <InlineTextArea value={it.customValues?.[f.key] ?? ""} onSave={saveCustom(it.id, f.key)} />
+              )}
+            </Field>
+          ))}
+          {trackPriorite && (
+            <Field label="Priorité">
+              {(() => {
+                const auto = it.eventId ? autoPrioriteFromDate(eventDateById.get(it.eventId) ?? null) : null;
+                return auto ? (
+                  <span title="Calculée automatiquement selon la date de l'événement">
+                    {PRIORITE_LABEL[auto]}
+                  </span>
+                ) : (
+                  <InlineSelect
+                    value={it.priorite ?? "NORMAL"}
+                    options={PRIORITE_OPTIONS}
+                    onSave={saveField(it.id, "priorite")}
+                  />
+                );
+              })()}
+            </Field>
+          )}
+          {trackRecu && (
+            <Field label="Reçu">
+              <InlineSelect
+                value={String(it.recu ?? false)}
+                options={RECU_OPTIONS}
+                onSave={saveField(it.id, "recu")}
+              />
+            </Field>
+          )}
+          <Field label="TVA achat">
+            <InlineSelect
+              value={String(it.tauxTvaAchat)}
+              options={tvaOptions}
+              onSave={saveField(it.id, "tauxTvaAchat")}
+            />
+          </Field>
+          {showCompteEmail && (
+            <Field label="Compte (email)">
+              <InlineText value={it.compteEmail ?? ""} onSave={saveField(it.id, "compteEmail")} />
+            </Field>
+          )}
+        </div>
+        <div className="grid grid-cols-2 gap-2 rounded-md bg-muted p-2">
+          <Field label="Date de vente">
+            <div className="flex items-center gap-1">
+              <InlineDate value={it.dateVente ?? ""} onSave={saveDate(it.id, "dateVente")} />
+              {!it.dateVente && (
+                <Button variant="ghost" size="icon-sm" onClick={() => handleMarkVendu(it.id)}>
+                  <PackageCheck className="text-amber-600" />
+                </Button>
+              )}
+            </div>
+          </Field>
+          <Field label="Date encaissement">
+            <div className="flex items-center gap-1">
+              <InlineDate
+                value={it.dateEncaissement ?? ""}
+                onSave={saveDate(it.id, "dateEncaissement")}
+              />
+              {it.dateVente && !it.dateEncaissement && (
+                <Button variant="ghost" size="icon-sm" onClick={() => handleMarkEncaisse(it.id)}>
+                  <CheckCircle2 className="text-emerald-600" />
+                </Button>
+              )}
+            </div>
+          </Field>
+        </div>
+      </CardContent>
+    );
+  }
+
   function handleExport() {
     downloadCsv(
       `stock-${path.replaceAll("/", "-").slice(1)}.csv`,
@@ -753,7 +886,7 @@ export function StockTable({
         <BulkEncaissementButton count={selectedIds.size} onConfirm={handleBulkEncaissement} />
         <BulkDeleteButton count={selectedIds.size} onConfirm={handleBulkDelete} />
         <ToggleGroup
-          value={[viewMode]}
+          value={[effectiveViewMode]}
           onValueChange={(v) => v[0] && setViewMode(v[0] as typeof viewMode)}
           variant="outline"
           size="sm"
@@ -764,6 +897,11 @@ export function StockTable({
           <ToggleGroupItem value="cards" title="Vue carte">
             <LayoutGrid />
           </ToggleGroupItem>
+          {hasPlacementGrouping && (
+            <ToggleGroupItem value="seatmap" title="Plan de placement">
+              <Grid3x3 />
+            </ToggleGroupItem>
+          )}
         </ToggleGroup>
         <span className="ml-auto text-xs text-muted-foreground">
           {filtered.length} article{filtered.length > 1 ? "s" : ""}
@@ -784,7 +922,7 @@ export function StockTable({
       )}
 
       {/* Vue tableau (desktop) */}
-      <Card className={cn("overflow-hidden py-0", viewMode === "cards" ? "hidden" : "hidden md:block")}>
+      <Card className={cn("overflow-hidden py-0", effectiveViewMode === "table" ? "hidden md:block" : "hidden")}>
         <Table containerRef={scrollRef}>
             <TableHeader>
               <TableRow>
@@ -888,7 +1026,7 @@ export function StockTable({
       <div
         className={cn(
           "grid grid-cols-1 items-start gap-3",
-          viewMode === "cards" ? "sm:grid-cols-2 xl:grid-cols-3" : "md:hidden"
+          effectiveViewMode === "cards" ? "sm:grid-cols-2 xl:grid-cols-3" : "md:hidden"
         )}
       >
         {paginatedGroups.map((group) => {
@@ -996,130 +1134,7 @@ export function StockTable({
                         <RowMenu onDuplicate={() => handleDuplicate(it.id)} onDelete={() => handleDelete(it.id)} />
                       </div>
 
-                      {isOpen && (
-                        <CardContent className="flex flex-col gap-3 border-t pt-3">
-                          {showDescription && (
-                            <InlineTextArea
-                              value={it.description ?? ""}
-                              placeholder="Description"
-                              onSave={saveField(it.id, "description")}
-                              className="text-base font-medium"
-                            />
-                          )}
-                          <div className="grid grid-cols-2 gap-2">
-                            <Field label="Date achat">
-                              <InlineDate value={it.dateAchat} onSave={saveField(it.id, "dateAchat")} />
-                            </Field>
-                            <Field label="Source cible">
-                              <InlineSelect
-                                value={it.source ?? ""}
-                                options={sourceOptions}
-                                placeholder="Source"
-                                onSave={saveField(it.id, "source")}
-                              />
-                            </Field>
-                            {events && (
-                              <Field label="Événement">
-                                <InlineSelect
-                                  value={it.eventId ?? ""}
-                                  options={eventOptionsSorted()}
-                                  placeholder="Événement"
-                                  onSave={saveEvent(it.id)}
-                                />
-                              </Field>
-                            )}
-                            <Field label="Qté">
-                              <InlineNumber value={it.qty} step="1" onSave={saveField(it.id, "qty")} />
-                            </Field>
-                            <Field label="Coût achat unit.">
-                              <InlineNumber value={it.coutAchatUnit} onSave={saveField(it.id, "coutAchatUnit")} />
-                            </Field>
-                            <Field label="Prix cible vente">
-                              <InlineNumber value={it.prixCibleVente ?? 0} onSave={saveField(it.id, "prixCibleVente")} />
-                            </Field>
-                            {fields.map((f) => (
-                              <Field key={f.id} label={f.label}>
-                                {f.key === "categoriePlacement" ? (
-                                  <CategoriePlacementField value={it.customValues?.[f.key] ?? ""} onSave={saveCustom(it.id, f.key)} />
-                                ) : f.fieldType === "DATE" ? (
-                                  <InlineDate value={it.customValues?.[f.key] ?? ""} onSave={saveCustom(it.id, f.key)} />
-                                ) : f.fieldType === "NUMBER" ? (
-                                  <InlineNumber
-                                    value={Number(it.customValues?.[f.key] ?? 0)}
-                                    onSave={saveCustom(it.id, f.key)}
-                                  />
-                                ) : (
-                                  <InlineTextArea value={it.customValues?.[f.key] ?? ""} onSave={saveCustom(it.id, f.key)} />
-                                )}
-                              </Field>
-                            ))}
-                            {trackPriorite && (
-                              <Field label="Priorité">
-                                {(() => {
-                                  const auto = it.eventId ? autoPrioriteFromDate(eventDateById.get(it.eventId) ?? null) : null;
-                                  return auto ? (
-                                    <span title="Calculée automatiquement selon la date de l'événement">
-                                      {PRIORITE_LABEL[auto]}
-                                    </span>
-                                  ) : (
-                                    <InlineSelect
-                                      value={it.priorite ?? "NORMAL"}
-                                      options={PRIORITE_OPTIONS}
-                                      onSave={saveField(it.id, "priorite")}
-                                    />
-                                  );
-                                })()}
-                              </Field>
-                            )}
-                            {trackRecu && (
-                              <Field label="Reçu">
-                                <InlineSelect
-                                  value={String(it.recu ?? false)}
-                                  options={RECU_OPTIONS}
-                                  onSave={saveField(it.id, "recu")}
-                                />
-                              </Field>
-                            )}
-                            <Field label="TVA achat">
-                              <InlineSelect
-                                value={String(it.tauxTvaAchat)}
-                                options={tvaOptions}
-                                onSave={saveField(it.id, "tauxTvaAchat")}
-                              />
-                            </Field>
-                            {showCompteEmail && (
-                              <Field label="Compte (email)">
-                                <InlineText value={it.compteEmail ?? ""} onSave={saveField(it.id, "compteEmail")} />
-                              </Field>
-                            )}
-                          </div>
-                          <div className="grid grid-cols-2 gap-2 rounded-md bg-muted p-2">
-                            <Field label="Date de vente">
-                              <div className="flex items-center gap-1">
-                                <InlineDate value={it.dateVente ?? ""} onSave={saveDate(it.id, "dateVente")} />
-                                {!it.dateVente && (
-                                  <Button variant="ghost" size="icon-sm" onClick={() => handleMarkVendu(it.id)}>
-                                    <PackageCheck className="text-amber-600" />
-                                  </Button>
-                                )}
-                              </div>
-                            </Field>
-                            <Field label="Date encaissement">
-                              <div className="flex items-center gap-1">
-                                <InlineDate
-                                  value={it.dateEncaissement ?? ""}
-                                  onSave={saveDate(it.id, "dateEncaissement")}
-                                />
-                                {it.dateVente && !it.dateEncaissement && (
-                                  <Button variant="ghost" size="icon-sm" onClick={() => handleMarkEncaisse(it.id)}>
-                                    <CheckCircle2 className="text-emerald-600" />
-                                  </Button>
-                                )}
-                              </div>
-                            </Field>
-                          </div>
-                        </CardContent>
-                      )}
+                      {isOpen && renderEditFields(it)}
                     </div>
                   );
                 })}
@@ -1139,6 +1154,139 @@ export function StockTable({
           onPageChange={setPage}
         />
       </div>
+
+      {/* Plan de placement : chaque bloc (événement + catégorie/rang) devient une grille de
+          sièges numérotés triée par n° de place, avec les trous du bloc visibles en creux -
+          plus facile pour repérer un doublon/oubli qu'une liste ou des cartes empilées. */}
+      {hasPlacementGrouping && (
+        <div className={cn("flex-col gap-4", effectiveViewMode === "seatmap" ? "hidden md:flex" : "hidden")}>
+          {paginatedGroups.map((group) => {
+            const parsedItems = group.items.map((it) => {
+              const p = parseCategoriePlacement(it.customValues?.categoriePlacement ?? "");
+              const num = /^\d+$/.test(p.place.trim()) ? parseInt(p.place, 10) : null;
+              return { it, place: p.place, num };
+            });
+            const numericItems = parsedItems.filter(
+              (p): p is { it: StockRow; place: string; num: number } => p.num !== null
+            );
+            const otherItems = parsedItems.filter((p) => p.num === null);
+            const byNum = new Map(numericItems.map((p) => [p.num, p]));
+            const nums = numericItems.map((p) => p.num);
+            const min = nums.length ? Math.min(...nums) : null;
+            const max = nums.length ? Math.max(...nums) : null;
+            const groupEventLabel = group.eventId ? eventLabelById.get(group.eventId) : null;
+            const placementLabel = [group.categorie, group.rang ? `Rang ${group.rang}` : ""]
+              .filter(Boolean)
+              .join(" · ");
+            const soldCount = group.items.filter((it) => it.statut !== "EN_STOCK").length;
+            const openItems = group.items.filter((it) => expanded.has(it.id));
+
+            function seatCell(it: StockRow, label: string, key: string) {
+              const isOpen = expanded.has(it.id);
+              const isSelected = selectedIds.has(it.id);
+              return (
+                <div
+                  key={key}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => toggleExpanded(it.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      toggleExpanded(it.id);
+                    }
+                  }}
+                  className={cn(
+                    "relative flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-md text-xs font-medium tabular-nums outline-none transition-colors",
+                    statutBadgeVariant[it.statut],
+                    isOpen && "ring-2 ring-ring ring-offset-1 ring-offset-background"
+                  )}
+                  title={`${label || "Billet"} · ${STATUT_LABEL_SHORT[it.statut]}`}
+                >
+                  <div
+                    className="absolute -top-1.5 -right-1.5"
+                    onClick={(e) => e.stopPropagation()}
+                    onKeyDown={(e) => e.stopPropagation()}
+                  >
+                    <Checkbox
+                      checked={isSelected}
+                      onCheckedChange={() => toggleSelected(it.id)}
+                      className="size-3.5 bg-background"
+                    />
+                  </div>
+                  <span className="truncate px-0.5">{label || "—"}</span>
+                </div>
+              );
+            }
+
+            return (
+              <Card key={group.key} className="gap-0 overflow-hidden py-0">
+                <div className="flex items-center justify-between gap-3 border-b bg-muted/30 px-3.5 py-2.5">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold">{groupEventLabel ?? "Sans événement"}</p>
+                    {placementLabel && <p className="truncate text-xs text-muted-foreground">{placementLabel}</p>}
+                  </div>
+                  {group.items.length > 1 && (
+                    <Badge
+                      variant="secondary"
+                      className={cn(
+                        "shrink-0 tabular-nums",
+                        soldCount === group.items.length &&
+                          "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                      )}
+                    >
+                      {soldCount}/{group.items.length}
+                    </Badge>
+                  )}
+                </div>
+                <div className="flex flex-col gap-3 p-3.5">
+                  {min !== null && max !== null && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {Array.from({ length: max - min + 1 }, (_, i) => min + i).map((num) => {
+                        const match = byNum.get(num);
+                        if (!match) {
+                          return (
+                            <div
+                              key={num}
+                              className="flex size-10 shrink-0 items-center justify-center rounded-md border border-dashed text-xs text-muted-foreground/40"
+                              title="Aucun billet à cette place"
+                            >
+                              {num}
+                            </div>
+                          );
+                        }
+                        return seatCell(match.it, match.place, String(num));
+                      })}
+                    </div>
+                  )}
+                  {otherItems.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {otherItems.map(({ it, place }) => seatCell(it, place || it.description || "Billet", it.id))}
+                    </div>
+                  )}
+                  {openItems.length > 0 && (
+                    <div className="flex flex-col divide-y rounded-md border">
+                      {openItems.map((it) => (
+                        <div key={it.id}>{renderEditFields(it)}</div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </Card>
+            );
+          })}
+          {groupedForCards.length === 0 && (
+            <p className="py-8 text-center text-sm text-muted-foreground">Aucun article en stock.</p>
+          )}
+          <TablePagination
+            page={currentCardPage}
+            totalPages={totalCardPages}
+            total={groupedForCards.length}
+            pageSize={PAGE_SIZE}
+            onPageChange={setPage}
+          />
+        </div>
+      )}
     </div>
   );
 }
