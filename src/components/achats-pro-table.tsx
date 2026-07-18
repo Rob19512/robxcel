@@ -135,7 +135,7 @@ export function AchatsProTable({ path, initialItems }: { path: string; initialIt
         return it.tauxTva;
       case "tvaDed": {
         const total = it.qty * it.montantHt;
-        return it.tauxTva > 0 ? total * (it.tauxTva / (100 + it.tauxTva)) : 0;
+        return it.tauxTva > 0 ? total * (it.tauxTva / 100) : 0;
       }
       default:
         return null;
@@ -252,7 +252,7 @@ export function AchatsProTable({ path, initialItems }: { path: string; initialIt
     downloadCsv(
       "achats-pro.csv",
       filtered.map((it) => {
-        const tvaDed = it.tauxTva > 0 ? it.qty * it.montantHt * (it.tauxTva / (100 + it.tauxTva)) : 0;
+        const tvaDed = it.tauxTva > 0 ? it.qty * it.montantHt * (it.tauxTva / 100) : 0;
         return {
           "Date achat": it.dateAchat,
           "Description / Fournisseur": it.description,
@@ -357,7 +357,7 @@ export function AchatsProTable({ path, initialItems }: { path: string; initialIt
             <TableBody>
               {filtered.map((it) => {
                 const total = it.qty * it.montantHt;
-                const tvaDed = it.tauxTva > 0 ? total * (it.tauxTva / (100 + it.tauxTva)) : 0;
+                const tvaDed = it.tauxTva > 0 ? total * (it.tauxTva / 100) : 0;
                 return (
                   <TableRow key={it.id} data-state={selectedIds.has(it.id) ? "selected" : undefined}>
                     <TableCell>
@@ -392,7 +392,7 @@ export function AchatsProTable({ path, initialItems }: { path: string; initialIt
       <div className="flex flex-col gap-3 md:hidden">
         {filtered.map((it) => {
           const total = it.qty * it.montantHt;
-          const tvaDed = it.tauxTva > 0 ? total * (it.tauxTva / (100 + it.tauxTva)) : 0;
+          const tvaDed = it.tauxTva > 0 ? total * (it.tauxTva / 100) : 0;
           return (
             <Card key={it.id}>
               <CardContent className="flex flex-col gap-3">

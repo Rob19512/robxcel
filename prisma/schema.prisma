@@ -57,6 +57,15 @@ model User {
   createdAt    DateTime @default(now())
 }
 
+// Ligne unique (id fixe) de réglages globaux liés à la TVA - avant tvaAssujettiDepuis,
+// toute vente/tout achat reste à 0% quel que soit le taux par défaut des catégories ;
+// à partir de cette date, les taux par défaut s'appliquent aux nouvelles lignes.
+model AppSettings {
+  id                 String    @id @default("singleton")
+  tvaAssujettiDepuis DateTime?
+  updatedAt          DateTime  @updatedAt
+}
+
 model Category {
   id         String   @id @default(cuid())
   name       String
@@ -72,6 +81,11 @@ model Category {
   showCompteEmail Boolean @default(true)
   isBuiltin  Boolean  @default(false)
   sortOrder  Int      @default(0)
+  // Taux appliqués par défaut aux nouvelles ventes/nouveaux achats de cette catégorie à
+  // partir de la date d'assujettissement (AppSettings.tvaAssujettiDepuis) - sans ça, chaque
+  // ligne retombe silencieusement à 0% (valeur par défaut du champ sur StockItem/Sale).
+  defaultTauxTvaVente Decimal? @db.Decimal(5, 2)
+  defaultTauxTvaAchat Decimal? @db.Decimal(5, 2)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 

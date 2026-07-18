@@ -168,3 +168,12 @@ export async function deleteCategorySource(id: string, path: string) {
   await prisma.categorySource.delete({ where: { id } });
   revalidatePath(path);
 }
+
+export async function updateCategoryDefaultTva(
+  categoryId: string,
+  field: "defaultTauxTvaVente" | "defaultTauxTvaAchat",
+  value: number | null
+) {
+  await prisma.category.update({ where: { id: categoryId }, data: { [field]: value } });
+  revalidatePath("/tva");
+}

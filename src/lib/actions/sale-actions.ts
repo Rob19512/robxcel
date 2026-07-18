@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { A_ENCAISSER_PATH } from "@/lib/category-routes";
+import { effectiveTauxTva } from "@/lib/tva-defaults";
 
 export type SaleCoreField =
   | "dateVente"
@@ -25,6 +26,10 @@ function toDate(value: string | null) {
 
 export async function createSale(categoryId: string, path: string) {
   const today = new Date();
+  const [category, settings] = await Promise.all([
+    prisma.category.findUnique({ where: { id: categoryId }, select: { defaultTauxTvaVente: true } }),
+    prisma.appSettings.findUnique({ where: { id: "singleton" } }),
+  ]);
   const sale = await prisma.sale.create({
     data: {
       categoryId,
@@ -34,6 +39,11 @@ export async function createSale(categoryId: string, path: string) {
       qty: 1,
       prixVenteUnit: 0,
       coutAchatUnit: 0,
+      tauxTvaVente: effectiveTauxTva(
+        category?.defaultTauxTvaVente ? Number(category.defaultTauxTvaVente) : null,
+        settings?.tvaAssujettiDepuis ?? null,
+        today
+      ),
     },
   });
   revalidatePath(path);

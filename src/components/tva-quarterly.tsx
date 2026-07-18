@@ -116,9 +116,12 @@ export function TvaQuarterly({
       .filter((s) => !s.hasStockOrigin && inQuarter(s.dateVente, year, q))
       .reduce((sum, s) => sum + tvaFromTtc(s.qty * s.coutAchatUnit, s.tauxTvaAchat), 0);
 
+    // montantHt est déjà hors taxe (contrairement aux montants TTC de Sale/StockItem) :
+    // la TVA s'ajoute par-dessus, elle ne s'extrait pas du montant - tvaFromTtc donnerait
+    // un chiffre trop bas ici (a longtemps sous-estimé la TVA déductible sur les achats pro).
     const achatProDeductible = achatsPro
       .filter((a) => inQuarter(a.dateAchat, year, q))
-      .reduce((sum, a) => sum + tvaFromTtc(a.qty * a.montantHt, a.tauxTva), 0);
+      .reduce((sum, a) => sum + a.qty * a.montantHt * (a.tauxTva / 100), 0);
 
     const tvaDeductible = stockDeductible + saleAchatDeductible + achatProDeductible;
 

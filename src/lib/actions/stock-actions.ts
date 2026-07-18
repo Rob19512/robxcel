@@ -3,6 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { categoryRoute, A_ENCAISSER_PATH } from "@/lib/category-routes";
+import { effectiveTauxTva } from "@/lib/tva-defaults";
+
+async function getTvaAssujettiDepuis(): Promise<Date | null> {
+  const settings = await prisma.appSettings.findUnique({ where: { id: "singleton" } });
+  return settings?.tvaAssujettiDepuis ?? null;
+}
 
 export type StockCoreField =
   | "dateAchat"
@@ -71,26 +77,38 @@ export async function bulkCreateStockItems(categoryId: string, path: string, row
   );
   if (valid.length === 0) return { count: 0 };
 
-  if ((await categoryTracksEvents(categoryId)) && valid.some((r) => !r.eventId)) {
+  const [category, assujettiDepuis] = await Promise.all([
+    prisma.category.findUnique({ where: { id: categoryId }, select: { trackEvents: true, defaultTauxTvaAchat: true } }),
+    getTvaAssujettiDepuis(),
+  ]);
+  if (category?.trackEvents && valid.some((r) => !r.eventId)) {
     throw new Error("Un événement est obligatoire pour chaque billet de cette catégorie.");
   }
 
   await prisma.stockItem.createMany({
-    data: valid.map((r) => ({
-      categoryId,
-      dateAchat: toDate(r.dateAchat) ?? new Date(),
-      description: r.description.trim() || null,
-      source: r.source.trim() || null,
-      eventId: r.eventId,
-      qty: Math.max(1, r.qty || 1),
-      coutAchatUnit: r.coutAchatUnit || 0,
-      prixCibleVente: r.prixCibleVente,
-      priorite: r.priorite,
-      recu: r.recu,
-      compteEmail: r.compteEmail.trim() || null,
-      notes: r.notes.trim() || null,
-      customValues: r.customValues ?? {},
-    })),
+    data: valid.map((r) => {
+      const dateAchat = toDate(r.dateAchat) ?? new Date();
+      return {
+        categoryId,
+        dateAchat,
+        description: r.description.trim() || null,
+        source: r.source.trim() || null,
+        eventId: r.eventId,
+        qty: Math.max(1, r.qty || 1),
+        coutAchatUnit: r.coutAchatUnit || 0,
+        prixCibleVente: r.prixCibleVente,
+        priorite: r.priorite,
+        recu: r.recu,
+        tauxTvaAchat: effectiveTauxTva(
+          category?.defaultTauxTvaAchat ? Number(category.defaultTauxTvaAchat) : null,
+          assujettiDepuis,
+          dateAchat
+        ),
+        compteEmail: r.compteEmail.trim() || null,
+        notes: r.notes.trim() || null,
+        customValues: r.customValues ?? {},
+      };
+    }),
   });
   revalidatePath(path);
   return { count: valid.length };
@@ -167,10 +185,15 @@ export async function updateStockDate(
     await prisma.stockItem.update({ where: { id }, data: { dateVente: date, statut } });
   } else {
     if (date && !item.saleId) {
+      const dateVente = item.dateVente ?? date;
+      const [category, assujettiDepuis] = await Promise.all([
+        prisma.category.findUnique({ where: { id: item.categoryId }, select: { defaultTauxTvaVente: true } }),
+        getTvaAssujettiDepuis(),
+      ]);
       const sale = await prisma.sale.create({
         data: {
           categoryId: item.categoryId,
-          dateVente: item.dateVente ?? date,
+          dateVente,
           dateEncaissement: date,
           source: item.source,
           eventId: item.eventId,
@@ -179,6 +202,11 @@ export async function updateStockDate(
           qty: item.qty,
           prixVenteUnit: item.prixCibleVente ?? 0,
           coutAchatUnit: item.coutAchatUnit,
+          tauxTvaVente: effectiveTauxTva(
+            category?.defaultTauxTvaVente ? Number(category.defaultTauxTvaVente) : null,
+            assujettiDepuis,
+            dateVente
+          ),
           tauxTvaAchat: item.tauxTvaAchat,
           notes: item.notes ? `${item.notes} (Depuis Stock)` : "Depuis Stock",
           customValues: item.customValues as object,
