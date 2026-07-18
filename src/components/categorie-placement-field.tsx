@@ -14,6 +14,25 @@ export function parseCategoriePlacement(value: string) {
   if (mRang) return { categorie: mRang[1].trim(), rang: mRang[2].trim(), place: "" };
   const mPlace = value.match(/^(.*?),\s*Place\s+(.+)$/i);
   if (mPlace) return { categorie: mPlace[1].trim(), rang: "", place: mPlace[2].trim() };
+
+  // Formats libres (autres billetteries, saisie manuelle) : "Rangée"/"Siège(s)" au lieu de
+  // "Rang"/"Place", séparateurs variés (tirets, deux-points...) plutôt qu'un "," strict.
+  // On extrait le rang/la place où qu'ils soient dans le texte au lieu d'exiger le format
+  // exact, sinon le plan de placement ne peut pas regrouper ces billets par n° de siège.
+  const rangLoose = value.match(/Rang(?:ée)?e?\s*:?\s*(\S+)/i);
+  const placeLoose = value.match(/(?:Place|Si[èe]ge\(?s?\)?)\s*:?\s*(\S+)/i);
+  if (rangLoose || placeLoose) {
+    let categorie = value.trim();
+    if (rangLoose) categorie = categorie.replace(rangLoose[0], "").trim();
+    if (placeLoose) categorie = categorie.replace(placeLoose[0], "").trim();
+    categorie = categorie.replace(/^[-,:;\s]+|[-,:;\s]+$/g, "").trim();
+    return {
+      categorie: categorie || value.trim(),
+      rang: rangLoose ? rangLoose[1].replace(/[.,;:]+$/, "") : "",
+      place: placeLoose ? placeLoose[1].replace(/[.,;:]+$/, "") : "",
+    };
+  }
+
   return { categorie: value.trim(), rang: "", place: "" };
 }
 

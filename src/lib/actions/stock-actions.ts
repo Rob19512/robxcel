@@ -23,7 +23,21 @@ function toDate(value: string | null) {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
+// Rempart côté serveur (en plus des blocages déjà faits dans les formulaires) : pour les
+// catégories qui suivent les événements, aucun billet ne doit pouvoir être créé sans en
+// avoir un, quel que soit le chemin utilisé (formulaire actuel ou futur, appel direct...).
+async function categoryTracksEvents(categoryId: string): Promise<boolean> {
+  const category = await prisma.category.findUnique({
+    where: { id: categoryId },
+    select: { trackEvents: true },
+  });
+  return category?.trackEvents ?? false;
+}
+
 export async function createStockItem(categoryId: string, path: string) {
+  if (await categoryTracksEvents(categoryId)) {
+    throw new Error("Un événement est obligatoire pour cette catégorie - utilise \"Créer un listing\".");
+  }
   const item = await prisma.stockItem.create({
     data: {
       categoryId,
@@ -56,6 +70,10 @@ export async function bulkCreateStockItems(categoryId: string, path: string, row
     (r) => r.description.trim() || r.source.trim() || r.coutAchatUnit > 0 || r.prixCibleVente
   );
   if (valid.length === 0) return { count: 0 };
+
+  if ((await categoryTracksEvents(categoryId)) && valid.some((r) => !r.eventId)) {
+    throw new Error("Un événement est obligatoire pour chaque billet de cette catégorie.");
+  }
 
   await prisma.stockItem.createMany({
     data: valid.map((r) => ({
@@ -237,6 +255,11 @@ export async function bulkRestoreStockItems(ids: string[], path: string) {
   await prisma.stockItem.updateMany({ where: { id: { in: ids } }, data: { deletedAt: null } });
   revalidatePath(path);
   revalidatePath(A_ENCAISSER_PATH);
+}
+
+export async function bulkUpdatePrixCible(ids: string[], path: string, prixCibleVente: number) {
+  await prisma.stockItem.updateMany({ where: { id: { in: ids } }, data: { prixCibleVente } });
+  revalidatePath(path);
 }
 
 export async function duplicateStockItem(id: string, path: string) {

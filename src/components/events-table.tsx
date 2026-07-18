@@ -1,12 +1,12 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useHorizontalWheelScroll } from "@/lib/use-horizontal-wheel-scroll";
 import { useColumnPrefs, type ColumnDef } from "@/lib/use-column-visibility";
 import { useColumnSort, compareValues } from "@/lib/use-column-sort";
 import { ColumnVisibilityMenu } from "@/components/column-visibility-menu";
 import { toast } from "sonner";
-import { Plus, MoreVertical, Trash2, Eye, ArrowUp, ArrowDown } from "lucide-react";
+import { Plus, MoreVertical, Trash2, Eye, ArrowUp, ArrowDown, Table2, LayoutGrid, MapPin, CalendarDays } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -21,6 +21,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Progress } from "@/components/ui/progress";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   Sheet,
   SheetContent,
@@ -65,6 +67,40 @@ export type EventRow = {
 
 export type EventFolderOption = { id: string; name: string };
 
+const EVENTS_VIEW_STORAGE_KEY = "robxcel:events-view-mode";
+
+function useEventsViewMode() {
+  const [viewMode, setViewMode] = useState<"table" | "cards">("cards");
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(EVENTS_VIEW_STORAGE_KEY);
+      if (stored === "table" || stored === "cards") setViewMode(stored);
+    } catch {
+      // ignore
+    }
+  }, []);
+  function updateViewMode(next: "table" | "cards") {
+    setViewMode(next);
+    try {
+      localStorage.setItem(EVENTS_VIEW_STORAGE_KEY, next);
+    } catch {
+      // ignore
+    }
+  }
+  return [viewMode, updateViewMode] as const;
+}
+
+// Jours restants avant l'événement (négatif = déjà passé) - sert à colorer le badge
+// "J-X" pour repérer d'un coup d'œil ce qui approche et n'est pas encore vendu.
+function daysUntil(dateStr: string | null): number | null {
+  if (!dateStr) return null;
+  const eventDate = new Date(`${dateStr}T00:00:00`);
+  if (Number.isNaN(eventDate.getTime())) return null;
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.round((eventDate.getTime() - today.getTime()) / 86_400_000);
+}
+
 export function EventsTable({
   categoryId,
   path,
@@ -84,6 +120,7 @@ export function EventsTable({
   const [folderFilter, setFolderFilter] = useState<string | null>(null);
   const [detailEventId, setDetailEventId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [viewMode, setViewMode] = useEventsViewMode();
   const [isPending, startTransition] = useTransition();
   const scrollRef = useHorizontalWheelScroll<HTMLDivElement>();
   const columnKeys = ["dossier", "date", "lieuSalle", "vendus", "ca", "benefice"];
@@ -309,8 +346,36 @@ export function EventsTable({
           onRename={(id, name) => renameEventFolder(id, path, name)}
           onDelete={(id) => deleteEventFolder(id, path)}
         />
-        <ColumnVisibilityMenu columns={columns} order={order} isVisible={isVisible} toggle={toggleColumn} move={moveColumn} />
+        {viewMode === "table" && (
+          <ColumnVisibilityMenu columns={columns} order={order} isVisible={isVisible} toggle={toggleColumn} move={moveColumn} />
+        )}
+        {viewMode === "cards" && (
+          <ToggleGroup
+            value={columnSort ? [columnSort.key] : []}
+            onValueChange={(v) => v[0] && toggleSort(v[0])}
+            variant="outline"
+            size="sm"
+          >
+            <ToggleGroupItem value="date">Date</ToggleGroupItem>
+            <ToggleGroupItem value="name">Nom</ToggleGroupItem>
+            <ToggleGroupItem value="ca">CA</ToggleGroupItem>
+            <ToggleGroupItem value="benefice">Bénéfice</ToggleGroupItem>
+          </ToggleGroup>
+        )}
         <BulkDeleteButton count={selectedIds.size} onConfirm={handleBulkDelete} permanent />
+        <ToggleGroup
+          value={[viewMode]}
+          onValueChange={(v) => v[0] && setViewMode(v[0] as typeof viewMode)}
+          variant="outline"
+          size="sm"
+        >
+          <ToggleGroupItem value="table" title="Vue tableau">
+            <Table2 />
+          </ToggleGroupItem>
+          <ToggleGroupItem value="cards" title="Vue cartes">
+            <LayoutGrid />
+          </ToggleGroupItem>
+        </ToggleGroup>
         <span className="ml-auto text-xs text-muted-foreground">
           {filtered.length} événement{filtered.length > 1 ? "s" : ""}
         </span>
@@ -354,7 +419,7 @@ export function EventsTable({
       )}
 
       {/* Desktop table */}
-      <Card className="hidden overflow-hidden py-0 md:block">
+      <Card className={cn("overflow-hidden py-0", viewMode === "table" ? "hidden md:block" : "hidden")}>
         <Table containerRef={scrollRef}>
             <TableHeader>
               <TableRow>
@@ -440,52 +505,71 @@ export function EventsTable({
           </Table>
       </Card>
 
-      {/* Mobile cards */}
-      <div className="flex flex-col gap-3 md:hidden">
+      {/* Cartes : vue par défaut sur desktop (viewMode "cards"), toujours utilisée sur mobile
+          quel que soit le mode choisi (le tableau large n'y tient pas). */}
+      <div
+        className={cn(
+          "grid grid-cols-1 items-start gap-3",
+          viewMode === "cards" ? "md:grid-cols-2 xl:grid-cols-3" : "md:hidden"
+        )}
+      >
         {filtered.map((e) => {
           const stats = statsFor(e.id);
+          const totalTickets = stats.nbVendus + stats.nbEnStock;
+          const pctVendu = totalTickets > 0 ? (stats.nbVendus / totalTickets) * 100 : 0;
+          const days = daysUntil(e.dateEvenement);
+          const isPast = days !== null && days < 0;
+          const isUrgent = days !== null && days >= 0 && days <= 7 && stats.nbEnStock > 0;
+          const isSoon = days !== null && days >= 0 && days <= 30;
+
           return (
-            <Card key={e.id}>
-              <CardContent className="flex flex-col gap-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Checkbox checked={selectedIds.has(e.id)} onCheckedChange={() => toggleSelected(e.id)} />
-                    <InlineText
-                      value={e.name}
-                      onSave={saveField(e.id, "name")}
-                      className="text-base font-medium"
-                    />
-                  </div>
-                  <div className="flex items-center">
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      title="Voir les tickets"
-                      onClick={() => setDetailEventId(e.id)}
-                    >
-                      <Eye />
-                    </Button>
-                    <RowMenu onDelete={() => handleDelete(e.id)} />
-                  </div>
+            <Card key={e.id} className="gap-0 overflow-hidden py-0">
+              <div className="flex items-start justify-between gap-2 border-b bg-muted/30 px-3.5 py-2.5">
+                <div className="flex min-w-0 items-center gap-2">
+                  <Checkbox checked={selectedIds.has(e.id)} onCheckedChange={() => toggleSelected(e.id)} />
+                  <InlineText value={e.name} onSave={saveField(e.id, "name")} className="text-sm font-semibold" />
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <Field label="Date">
+                <div className="flex shrink-0 items-center gap-1">
+                  {days !== null && (
+                    <Badge
+                      className={cn(
+                        "tabular-nums",
+                        isPast && "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400",
+                        !isPast && isUrgent && "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300",
+                        !isPast && !isUrgent && isSoon && "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300",
+                        !isPast && !isUrgent && !isSoon && "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
+                      )}
+                    >
+                      {isPast ? "Terminé" : `J-${days}`}
+                    </Badge>
+                  )}
+                  <Button variant="ghost" size="icon-sm" title="Voir les tickets" onClick={() => setDetailEventId(e.id)}>
+                    <Eye />
+                  </Button>
+                  <RowMenu onDelete={() => handleDelete(e.id)} />
+                </div>
+              </div>
+              <CardContent className="flex flex-col gap-3 pt-3">
+                <div className="flex flex-col gap-1 text-sm text-muted-foreground">
+                  <div className="flex items-center gap-1.5">
+                    <CalendarDays className="size-3.5 shrink-0" />
                     <InlineDate value={e.dateEvenement ?? ""} onSave={saveField(e.id, "dateEvenement")} />
-                  </Field>
-                  <Field label="Lieu / Salle">
-                    <InlineText value={e.lieuSalle ?? ""} onSave={saveField(e.id, "lieuSalle")} />
-                  </Field>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <MapPin className="size-3.5 shrink-0" />
+                    <InlineText value={e.lieuSalle ?? ""} onSave={saveField(e.id, "lieuSalle")} placeholder="Lieu / Salle" />
+                  </div>
                   <Field label="Dossier">
                     <InlineSelect value={e.folderId ?? ""} options={folderOptions} onSave={saveFolder(e.id)} />
                   </Field>
                 </div>
+                <div className="flex flex-col gap-1">
+                  <Progress value={pctVendu} />
+                  <p className="text-xs text-muted-foreground">
+                    {stats.nbVendus}/{totalTickets} vendus
+                  </p>
+                </div>
                 <div className="grid grid-cols-2 gap-2 rounded-md bg-muted p-2 text-sm">
-                  <div>
-                    <span className="text-muted-foreground">Vendus</span>
-                    <p className="font-medium tabular-nums">
-                      {stats.nbVendus}/{stats.nbVendus + stats.nbEnStock}
-                    </p>
-                  </div>
                   <div>
                     <span className="text-muted-foreground">CA réalisé</span>
                     <p className="font-medium tabular-nums">{eur.format(stats.ca)}</p>
@@ -502,7 +586,7 @@ export function EventsTable({
           );
         })}
         {filtered.length === 0 && (
-          <p className="py-8 text-center text-sm text-muted-foreground">Aucun événement pour l&apos;instant.</p>
+          <p className="col-span-full py-8 text-center text-sm text-muted-foreground">Aucun événement pour l&apos;instant.</p>
         )}
       </div>
 

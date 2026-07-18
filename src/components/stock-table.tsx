@@ -27,6 +27,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { BulkDeleteButton } from "@/components/bulk-delete-button";
 import { BulkEncaissementButton } from "@/components/bulk-encaissement-button";
+import { BulkPriceButton } from "@/components/bulk-price-button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -52,6 +53,7 @@ import {
   bulkDeleteStockItems,
   bulkRestoreStockItems,
   bulkUpdateStockDates,
+  bulkUpdatePrixCible,
   duplicateStockItem,
   markStockVenduToday,
   markStockEncaisseToday,
@@ -590,6 +592,19 @@ export function StockTable({
     });
   }
 
+  function handleBulkPrice(prixCibleVente: number) {
+    const ids = Array.from(selectedIds);
+    startTransition(async () => {
+      try {
+        await bulkUpdatePrixCible(ids, path, prixCibleVente);
+        setSelectedIds(new Set());
+        toast.success(`Prix de revente appliqué à ${ids.length} ligne${ids.length > 1 ? "s" : ""}`);
+      } catch {
+        toast.error("Impossible de mettre à jour le prix");
+      }
+    });
+  }
+
   function handleDelete(id: string) {
     startTransition(async () => {
       try {
@@ -831,10 +846,15 @@ export function StockTable({
       <div className="flex flex-wrap items-center gap-2">
         {!hideAddButtons && (
           <>
-            <Button onClick={handleAdd} disabled={isPending} size="sm">
-              <Plus />
-              Ajouter en stock
-            </Button>
+            {/* Sans événement, cette ligne resterait orpheline - pour les catégories qui
+                suivent les événements, "Créer un listing" (ci-dessous) est le seul chemin
+                de création rapide, et il impose déjà d'en choisir ou d'en créer un. */}
+            {!events && (
+              <Button onClick={handleAdd} disabled={isPending} size="sm">
+                <Plus />
+                Ajouter en stock
+              </Button>
+            )}
             <BulkAddStockDialog
               categoryId={categoryId}
               path={path}
@@ -893,6 +913,7 @@ export function StockTable({
         </Button>
         <ColumnVisibilityMenu columns={columns} order={order} isVisible={isVisible} toggle={toggleColumn} move={moveColumn} />
         <BulkEncaissementButton count={selectedIds.size} onConfirm={handleBulkEncaissement} />
+        <BulkPriceButton count={selectedIds.size} onConfirm={handleBulkPrice} />
         <BulkDeleteButton count={selectedIds.size} onConfirm={handleBulkDelete} />
         <ToggleGroup
           value={[effectiveViewMode]}
@@ -1240,11 +1261,11 @@ export function StockTable({
                     }
                   }}
                   className={cn(
-                    "relative flex size-12 shrink-0 cursor-pointer flex-col items-center justify-center gap-0 rounded-md text-sm font-semibold tabular-nums shadow-sm outline-none transition-all hover:scale-105 hover:shadow-md",
+                    "relative flex h-14 w-14 shrink-0 cursor-pointer flex-col items-center justify-center gap-0 rounded-md text-sm font-semibold tabular-nums shadow-sm outline-none transition-all hover:scale-105 hover:shadow-md",
                     seatCellColor[it.statut],
                     isOpen && "ring-2 ring-ring ring-offset-2 ring-offset-background"
                   )}
-                  title={`${label || "Billet"} · ${STATUT_LABEL_SHORT[it.statut]}${it.prixCibleVente ? ` · ${eur.format(it.prixCibleVente)}` : ""}`}
+                  title={`${label || "Billet"} · ${STATUT_LABEL_SHORT[it.statut]}${it.coutAchatUnit ? ` · Retail ${eur.format(it.coutAchatUnit)}` : ""}${it.prixCibleVente ? ` · Cible ${eur.format(it.prixCibleVente)}` : ""}`}
                 >
                   {isUrgent && (
                     <span
@@ -1264,9 +1285,14 @@ export function StockTable({
                     />
                   </div>
                   <span className="truncate px-0.5 leading-tight">{label || "—"}</span>
+                  {it.coutAchatUnit ? (
+                    <span className="truncate px-0.5 text-[9px] leading-tight font-normal opacity-80" title="Prix retail (coût d'achat)">
+                      {eur.format(it.coutAchatUnit)}
+                    </span>
+                  ) : null}
                   {it.prixCibleVente ? (
-                    <span className="truncate px-0.5 text-[10px] leading-tight font-normal opacity-80">
-                      {eur.format(it.prixCibleVente)}
+                    <span className="truncate px-0.5 text-[9px] leading-tight font-normal opacity-60">
+                      →{eur.format(it.prixCibleVente)}
                     </span>
                   ) : null}
                 </div>
@@ -1309,7 +1335,7 @@ export function StockTable({
                           return (
                             <div
                               key={num}
-                              className="flex size-12 shrink-0 items-center justify-center rounded-md border-2 border-dashed border-muted-foreground/25 text-sm text-muted-foreground/50"
+                              className="flex h-14 w-14 shrink-0 items-center justify-center rounded-md border-2 border-dashed border-muted-foreground/25 text-sm text-muted-foreground/50"
                               title="Aucun billet à cette place"
                             >
                               {num}

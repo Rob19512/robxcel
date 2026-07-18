@@ -163,8 +163,32 @@ export function BulkAddStockDialog({
     return pasteColumns.findIndex((c) => c.key === key && c.customKey === customKey);
   }
 
+  // Une ligne est "remplie" si l'utilisateur y a mis quelque chose (au-delà de la date,
+  // pré-remplie par défaut) - sert à ignorer les lignes vides plutôt que les compter comme
+  // des erreurs "sans événement".
+  function isRowFilled(r: DraftRow) {
+    return (
+      r.description.trim() !== "" ||
+      r.source.trim() !== "" ||
+      r.eventName.trim() !== "" ||
+      r.coutAchatUnit.trim() !== "" ||
+      r.prixCibleVente.trim() !== "" ||
+      Object.values(r.customValues).some((v) => v.trim() !== "")
+    );
+  }
+
   function handleSubmit() {
     const eventByLabel = new Map((events ?? []).map((e) => [e.label.trim().toLowerCase(), e.id]));
+
+    if (events) {
+      const missing = rows.filter((r) => isRowFilled(r) && !eventByLabel.has(r.eventName.trim().toLowerCase()));
+      if (missing.length > 0) {
+        toast.error(
+          `${missing.length} ligne${missing.length > 1 ? "s" : ""} sans événement valide - un événement est obligatoire pour chaque billet.`
+        );
+        return;
+      }
+    }
 
     const payload: BulkStockRowInput[] = rows.map((r) => ({
       dateAchat: r.dateAchat,
@@ -210,7 +234,7 @@ export function BulkAddStockDialog({
             <DialogDescription>
               Remplis les lignes à la main, ou colle directement plusieurs lignes copiées depuis Excel/Sheets
               (colle dans n&apos;importe quelle case, ça se répartit automatiquement).
-              {events && " Le nom d'événement doit correspondre exactement à un événement déjà créé."}
+              {events && " L'événement est obligatoire pour chaque ligne et doit correspondre exactement à un événement déjà créé."}
             </DialogDescription>
           </DialogHeader>
 
