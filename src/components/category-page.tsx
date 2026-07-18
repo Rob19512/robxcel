@@ -6,6 +6,7 @@ import { EventsTable } from "@/components/events-table";
 import { CategorySettings } from "@/components/category-settings";
 import { ImportedListingsPanel } from "@/components/imported-listings-panel";
 import { listPendingImports } from "@/lib/actions/import-actions";
+import { listTicketingSites } from "@/lib/actions/ticketing-site-actions";
 import { PersistentTabs } from "@/components/persistent-tabs";
 import { TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -26,7 +27,7 @@ export async function CategoryPageContent({
   // au lieu d'un aller-retour "category" puis un second aller-retour pour le reste.
   const isGmailImportCategory = categoryId === GMAIL_IMPORT_CATEGORY_ID;
 
-  const [category, sales, stockItems, events, eventFolders, pendingImports] = await Promise.all([
+  const [category, sales, stockItems, events, eventFolders, pendingImports, ticketingSites] = await Promise.all([
     prisma.category.findUniqueOrThrow({
       where: { id: categoryId },
       include: { fields: { orderBy: { sortOrder: "asc" } }, sources: { orderBy: { sortOrder: "asc" } } },
@@ -36,6 +37,7 @@ export async function CategoryPageContent({
     prisma.event.findMany({ where: { categoryId }, orderBy: { dateEvenement: "desc" } }),
     prisma.eventFolder.findMany({ where: { categoryId }, orderBy: { name: "asc" } }),
     isGmailImportCategory ? listPendingImports() : Promise.resolve([]),
+    listTicketingSites(),
   ]);
 
   const stockFields = category.fields.filter((f) => f.showInStock);
@@ -113,6 +115,7 @@ export async function CategoryPageContent({
               trackRecu={category.trackRecu}
               events={category.trackEvents ? eventOptions : undefined}
               folders={category.trackEvents ? eventFolders.map((f) => ({ id: f.id, name: f.name })) : undefined}
+              ticketingSites={category.trackEvents ? ticketingSites.map((s) => s.name) : undefined}
               showDescription={category.showDescription}
               showCompteEmail={category.showCompteEmail}
             />

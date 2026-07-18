@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { categoryRoute, A_ENCAISSER_PATH } from "@/lib/category-routes";
-import { effectiveTauxTva } from "@/lib/tva-defaults";
+import { effectiveTauxTva, resolveTauxTvaAchat } from "@/lib/tva-defaults";
 
 async function getTvaAssujettiDepuis(): Promise<Date | null> {
   const settings = await prisma.appSettings.findUnique({ where: { id: "singleton" } });
@@ -77,12 +77,20 @@ export async function bulkCreateStockItems(categoryId: string, path: string, row
   );
   if (valid.length === 0) return { count: 0 };
 
-  const [category, assujettiDepuis] = await Promise.all([
+  const [category, assujettiDepuis, sites] = await Promise.all([
     prisma.category.findUnique({ where: { id: categoryId }, select: { trackEvents: true, defaultTauxTvaAchat: true } }),
     getTvaAssujettiDepuis(),
+    prisma.ticketingSite.findMany({ select: { name: true, tauxTvaAchat: true } }),
   ]);
+  const siteRateByName = new Map(sites.map((s) => [s.name, s.tauxTvaAchat !== null ? Number(s.tauxTvaAchat) : null]));
   if (category?.trackEvents && valid.some((r) => !r.eventId)) {
     throw new Error("Un événement est obligatoire pour chaque billet de cette catégorie.");
+  }
+  // Le site d'achat conditionne le taux de TVA déductible (chaque billetterie facture sa
+  // propre TVA) - obligatoire pour les catégories billets, en plus des blocages déjà faits
+  // côté formulaire.
+  if (category?.trackEvents && valid.some((r) => !r.source.trim())) {
+    throw new Error("Un site d'achat est obligatoire pour chaque billet de cette catégorie.");
   }
 
   await prisma.stockItem.createMany({
@@ -99,7 +107,8 @@ export async function bulkCreateStockItems(categoryId: string, path: string, row
         prixCibleVente: r.prixCibleVente,
         priorite: r.priorite,
         recu: r.recu,
-        tauxTvaAchat: effectiveTauxTva(
+        tauxTvaAchat: resolveTauxTvaAchat(
+          siteRateByName.get(r.source.trim()),
           category?.defaultTauxTvaAchat ? Number(category.defaultTauxTvaAchat) : null,
           assujettiDepuis,
           dateAchat

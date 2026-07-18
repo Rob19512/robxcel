@@ -151,6 +151,7 @@ export function StockTable({
   trackRecu,
   events,
   folders,
+  ticketingSites,
   hideAddButtons,
   showDescription = true,
   showCompteEmail = true,
@@ -164,6 +165,7 @@ export function StockTable({
   trackRecu: boolean;
   events?: EventOption[];
   folders?: { id: string; name: string }[];
+  ticketingSites?: string[];
   hideAddButtons?: boolean;
   showDescription?: boolean;
   showCompteEmail?: boolean;
@@ -864,6 +866,7 @@ export function StockTable({
                 events={events}
                 folders={folders ?? []}
                 fields={fields}
+                ticketingSites={ticketingSites ?? []}
               />
             )}
           </>

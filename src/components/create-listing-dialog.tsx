@@ -26,7 +26,6 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { isEventPast } from "@/lib/event-utils";
 import { createEventWithDetails } from "@/lib/actions/event-actions";
 import { bulkCreateStockItems, type BulkStockRowInput } from "@/lib/actions/stock-actions";
-import { TICKETING_SITES } from "@/lib/ticketing-sites";
 import type { EventOption, CategoryFieldDef } from "@/components/sales-table";
 
 type EventFolderOption = { id: string; name: string };
@@ -66,12 +65,14 @@ export function CreateListingDialog({
   events,
   folders,
   fields,
+  ticketingSites,
 }: {
   categoryId: string;
   path: string;
   events?: EventOption[];
   folders: EventFolderOption[];
   fields: CategoryFieldDef[];
+  ticketingSites: string[];
 }) {
   const [open, setOpen] = useState(false);
   const [isPending, setIsPending] = useState(false);
@@ -123,10 +124,15 @@ export function CreateListingDialog({
     setCompteEmail("");
   }
 
+  // Le site d'achat conditionne le taux de TVA déductible appliqué automatiquement côté
+  // serveur (chaque billetterie facture sa propre TVA) - obligatoire, pas juste indicatif.
+  const finalSiteAchat = siteAchat === "CUSTOM" ? siteAchatCustom.trim() : siteAchat;
+
   const canSubmit =
     (eventMode === "existing" ? !!selectedEventId : !!newEventName.trim()) &&
     !!dateAchat &&
-    !!coutAchatUnit;
+    !!coutAchatUnit &&
+    !!finalSiteAchat;
 
   async function handleSubmit() {
     if (!canSubmit) return;
@@ -144,7 +150,6 @@ export function CreateListingDialog({
         eventId = selectedEventId;
       }
 
-      const finalSiteAchat = siteAchat === "CUSTOM" ? siteAchatCustom.trim() : siteAchat;
       // Certaines catégories (ex. Billets) affichent le "Compte" via un champ personnalisé
       // (customValues.compte) plutôt que la colonne compteEmail intégrée - il faut écrire au
       // bon endroit sinon la valeur est bien enregistrée mais jamais visible nulle part.
@@ -192,8 +197,8 @@ export function CreateListingDialog({
             <DialogTitle>Créer un listing</DialogTitle>
             <DialogDescription>
               Renseigne tout en une fois. Pour plusieurs sièges d&apos;affilée, mets une plage
-              dans "Place" (ex : 35-38 pour les places 35 à 38) : un billet sera créé pour
-              chaque place.
+              dans &quot;Place&quot; (ex : 35-38 pour les places 35 à 38) : un billet sera créé
+              pour chaque place.
             </DialogDescription>
           </DialogHeader>
 
@@ -276,14 +281,14 @@ export function CreateListingDialog({
                   <Input type="date" value={dateAchat} onChange={(e) => setDateAchat(e.target.value)} />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <Label>Site d&apos;achat</Label>
+                  <Label>Site d&apos;achat *</Label>
                   <Select
                     value={siteAchat || "NONE"}
                     onValueChange={(v) => setSiteAchat(v === "NONE" || !v ? "" : v)}
                     items={[
                       { value: "NONE", label: "—" },
                       { value: "CUSTOM", label: "Autre (saisie libre)" },
-                      ...TICKETING_SITES.map((s) => ({ value: s, label: s })),
+                      ...ticketingSites.map((s) => ({ value: s, label: s })),
                     ]}
                   >
                     <SelectTrigger className="w-full">
@@ -292,7 +297,7 @@ export function CreateListingDialog({
                     <SelectContent>
                       <SelectItem value="NONE">—</SelectItem>
                       <SelectItem value="CUSTOM">Autre (saisie libre)</SelectItem>
-                      {TICKETING_SITES.map((s) => (
+                      {ticketingSites.map((s) => (
                         <SelectItem key={s} value={s}>
                           {s}
                         </SelectItem>

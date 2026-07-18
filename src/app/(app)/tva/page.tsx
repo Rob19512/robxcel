@@ -7,10 +7,12 @@ import {
   type AchatProLite,
 } from "@/components/tva-quarterly";
 import { TvaSettings } from "@/components/tva-settings";
+import { TicketingSitesSettings } from "@/components/ticketing-sites-settings";
 import { getAppSettings } from "@/lib/actions/tva-settings-actions";
+import { listTicketingSites } from "@/lib/actions/ticketing-site-actions";
 
 export default async function TvaPage() {
-  const [categories, sales, stockItems, achatsPro, appSettings] = await Promise.all([
+  const [categories, sales, stockItems, achatsPro, appSettings, ticketingSites] = await Promise.all([
     prisma.category.findMany({ where: { scope: "PRO" } }),
     prisma.sale.findMany({
       where: { category: { scope: "PRO" }, deletedAt: null },
@@ -19,6 +21,7 @@ export default async function TvaPage() {
     prisma.stockItem.findMany({ where: { category: { scope: "PRO" }, deletedAt: null } }),
     prisma.achatPro.findMany({ where: { deletedAt: null } }),
     getAppSettings(),
+    listTicketingSites(),
   ]);
 
   const categoriesLite: CategoryLite[] = categories.map((c) => ({ id: c.id, name: c.name }));
@@ -59,6 +62,7 @@ export default async function TvaPage() {
   return (
     <div className="flex flex-col gap-6">
       <TvaSettings initialAssujettiDepuis={appSettings.tvaAssujettiDepuis} categories={tvaCategoriesLite} />
+      <TicketingSitesSettings initialSites={ticketingSites} />
       <TvaQuarterly
         categories={categoriesLite}
         sales={salesLite}

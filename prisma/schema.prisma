@@ -66,6 +66,16 @@ model AppSettings {
   updatedAt          DateTime  @updatedAt
 }
 
+// Liste éditable des sites de billetterie (remplace l'ancienne liste figée dans le code) -
+// chaque site a son propre taux de TVA récupérable sur les achats, à renseigner une fois.
+model TicketingSite {
+  id           String   @id @default(cuid())
+  name         String   @unique
+  tauxTvaAchat Decimal? @db.Decimal(5, 2)
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+}
+
 model Category {
   id         String   @id @default(cuid())
   name       String

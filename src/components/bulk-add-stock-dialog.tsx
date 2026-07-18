@@ -181,10 +181,19 @@ export function BulkAddStockDialog({
     const eventByLabel = new Map((events ?? []).map((e) => [e.label.trim().toLowerCase(), e.id]));
 
     if (events) {
-      const missing = rows.filter((r) => isRowFilled(r) && !eventByLabel.has(r.eventName.trim().toLowerCase()));
-      if (missing.length > 0) {
+      const missingEvent = rows.filter((r) => isRowFilled(r) && !eventByLabel.has(r.eventName.trim().toLowerCase()));
+      if (missingEvent.length > 0) {
         toast.error(
-          `${missing.length} ligne${missing.length > 1 ? "s" : ""} sans événement valide - un événement est obligatoire pour chaque billet.`
+          `${missingEvent.length} ligne${missingEvent.length > 1 ? "s" : ""} sans événement valide - un événement est obligatoire pour chaque billet.`
+        );
+        return;
+      }
+      // Le site d'achat conditionne le taux de TVA déductible appliqué automatiquement
+      // (chaque billetterie facture sa propre TVA) - obligatoire, pas juste indicatif.
+      const missingSource = rows.filter((r) => isRowFilled(r) && !r.source.trim());
+      if (missingSource.length > 0) {
+        toast.error(
+          `${missingSource.length} ligne${missingSource.length > 1 ? "s" : ""} sans site d'achat - obligatoire pour chaque billet.`
         );
         return;
       }
@@ -244,7 +253,7 @@ export function BulkAddStockDialog({
                 <tr className="border-b bg-muted/50">
                   <th className="min-w-32 p-2 text-left font-medium">Date achat</th>
                   <th className="min-w-48 p-2 text-left font-medium">Description</th>
-                  <th className="min-w-32 p-2 text-left font-medium">Source</th>
+                  <th className="min-w-32 p-2 text-left font-medium">Source{events ? " *" : ""}</th>
                   {events && <th className="min-w-40 p-2 text-left font-medium">Événement</th>}
                   {fields.map((f) => (
                     <th key={f.id} className="min-w-32 p-2 text-left font-medium">
