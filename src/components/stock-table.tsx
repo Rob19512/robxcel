@@ -27,7 +27,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { BulkDeleteButton } from "@/components/bulk-delete-button";
 import { BulkEncaissementButton } from "@/components/bulk-encaissement-button";
-import { BulkPriceButton } from "@/components/bulk-price-button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -579,28 +578,23 @@ export function StockTable({
     });
   }
 
-  function handleBulkEncaissement(dateVente: string | null, dateEncaissement: string | null) {
+  function handleBulkEncaissement(
+    prixCibleVente: number | null,
+    dateVente: string | null,
+    dateEncaissement: string | null
+  ) {
     const ids = Array.from(selectedIds);
     startTransition(async () => {
       try {
-        await bulkUpdateStockDates(ids, path, dateVente, dateEncaissement);
+        // Le prix doit être posé AVANT les dates : la date d'encaissement crée la Vente en
+        // reprenant le prixCibleVente du moment comme prix de vente réel (voir
+        // updateStockDate) - inverser l'ordre créerait des ventes au prix précédent (ou 0).
+        if (prixCibleVente !== null) await bulkUpdatePrixCible(ids, path, prixCibleVente);
+        if (dateVente || dateEncaissement) await bulkUpdateStockDates(ids, path, dateVente, dateEncaissement);
         setSelectedIds(new Set());
         toast.success(`${ids.length} ligne${ids.length > 1 ? "s" : ""} mise${ids.length > 1 ? "s" : ""} à jour`);
       } catch {
         toast.error("Impossible de mettre à jour l'encaissement");
-      }
-    });
-  }
-
-  function handleBulkPrice(prixCibleVente: number) {
-    const ids = Array.from(selectedIds);
-    startTransition(async () => {
-      try {
-        await bulkUpdatePrixCible(ids, path, prixCibleVente);
-        setSelectedIds(new Set());
-        toast.success(`Prix de revente appliqué à ${ids.length} ligne${ids.length > 1 ? "s" : ""}`);
-      } catch {
-        toast.error("Impossible de mettre à jour le prix");
       }
     });
   }
@@ -913,7 +907,6 @@ export function StockTable({
         </Button>
         <ColumnVisibilityMenu columns={columns} order={order} isVisible={isVisible} toggle={toggleColumn} move={moveColumn} />
         <BulkEncaissementButton count={selectedIds.size} onConfirm={handleBulkEncaissement} />
-        <BulkPriceButton count={selectedIds.size} onConfirm={handleBulkPrice} />
         <BulkDeleteButton count={selectedIds.size} onConfirm={handleBulkDelete} />
         <ToggleGroup
           value={[effectiveViewMode]}
@@ -1261,7 +1254,7 @@ export function StockTable({
                     }
                   }}
                   className={cn(
-                    "relative flex h-14 w-14 shrink-0 cursor-pointer flex-col items-center justify-center gap-0 rounded-md text-sm font-semibold tabular-nums shadow-sm outline-none transition-all hover:scale-105 hover:shadow-md",
+                    "relative flex h-20 w-18 shrink-0 cursor-pointer flex-col items-center justify-center gap-0.5 rounded-md text-sm font-semibold tabular-nums shadow-sm outline-none transition-all hover:scale-105 hover:shadow-md",
                     seatCellColor[it.statut],
                     isOpen && "ring-2 ring-ring ring-offset-2 ring-offset-background"
                   )}
@@ -1284,14 +1277,14 @@ export function StockTable({
                       className="size-4 bg-background"
                     />
                   </div>
-                  <span className="truncate px-0.5 leading-tight">{label || "—"}</span>
+                  <span className="truncate px-0.5 text-base leading-tight">{label || "—"}</span>
                   {it.coutAchatUnit ? (
-                    <span className="truncate px-0.5 text-[9px] leading-tight font-normal opacity-80" title="Prix retail (coût d'achat)">
+                    <span className="truncate px-0.5 text-[11px] leading-tight font-normal opacity-90" title="Prix retail (coût d'achat)">
                       {eur.format(it.coutAchatUnit)}
                     </span>
                   ) : null}
                   {it.prixCibleVente ? (
-                    <span className="truncate px-0.5 text-[9px] leading-tight font-normal opacity-60">
+                    <span className="truncate px-0.5 text-[11px] leading-tight font-normal opacity-70" title="Prix de revente cible">
                       →{eur.format(it.prixCibleVente)}
                     </span>
                   ) : null}
@@ -1335,7 +1328,7 @@ export function StockTable({
                           return (
                             <div
                               key={num}
-                              className="flex h-14 w-14 shrink-0 items-center justify-center rounded-md border-2 border-dashed border-muted-foreground/25 text-sm text-muted-foreground/50"
+                              className="flex h-20 w-18 shrink-0 items-center justify-center rounded-md border-2 border-dashed border-muted-foreground/25 text-sm text-muted-foreground/50"
                               title="Aucun billet à cette place"
                             >
                               {num}

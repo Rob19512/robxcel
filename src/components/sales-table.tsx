@@ -521,7 +521,7 @@ export function SalesTable({
     });
   }
 
-  function handleBulkEncaissement(dateVente: string | null, dateEncaissement: string | null) {
+  function handleBulkEncaissement(_prixCibleVente: number | null, dateVente: string | null, dateEncaissement: string | null) {
     const ids = Array.from(selectedIds);
     startTransition(async () => {
       try {
@@ -687,7 +687,7 @@ export function SalesTable({
           Exporter CSV
         </Button>
         <ColumnVisibilityMenu columns={columns} order={order} isVisible={isVisible} toggle={toggleColumn} move={moveColumn} />
-        <BulkEncaissementButton count={selectedIds.size} onConfirm={handleBulkEncaissement} />
+        <BulkEncaissementButton count={selectedIds.size} onConfirm={handleBulkEncaissement} showPrixCible={false} />
         <BulkDeleteButton count={selectedIds.size} onConfirm={handleBulkDelete} />
         <ToggleGroup
           value={[viewMode]}

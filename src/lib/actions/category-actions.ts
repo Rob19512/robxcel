@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { categoryRoute } from "@/lib/category-routes";
 
@@ -45,6 +45,7 @@ export async function createCategory(input: NewCategoryInput) {
     },
   });
   revalidatePath("/categories");
+  revalidateTag("categories-nav", "max");
   return { id: category.id, route: categoryRoute(category.id) };
 }
 
@@ -86,6 +87,7 @@ export async function updateCategoryField(
   await prisma.category.update({ where: { id }, data });
   revalidatePath(path);
   revalidatePath("/categories");
+  revalidateTag("categories-nav", "max");
 }
 
 export async function deleteCategory(id: string) {
@@ -111,6 +113,7 @@ export async function deleteCategory(id: string) {
     prisma.category.delete({ where: { id } }),
   ]);
   revalidatePath("/categories");
+  revalidateTag("categories-nav", "max");
 }
 
 export async function createCategoryField(

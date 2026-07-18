@@ -1,3 +1,4 @@
+import { unstable_cache } from "next/cache";
 import { auth, signOut } from "@/auth";
 import { AppSidebar } from "@/components/app-sidebar";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,22 @@ import { LogOut } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { getTvaAlerts } from "@/lib/tva-alert";
 
+// Le layout tourne sur CHAQUE navigation (c'est lui qui rend la sidebar) - sans cache, ça
+// ajoute un aller-retour BDD pour la liste des catégories en plus de tout ce que la page
+// elle-même charge déjà, à chaque clic. La liste change rarement (gestion manuelle depuis
+// /categories), donc un cache de quelques minutes + invalidation ciblée (voir
+// category-actions.ts) est sûr ; les alertes TVA restent non cachées, trop sensibles aux
+// ventes du jour pour se permettre d'être en retard.
+const getCachedCategories = unstable_cache(
+  () =>
+    prisma.category.findMany({
+      orderBy: { sortOrder: "asc" },
+      select: { id: true, name: true, emoji: true, color: true, scope: true, isBuiltin: true },
+    }),
+  ["layout-categories-nav"],
+  { revalidate: 300, tags: ["categories-nav"] }
+);
+
 export default async function AppLayout({
   children,
 }: {
@@ -21,10 +38,7 @@ export default async function AppLayout({
 }) {
   const [session, categories, tvaAlerts] = await Promise.all([
     auth(),
-    prisma.category.findMany({
-      orderBy: { sortOrder: "asc" },
-      select: { id: true, name: true, emoji: true, color: true, scope: true, isBuiltin: true },
-    }),
+    getCachedCategories(),
     getTvaAlerts(),
   ]);
 
