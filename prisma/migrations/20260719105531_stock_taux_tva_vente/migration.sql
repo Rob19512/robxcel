@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "StockItem" ADD COLUMN "tauxTvaVente" DECIMAL(5,2) NOT NULL DEFAULT 0;

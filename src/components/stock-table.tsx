@@ -72,6 +72,7 @@ export type StockRow = {
   priorite: "URGENT" | "NORMAL" | "PAS_PRESSE" | null;
   recu: boolean | null;
   tauxTvaAchat: number;
+  tauxTvaVente: number;
   dateVente: string | null;
   dateEncaissement: string | null;
   statut: "EN_STOCK" | "EN_ATTENTE" | "VENDU";
@@ -192,6 +193,9 @@ export function StockTable({
       "coutAchat",
       "prixHt",
       "prixCible",
+      "tvaVente",
+      "prixVenteHt",
+      "tvaCollectee",
       "marge",
       ...(trackPriorite ? ["priorite"] : []),
       ...(trackRecu ? ["recu"] : []),
@@ -215,7 +219,10 @@ export function StockTable({
       { key: "qty", label: "Qté" },
       { key: "coutAchat", label: "Coût achat unit. (TTC)" },
       { key: "prixHt", label: "Prix HT (calculé)" },
-      { key: "prixCible", label: "Prix cible vente" },
+      { key: "prixCible", label: "Prix de vente (TTC)" },
+      { key: "tvaVente", label: "TVA vente" },
+      { key: "prixVenteHt", label: "Prix vente HT (calculé)" },
+      { key: "tvaCollectee", label: "TVA à reverser" },
       { key: "marge", label: "Marge" },
       ...(trackPriorite ? [{ key: "priorite", label: "Priorité" }] : []),
       ...(trackRecu ? [{ key: "recu", label: "Reçu" }] : []),
@@ -240,6 +247,9 @@ export function StockTable({
       coutAchat: "min-w-28",
       prixHt: "min-w-28",
       prixCible: "min-w-28",
+      tvaVente: "min-w-24",
+      prixVenteHt: "min-w-28",
+      tvaCollectee: "min-w-28",
       marge: "min-w-28",
       priorite: "min-w-32",
       recu: "min-w-32",
@@ -253,7 +263,7 @@ export function StockTable({
     return widths[key] ?? "min-w-36";
   }
 
-  function renderBodyCell(key: string, it: StockRow, margeCible: number | null, tvaDed: number) {
+  function renderBodyCell(key: string, it: StockRow, margeCible: number | null, tvaDed: number, tvaCollectee: number) {
     if (key.startsWith("custom:")) {
       const fieldKey = key.slice("custom:".length);
       const f = fields.find((fd) => fd.key === fieldKey);
@@ -290,6 +300,14 @@ export function StockTable({
         return <span className="text-muted-foreground">{eur.format(prixHt(it.coutAchatUnit, it.tauxTvaAchat))}</span>;
       case "prixCible":
         return <InlineNumber value={it.prixCibleVente ?? 0} onSave={saveField(it.id, "prixCibleVente")} />;
+      case "tvaVente":
+        return <InlineSelect value={String(it.tauxTvaVente)} options={tvaOptions} onSave={saveField(it.id, "tauxTvaVente")} />;
+      case "prixVenteHt":
+        return (
+          <span className="text-muted-foreground">
+            {eur.format(prixHt(it.prixCibleVente ?? 0, it.tauxTvaVente))}
+          </span>
+        );
       case "marge":
         return margeCible !== null ? eur.format(margeCible) : "—";
       case "priorite": {
@@ -313,6 +331,8 @@ export function StockTable({
         );
       case "tvaDed":
         return eur.format(tvaDed);
+      case "tvaCollectee":
+        return eur.format(tvaCollectee);
       case "dateVente":
         return (
           <div className="flex items-center gap-1">
@@ -383,6 +403,10 @@ export function StockTable({
         return prixHt(it.coutAchatUnit, it.tauxTvaAchat);
       case "prixCible":
         return it.prixCibleVente;
+      case "tvaVente":
+        return it.tauxTvaVente;
+      case "prixVenteHt":
+        return prixHt(it.prixCibleVente ?? 0, it.tauxTvaVente);
       case "marge":
         return it.prixCibleVente !== null ? it.qty * (it.prixCibleVente - it.coutAchatUnit) : null;
       case "priorite": {
@@ -395,6 +419,10 @@ export function StockTable({
         return it.tauxTvaAchat;
       case "tvaDed":
         return it.tauxTvaAchat > 0 ? it.qty * it.coutAchatUnit * (it.tauxTvaAchat / (100 + it.tauxTvaAchat)) : 0;
+      case "tvaCollectee":
+        return it.tauxTvaVente > 0
+          ? it.qty * (it.prixCibleVente ?? 0) * (it.tauxTvaVente / (100 + it.tauxTvaVente))
+          : 0;
       case "dateVente":
         return it.dateVente;
       case "dateEncaissement":
@@ -735,8 +763,25 @@ export function StockTable({
               {eur.format(prixHt(it.coutAchatUnit, it.tauxTvaAchat))}
             </span>
           </Field>
-          <Field label="Prix cible vente">
+          <Field label="Prix de vente (TTC)">
             <InlineNumber value={it.prixCibleVente ?? 0} onSave={saveField(it.id, "prixCibleVente")} />
+          </Field>
+          <Field label="TVA vente">
+            <InlineSelect value={String(it.tauxTvaVente)} options={tvaOptions} onSave={saveField(it.id, "tauxTvaVente")} />
+          </Field>
+          <Field label="Prix vente HT (calculé)">
+            <span className="flex h-8 items-center text-sm tabular-nums text-muted-foreground">
+              {eur.format(prixHt(it.prixCibleVente ?? 0, it.tauxTvaVente))}
+            </span>
+          </Field>
+          <Field label="TVA à reverser (total)">
+            <span className="flex h-8 items-center text-sm tabular-nums text-muted-foreground">
+              {eur.format(
+                it.tauxTvaVente > 0
+                  ? it.qty * (it.prixCibleVente ?? 0) * (it.tauxTvaVente / (100 + it.tauxTvaVente))
+                  : 0
+              )}
+            </span>
           </Field>
           {fields.map((f) => (
             <Field key={f.id} label={f.label}>
@@ -836,7 +881,13 @@ export function StockTable({
           "Qté": it.qty,
           "Coût achat unit. (TTC)": it.coutAchatUnit,
           "Prix HT (calculé)": prixHt(it.coutAchatUnit, it.tauxTvaAchat),
-          "Prix cible vente": it.prixCibleVente ?? "",
+          "Prix de vente (TTC)": it.prixCibleVente ?? "",
+          "Taux TVA vente": it.tauxTvaVente,
+          "Prix vente HT (calculé)": prixHt(it.prixCibleVente ?? 0, it.tauxTvaVente),
+          "TVA à reverser":
+            it.tauxTvaVente > 0
+              ? it.qty * (it.prixCibleVente ?? 0) * (it.tauxTvaVente / (100 + it.tauxTvaVente))
+              : 0,
           "Marge": margeCible,
           "Taux TVA achat": it.tauxTvaAchat,
           "Date de vente": it.dateVente ?? "",
@@ -1006,6 +1057,10 @@ export function StockTable({
                   it.tauxTvaAchat > 0
                     ? it.qty * it.coutAchatUnit * (it.tauxTvaAchat / (100 + it.tauxTvaAchat))
                     : 0;
+                const tvaCollectee =
+                  it.tauxTvaVente > 0
+                    ? it.qty * (it.prixCibleVente ?? 0) * (it.tauxTvaVente / (100 + it.tauxTvaVente))
+                    : 0;
                 return (
                   <TableRow key={it.id} data-state={selectedIds.has(it.id) ? "selected" : undefined}>
                     <TableCell>
@@ -1017,9 +1072,13 @@ export function StockTable({
                     {visibleOrderedKeys.map((key) => (
                       <TableCell
                         key={key}
-                        className={key === "marge" || key === "tvaDed" ? "text-center tabular-nums" : undefined}
+                        className={
+                          key === "marge" || key === "tvaDed" || key === "tvaCollectee"
+                            ? "text-center tabular-nums"
+                            : undefined
+                        }
                       >
-                        {renderBodyCell(key, it, margeCible, tvaDed)}
+                        {renderBodyCell(key, it, margeCible, tvaDed, tvaCollectee)}
                       </TableCell>
                     ))}
                     <TableCell>
@@ -1032,7 +1091,7 @@ export function StockTable({
                 <TableRow>
                   <TableCell
                     colSpan={
-                      18 +
+                      21 +
                       fields.length +
                       (trackPriorite ? 1 : 0) +
                       (trackRecu ? 1 : 0) +

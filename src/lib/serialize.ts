@@ -42,6 +42,7 @@ export function serializeStockItem(item: StockItem): StockRow {
     priorite: item.priorite,
     recu: item.recu,
     tauxTvaAchat: Number(item.tauxTvaAchat),
+    tauxTvaVente: Number(item.tauxTvaVente),
     dateVente: toDateString(item.dateVente),
     dateEncaissement: toDateString(item.dateEncaissement),
     statut: item.statut,

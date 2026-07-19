@@ -183,6 +183,9 @@ model StockItem {
   priorite         Priority?
   recu             Boolean?
   tauxTvaAchat     Decimal      @default(0) @db.Decimal(5, 2)
+  // Choisi au moment de la vente (dateVente), pas au moment de l'encaissement - reporté tel
+  // quel sur la Sale créée à l'encaissement plutôt que recalculé à ce moment-là.
+  tauxTvaVente     Decimal      @default(0) @db.Decimal(5, 2)
   dateVente        DateTime?
   dateEncaissement DateTime?
   statut           StockStatus  @default(EN_STOCK)

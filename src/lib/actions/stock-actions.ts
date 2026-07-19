@@ -20,6 +20,7 @@ export type StockCoreField =
   | "priorite"
   | "recu"
   | "tauxTvaAchat"
+  | "tauxTvaVente"
   | "compteEmail"
   | "notes";
 
@@ -142,6 +143,7 @@ export async function updateStockField(
     case "coutAchatUnit":
     case "prixCibleVente":
     case "tauxTvaAchat":
+    case "tauxTvaVente":
       data[field] = Number(value) || 0;
       break;
     case "priorite":
@@ -191,14 +193,25 @@ export async function updateStockDate(
 
   if (field === "dateVente") {
     const statut = item.dateEncaissement ? "VENDU" : date ? "EN_ATTENTE" : "EN_STOCK";
-    await prisma.stockItem.update({ where: { id }, data: { dateVente: date, statut } });
-  } else {
-    if (date && !item.saleId) {
-      const dateVente = item.dateVente ?? date;
+    const data: { dateVente: Date | null; statut: typeof statut; tauxTvaVente?: number } = { dateVente: date, statut };
+    // Première fois qu'une date de vente est posée sur cet article : préremplit le taux de
+    // TVA vente avec le défaut de la catégorie, modifiable ensuite via son propre champ - le
+    // choix se fait ici, à la vente, pas recalculé plus tard à l'encaissement.
+    if (!item.dateVente && date) {
       const [category, assujettiDepuis] = await Promise.all([
         prisma.category.findUnique({ where: { id: item.categoryId }, select: { defaultTauxTvaVente: true } }),
         getTvaAssujettiDepuis(),
       ]);
+      data.tauxTvaVente = effectiveTauxTva(
+        category?.defaultTauxTvaVente ? Number(category.defaultTauxTvaVente) : null,
+        assujettiDepuis,
+        date
+      );
+    }
+    await prisma.stockItem.update({ where: { id }, data });
+  } else {
+    if (date && !item.saleId) {
+      const dateVente = item.dateVente ?? date;
       const sale = await prisma.sale.create({
         data: {
           categoryId: item.categoryId,
@@ -211,11 +224,9 @@ export async function updateStockDate(
           qty: item.qty,
           prixVenteUnit: item.prixCibleVente ?? 0,
           coutAchatUnit: item.coutAchatUnit,
-          tauxTvaVente: effectiveTauxTva(
-            category?.defaultTauxTvaVente ? Number(category.defaultTauxTvaVente) : null,
-            assujettiDepuis,
-            dateVente
-          ),
+          // Choisi à l'étape "en attente d'encaissement" (champ TVA vente sur le Stock),
+          // repris tel quel - pas de recalcul ici.
+          tauxTvaVente: item.tauxTvaVente,
           tauxTvaAchat: item.tauxTvaAchat,
           notes: item.notes ? `${item.notes} (Depuis Stock)` : "Depuis Stock",
           customValues: item.customValues as object,
