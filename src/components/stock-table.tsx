@@ -134,6 +134,12 @@ function autoPrioriteFromDate(dateEvenement: string | null): "URGENT" | "NORMAL"
   return "PAS_PRESSE";
 }
 
+// Le coût d'achat saisi est TTC (ce qui a vraiment été payé, celui qu'on lit sur une
+// confirmation/un relevé) - le HT s'en déduit à partir du taux de TVA, jamais l'inverse.
+function prixHt(coutAchatUnitTtc: number, tauxTvaAchat: number): number {
+  return tauxTvaAchat > 0 ? coutAchatUnitTtc * (100 / (100 + tauxTvaAchat)) : coutAchatUnitTtc;
+}
+
 const RECU_OPTIONS = [
   { value: "true", label: "🟢 Reçu" },
   { value: "false", label: "🔴 Pas reçu" },
@@ -190,6 +196,7 @@ export function StockTable({
       ...fields.map((f) => `custom:${f.key}`),
       "qty",
       "coutAchat",
+      "prixHt",
       "prixCible",
       "marge",
       ...(trackPriorite ? ["priorite"] : []),
@@ -212,7 +219,8 @@ export function StockTable({
       ...(events ? [{ key: "evenement", label: "Événement" }] : []),
       ...fields.map((f) => ({ key: `custom:${f.key}`, label: f.label })),
       { key: "qty", label: "Qté" },
-      { key: "coutAchat", label: "Coût achat unit." },
+      { key: "coutAchat", label: "Coût achat unit. (TTC)" },
+      { key: "prixHt", label: "Prix HT (calculé)" },
       { key: "prixCible", label: "Prix cible vente" },
       { key: "marge", label: "Marge" },
       ...(trackPriorite ? [{ key: "priorite", label: "Priorité" }] : []),
@@ -236,6 +244,7 @@ export function StockTable({
       evenement: "min-w-48",
       qty: "min-w-16",
       coutAchat: "min-w-28",
+      prixHt: "min-w-28",
       prixCible: "min-w-28",
       marge: "min-w-28",
       priorite: "min-w-32",
@@ -283,6 +292,8 @@ export function StockTable({
         return <InlineNumber value={it.qty} step="1" onSave={saveField(it.id, "qty")} />;
       case "coutAchat":
         return <InlineNumber value={it.coutAchatUnit} onSave={saveField(it.id, "coutAchatUnit")} />;
+      case "prixHt":
+        return <span className="text-muted-foreground">{eur.format(prixHt(it.coutAchatUnit, it.tauxTvaAchat))}</span>;
       case "prixCible":
         return <InlineNumber value={it.prixCibleVente ?? 0} onSave={saveField(it.id, "prixCibleVente")} />;
       case "marge":
@@ -374,6 +385,8 @@ export function StockTable({
         return it.qty;
       case "coutAchat":
         return it.coutAchatUnit;
+      case "prixHt":
+        return prixHt(it.coutAchatUnit, it.tauxTvaAchat);
       case "prixCible":
         return it.prixCibleVente;
       case "marge":
@@ -720,8 +733,13 @@ export function StockTable({
           <Field label="Qté">
             <InlineNumber value={it.qty} step="1" onSave={saveField(it.id, "qty")} />
           </Field>
-          <Field label="Coût achat unit.">
+          <Field label="Coût achat unit. (TTC)">
             <InlineNumber value={it.coutAchatUnit} onSave={saveField(it.id, "coutAchatUnit")} />
+          </Field>
+          <Field label="Prix HT (calculé)">
+            <span className="flex h-8 items-center text-sm tabular-nums text-muted-foreground">
+              {eur.format(prixHt(it.coutAchatUnit, it.tauxTvaAchat))}
+            </span>
           </Field>
           <Field label="Prix cible vente">
             <InlineNumber value={it.prixCibleVente ?? 0} onSave={saveField(it.id, "prixCibleVente")} />
@@ -822,7 +840,8 @@ export function StockTable({
         for (const f of fields) row[f.label] = it.customValues?.[f.key] ?? "";
         Object.assign(row, {
           "Qté": it.qty,
-          "Coût achat unit.": it.coutAchatUnit,
+          "Coût achat unit. (TTC)": it.coutAchatUnit,
+          "Prix HT (calculé)": prixHt(it.coutAchatUnit, it.tauxTvaAchat),
           "Prix cible vente": it.prixCibleVente ?? "",
           "Marge": margeCible,
           "Taux TVA achat": it.tauxTvaAchat,
@@ -1019,7 +1038,7 @@ export function StockTable({
                 <TableRow>
                   <TableCell
                     colSpan={
-                      17 +
+                      18 +
                       fields.length +
                       (trackPriorite ? 1 : 0) +
                       (trackRecu ? 1 : 0) +

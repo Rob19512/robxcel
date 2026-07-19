@@ -324,7 +324,7 @@ export function CreateListingDialog({
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <Label>Prix unitaire (coût)</Label>
+                  <Label>Prix unitaire (coût, TTC)</Label>
                   <Input type="number" step="0.01" value={coutAchatUnit} onChange={(e) => setCoutAchatUnit(e.target.value)} />
                 </div>
                 <div className="flex flex-col gap-1.5">
