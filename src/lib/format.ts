@@ -19,3 +19,9 @@ export function formatRoi(roi: number | null): string {
   if (roi === null) return "—";
   return `${roi >= 0 ? "+" : ""}${roi.toFixed(0)} %`;
 }
+
+// Les prix unitaires saisis dans l'app sont TTC (ce qui a vraiment été payé/reçu) - le HT
+// s'en déduit à partir du taux de TVA, jamais l'inverse.
+export function prixHt(montantTtc: number, tauxTva: number): number {
+  return tauxTva > 0 ? montantTtc * (100 / (100 + tauxTva)) : montantTtc;
+}

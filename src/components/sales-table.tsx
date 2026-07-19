@@ -43,7 +43,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { BulkDeleteButton } from "@/components/bulk-delete-button";
 import { BulkEncaissementButton } from "@/components/bulk-encaissement-button";
 import { TablePagination } from "@/components/table-pagination";
-import { eur, TVA_RATES } from "@/lib/format";
+import { eur, TVA_RATES, prixHt } from "@/lib/format";
 import { computeSale } from "@/lib/calc";
 import { downloadCsv } from "@/lib/export-csv";
 import { cn, STICKY_COL, normalizeForSearch } from "@/lib/utils";
@@ -154,6 +154,7 @@ export function SalesTable({
       ...fields.map((f) => `custom:${f.key}`),
       "qty",
       "prixVente",
+      "prixVenteHt",
       "coutAchat",
       "totalEncaisse",
       "margeBrute",
@@ -176,7 +177,8 @@ export function SalesTable({
       ...(showDescription ? [{ key: "description", label: "Description" }] : []),
       ...fields.map((f) => ({ key: `custom:${f.key}`, label: f.label })),
       { key: "qty", label: "Qté" },
-      { key: "prixVente", label: "Prix vente unit." },
+      { key: "prixVente", label: "Prix vente unit. (TTC)" },
+      { key: "prixVenteHt", label: "Prix vente unit. (HT, calculé)" },
       { key: "coutAchat", label: "Coût achat unit." },
       { key: "totalEncaisse", label: "Total encaissé" },
       { key: "margeBrute", label: "Marge brute" },
@@ -200,6 +202,7 @@ export function SalesTable({
       description: "min-w-48",
       qty: "min-w-16",
       prixVente: "min-w-28",
+      prixVenteHt: "min-w-28",
       coutAchat: "min-w-28",
       totalEncaisse: "min-w-28",
       margeBrute: "min-w-28",
@@ -258,6 +261,8 @@ export function SalesTable({
         return <InlineNumber value={s.qty} step="1" onSave={saveField(s.id, "qty")} />;
       case "prixVente":
         return <InlineNumber value={s.prixVenteUnit} onSave={saveField(s.id, "prixVenteUnit")} />;
+      case "prixVenteHt":
+        return <span className="text-muted-foreground">{eur.format(prixHt(s.prixVenteUnit, s.tauxTvaVente))}</span>;
       case "coutAchat":
         return <InlineNumber value={s.coutAchatUnit} onSave={saveField(s.id, "coutAchatUnit")} />;
       case "totalEncaisse":
@@ -310,6 +315,8 @@ export function SalesTable({
         return s.qty;
       case "prixVente":
         return s.prixVenteUnit;
+      case "prixVenteHt":
+        return prixHt(s.prixVenteUnit, s.tauxTvaVente);
       case "coutAchat":
         return s.coutAchatUnit;
       case "totalEncaisse":
@@ -596,7 +603,8 @@ export function SalesTable({
         for (const f of fields) row[f.label] = s.customValues?.[f.key] ?? "";
         Object.assign(row, {
           "Qté": s.qty,
-          "Prix vente unit.": s.prixVenteUnit,
+          "Prix vente unit. (TTC)": s.prixVenteUnit,
+          "Prix vente unit. (HT, calculé)": prixHt(s.prixVenteUnit, s.tauxTvaVente),
           "Coût achat unit.": s.coutAchatUnit,
           "Total encaissé": calc.totalEncaisse,
           "Marge brute": calc.margeBrute,
@@ -799,7 +807,7 @@ export function SalesTable({
               {filtered.length === 0 && (
                 <TableRow>
                   <TableCell
-                    colSpan={17 + fields.length + (events ? 1 : 0) + (showDescription ? 1 : 0)}
+                    colSpan={18 + fields.length + (events ? 1 : 0) + (showDescription ? 1 : 0)}
                     className="py-8 text-center text-sm text-muted-foreground"
                   >
                     Aucune vente pour l&apos;instant.
@@ -965,8 +973,13 @@ export function SalesTable({
                             <Field label="Qté">
                               <InlineNumber value={s.qty} step="1" onSave={saveField(s.id, "qty")} />
                             </Field>
-                            <Field label="Prix vente unit.">
+                            <Field label="Prix vente unit. (TTC)">
                               <InlineNumber value={s.prixVenteUnit} onSave={saveField(s.id, "prixVenteUnit")} />
+                            </Field>
+                            <Field label="Prix vente HT (calculé)">
+                              <span className="flex h-8 items-center text-sm tabular-nums text-muted-foreground">
+                                {eur.format(prixHt(s.prixVenteUnit, s.tauxTvaVente))}
+                              </span>
                             </Field>
                             <Field label="Coût achat unit.">
                               <InlineNumber value={s.coutAchatUnit} onSave={saveField(s.id, "coutAchatUnit")} />

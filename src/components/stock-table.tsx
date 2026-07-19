@@ -38,7 +38,7 @@ import { CategoriePlacementField, parseCategoriePlacement } from "@/components/c
 import { BulkAddStockDialog } from "@/components/bulk-add-stock-dialog";
 import { CreateListingDialog } from "@/components/create-listing-dialog";
 import { TablePagination } from "@/components/table-pagination";
-import { eur, TVA_RATES } from "@/lib/format";
+import { eur, TVA_RATES, prixHt } from "@/lib/format";
 import { downloadCsv } from "@/lib/export-csv";
 import { cn, STICKY_COL, normalizeForSearch } from "@/lib/utils";
 import {
@@ -132,12 +132,6 @@ function autoPrioriteFromDate(dateEvenement: string | null): "URGENT" | "NORMAL"
   if (daysUntil <= 7) return "URGENT";
   if (daysUntil <= 21) return "NORMAL";
   return "PAS_PRESSE";
-}
-
-// Le coût d'achat saisi est TTC (ce qui a vraiment été payé, celui qu'on lit sur une
-// confirmation/un relevé) - le HT s'en déduit à partir du taux de TVA, jamais l'inverse.
-function prixHt(coutAchatUnitTtc: number, tauxTvaAchat: number): number {
-  return tauxTvaAchat > 0 ? coutAchatUnitTtc * (100 / (100 + tauxTvaAchat)) : coutAchatUnitTtc;
 }
 
 const RECU_OPTIONS = [
