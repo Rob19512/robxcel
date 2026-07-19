@@ -758,6 +758,13 @@ export function StockTable({
           <Field label="Coût achat unit. (TTC)">
             <InlineNumber value={it.coutAchatUnit} onSave={saveField(it.id, "coutAchatUnit")} />
           </Field>
+          <Field label="TVA achat">
+            <InlineSelect
+              value={String(it.tauxTvaAchat)}
+              options={tvaOptions}
+              onSave={saveField(it.id, "tauxTvaAchat")}
+            />
+          </Field>
           <Field label="Prix HT (calculé)">
             <span className="flex h-8 items-center text-sm tabular-nums text-muted-foreground">
               {eur.format(prixHt(it.coutAchatUnit, it.tauxTvaAchat))}
@@ -826,13 +833,6 @@ export function StockTable({
               />
             </Field>
           )}
-          <Field label="TVA achat">
-            <InlineSelect
-              value={String(it.tauxTvaAchat)}
-              options={tvaOptions}
-              onSave={saveField(it.id, "tauxTvaAchat")}
-            />
-          </Field>
           {showCompteEmail && (
             <Field label="Compte (email)">
               <InlineText value={it.compteEmail ?? ""} onSave={saveField(it.id, "compteEmail")} />
