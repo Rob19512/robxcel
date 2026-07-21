@@ -527,7 +527,8 @@ export function StockTable({
   const selectionStats = useMemo(() => {
     const rows = selectedIds.size > 0 ? filtered.filter((it) => selectedIds.has(it.id)) : filtered;
     const totalRetail = rows.reduce((sum, it) => sum + it.qty * it.coutAchatUnit, 0);
-    return { count: rows.length, totalRetail };
+    const totalPrixVente = rows.reduce((sum, it) => sum + it.qty * (it.prixCibleVente ?? 0), 0);
+    return { count: rows.length, totalRetail, totalPrixVente };
   }, [selectedIds, filtered]);
 
   // Vue carte : réunit dans une même carte les billets d'un même bloc de places (même
@@ -1008,6 +1009,9 @@ export function StockTable({
           <span className="font-semibold tabular-nums">
             Total retail : {eur.format(selectionStats.totalRetail)}
           </span>
+          <span className="font-semibold tabular-nums">
+            Total prix de vente : {eur.format(selectionStats.totalPrixVente)}
+          </span>
         </div>
       )}
 
@@ -1123,6 +1127,25 @@ export function StockTable({
           forcée sur mobile, en grille compacte en mode carte explicite. */}
       <div
         className={cn(
+          "flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground",
+          effectiveViewMode !== "cards" && "md:hidden"
+        )}
+      >
+        {(["EN_STOCK", "EN_ATTENTE", "VENDU"] as const).map((s) => (
+          <span key={s} className="flex items-center gap-1.5">
+            <span className={cn("size-2.5 rounded-full", statutDotColor[s])} />
+            {STATUT_LABEL_SHORT[s]}
+          </span>
+        ))}
+        {trackPriorite && (
+          <span className="flex items-center gap-1.5">
+            <span className="size-2 rounded-full bg-red-500" />
+            Urgent
+          </span>
+        )}
+      </div>
+      <div
+        className={cn(
           "grid grid-cols-1 items-start gap-3",
           effectiveViewMode === "cards" ? "sm:grid-cols-2 xl:grid-cols-3" : "md:hidden"
         )}
@@ -1157,7 +1180,10 @@ export function StockTable({
                       </Badge>
                     )}
                     {totalCible > 0 && (
-                      <span className="text-sm font-semibold tabular-nums">{eur.format(totalCible)}</span>
+                      <div className="flex flex-col items-end">
+                        <span className="text-sm font-semibold tabular-nums">{eur.format(totalCible)}</span>
+                        <span className="text-[10px] text-muted-foreground">total cible</span>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -1187,7 +1213,7 @@ export function StockTable({
 
                   return (
                     <div key={it.id}>
-                      <div className="flex w-full items-center gap-1 py-1 pr-1 pl-2">
+                      <div className="flex w-full items-center gap-1 py-1.5 pr-1 pl-2">
                         <Checkbox
                           checked={selectedIds.has(it.id)}
                           onCheckedChange={() => toggleSelected(it.id)}
@@ -1196,15 +1222,15 @@ export function StockTable({
                         <button
                           type="button"
                           onClick={() => toggleExpanded(it.id)}
-                          className="flex min-w-0 flex-1 items-center gap-2.5 rounded-md px-1.5 py-1.5 text-left hover:bg-muted/50"
+                          className="flex min-w-0 flex-1 items-center gap-2.5 rounded-md px-1.5 py-2 text-left hover:bg-muted/50"
                         >
                           <span
-                            className={cn("size-2 shrink-0 rounded-full", statutDotColor[it.statut])}
+                            className={cn("size-2.5 shrink-0 rounded-full", statutDotColor[it.statut])}
                             title={STATUT_LABEL_SHORT[it.statut]}
                           />
-                          {isUrgent && <span className="size-1.5 shrink-0 rounded-full bg-red-500" title="Urgent" />}
+                          {isUrgent && <span className="size-2 shrink-0 rounded-full bg-red-500" title="Urgent" />}
                           <div className="flex min-w-0 flex-1 flex-col">
-                            <span className="truncate text-sm font-medium">{headerLabel}</span>
+                            <span className="truncate text-base font-medium">{headerLabel}</span>
                             <span className="truncate text-xs text-muted-foreground">
                               {STATUT_LABEL_SHORT[it.statut]}
                               {headerSubLabel ? ` · ${headerSubLabel}` : ""}
@@ -1213,7 +1239,7 @@ export function StockTable({
                           <div className="flex shrink-0 flex-col items-end">
                             <span
                               className={cn(
-                                "text-sm font-semibold tabular-nums",
+                                "text-base font-semibold tabular-nums",
                                 it.prixCibleVente === null && "text-muted-foreground/50"
                               )}
                             >
