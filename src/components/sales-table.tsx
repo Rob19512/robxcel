@@ -832,6 +832,19 @@ export function SalesTable({
           en grille compacte en mode carte explicite. */}
       <div
         className={cn(
+          "flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground",
+          viewMode !== "cards" && "md:hidden"
+        )}
+      >
+        {(["EN_ATTENTE", "ENCAISSE", "LITIGE"] as const).map((s) => (
+          <span key={s} className="flex items-center gap-1.5">
+            <span className={cn("size-2.5 rounded-full", statutDotColor[s])} />
+            {STATUT_LABEL_SHORT[s]}
+          </span>
+        ))}
+      </div>
+      <div
+        className={cn(
           "grid grid-cols-1 items-start gap-3",
           viewMode === "cards" ? "sm:grid-cols-2 xl:grid-cols-3" : "md:hidden"
         )}
@@ -865,7 +878,10 @@ export function SalesTable({
                         {encaisseCount}/{group.items.length}
                       </Badge>
                     )}
-                    <span className="text-sm font-semibold tabular-nums">{eur.format(totalEncaisseGroup)}</span>
+                    <div className="flex flex-col items-end">
+                      <span className="text-sm font-semibold tabular-nums">{eur.format(totalEncaisseGroup)}</span>
+                      <span className="text-[10px] text-muted-foreground">total encaissé</span>
+                    </div>
                   </div>
                 </div>
               )}
@@ -886,7 +902,7 @@ export function SalesTable({
 
                   return (
                     <div key={s.id}>
-                      <div className="flex w-full items-center gap-1 py-1 pr-1 pl-2">
+                      <div className="flex w-full items-center gap-1 py-1.5 pr-1 pl-2">
                         <Checkbox
                           checked={selectedIds.has(s.id)}
                           onCheckedChange={() => toggleSelected(s.id)}
@@ -895,20 +911,20 @@ export function SalesTable({
                         <button
                           type="button"
                           onClick={() => toggleExpanded(s.id)}
-                          className="flex min-w-0 flex-1 items-center gap-2.5 rounded-md px-1.5 py-1.5 text-left hover:bg-muted/50"
+                          className="flex min-w-0 flex-1 items-center gap-2.5 rounded-md px-1.5 py-2 text-left hover:bg-muted/50"
                         >
                           <span
-                            className={cn("size-2 shrink-0 rounded-full", statutDotColor[s.statut])}
+                            className={cn("size-2.5 shrink-0 rounded-full", statutDotColor[s.statut])}
                             title={STATUT_LABEL_SHORT[s.statut]}
                           />
                           <div className="flex min-w-0 flex-1 flex-col">
-                            <span className="truncate text-sm font-medium">{headerLabel}</span>
+                            <span className="truncate text-base font-medium">{headerLabel}</span>
                             <span className="truncate text-xs text-muted-foreground">
                               {STATUT_LABEL_SHORT[s.statut]}
                               {headerSubLabel ? ` · ${headerSubLabel}` : ""}
                             </span>
                           </div>
-                          <span className="shrink-0 text-sm font-semibold tabular-nums">
+                          <span className="shrink-0 text-base font-semibold tabular-nums">
                             {eur.format(calc.totalEncaisse)}
                           </span>
                           <ChevronDown
