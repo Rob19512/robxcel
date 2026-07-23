@@ -47,12 +47,12 @@ export type AchatProLite = {
   tauxTva: number;
 };
 
-const DEADLINES = [
-  "T1 : à déposer avant le 30/04",
-  "T2 : à déposer avant le 31/07",
-  "T3 : à déposer avant le 31/10",
-  "T4 : à déposer avant le 31/01 (année suivante)",
-];
+// Le trimestre couvre toujours ses 3 mois calendaires (T4 = oct-déc, jamais jusqu'à
+// janvier) - seule la DATE DE DÉCLARATION tombe ~1 mois après la fin du trimestre, donc
+// l'année suivante pour T4. Les deux infos sont affichées séparément pour ne pas laisser
+// croire que le trimestre lui-même déborde sur janvier.
+const QUARTER_PERIODS = ["1 jan. – 31 mars", "1 avr. – 30 juin", "1 juil. – 30 sept.", "1 oct. – 31 déc."];
+const DEADLINE_DATES = ["30/04", "31/07", "31/10", "31/01"];
 
 function tvaFromTtc(montant: number, taux: number) {
   return taux > 0 ? montant * (taux / (100 + taux)) : 0;
@@ -182,8 +182,12 @@ export function TvaQuarterly({
         {quarters.map((q) => (
           <Card key={q.quarter}>
             <CardHeader>
-              <CardTitle className="text-base">T{q.quarter + 1} {year}</CardTitle>
-              <CardDescription>{DEADLINES[q.quarter]}</CardDescription>
+              <CardTitle className="text-base">
+                T{q.quarter + 1} {year} <span className="font-normal text-muted-foreground">({QUARTER_PERIODS[q.quarter]})</span>
+              </CardTitle>
+              <CardDescription>
+                Déclaration à déposer avant le {DEADLINE_DATES[q.quarter]}/{q.quarter === 3 ? year + 1 : year}
+              </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
               <div className="flex flex-col gap-1">

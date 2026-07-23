@@ -92,8 +92,8 @@ export function TicketingSitesSettings({ initialSites }: { initialSites: Ticketi
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         {sites.map((s) => (
-          <div key={s.id} className="flex items-center gap-2 rounded-md border p-2.5">
-            <span className="flex-1 text-sm font-medium">{s.name}</span>
+          <div key={s.id} className="flex flex-wrap items-center gap-2 rounded-md border p-2.5">
+            <span className="min-w-0 flex-1 truncate text-sm font-medium">{s.name}</span>
             <Select
               value={s.tauxTvaAchat === null ? "" : String(s.tauxTvaAchat)}
               onValueChange={(v) => handleSaveRate(s.id, v ?? "")}
@@ -117,7 +117,7 @@ export function TicketingSitesSettings({ initialSites }: { initialSites: Ticketi
         ))}
         {sites.length === 0 && <p className="text-sm text-muted-foreground">Aucun site pour l&apos;instant.</p>}
 
-        <div className="flex items-end gap-2 border-t pt-3">
+        <div className="flex flex-col gap-2 border-t pt-3 sm:flex-row sm:items-end">
           <div className="flex flex-1 flex-col gap-1.5">
             <Label htmlFor="new-site-name">Nouveau site</Label>
             <Input
@@ -128,7 +128,7 @@ export function TicketingSitesSettings({ initialSites }: { initialSites: Ticketi
               onKeyDown={(e) => e.key === "Enter" && handleAdd()}
             />
           </div>
-          <div className="flex w-32 flex-col gap-1.5">
+          <div className="flex flex-col gap-1.5 sm:w-32">
             <Label>TVA récupérable</Label>
             <Select value={newRate} onValueChange={(v) => setNewRate(v ?? "")} items={rateOptions}>
               <SelectTrigger className="h-9 w-full">
@@ -143,7 +143,7 @@ export function TicketingSitesSettings({ initialSites }: { initialSites: Ticketi
               </SelectContent>
             </Select>
           </div>
-          <Button onClick={handleAdd} disabled={!newName.trim() || isPending}>
+          <Button onClick={handleAdd} disabled={!newName.trim() || isPending} className="w-full sm:w-auto">
             <Plus />
             Ajouter
           </Button>
