@@ -19,9 +19,13 @@ type BaseProps = {
   testId?: string;
 };
 
+// Optimiste : la valeur s'affiche immédiatement, sans attendre la confirmation serveur -
+// le champ ne se verrouille plus pendant l'enregistrement (ça cassait la fluidité de la
+// saisie en rafale, ex. remplir plusieurs billets à la suite). En cas d'échec, on revient
+// à la valeur d'origine avec un toast d'erreur.
 function useSavable(initial: string, onSave: BaseProps["onSave"]) {
   const [value, setValue] = useState(initial);
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
 
   const save = (next: string) => {
     if (next === initial) return;
@@ -36,7 +40,7 @@ function useSavable(initial: string, onSave: BaseProps["onSave"]) {
     });
   };
 
-  return { value, setValue, save, isPending };
+  return { value, setValue, save };
 }
 
 export function InlineText({
@@ -46,12 +50,11 @@ export function InlineText({
   placeholder,
   testId,
 }: BaseProps & { value: string }) {
-  const { value, setValue, save, isPending } = useSavable(initial, onSave);
+  const { value, setValue, save } = useSavable(initial, onSave);
   return (
     <Input
       value={value}
       placeholder={placeholder}
-      disabled={isPending}
       onChange={(e) => setValue(e.target.value)}
       onBlur={(e) => save(e.target.value)}
       data-testid={testId}
@@ -69,7 +72,7 @@ export function InlineTextArea({
   placeholder,
   testId,
 }: BaseProps & { value: string }) {
-  const { value, setValue, save, isPending } = useSavable(initial, onSave);
+  const { value, setValue, save } = useSavable(initial, onSave);
   const ref = useRef<HTMLTextAreaElement>(null);
 
   // Ne recalcule la hauteur que quand le texte change réellement (pas à chaque
@@ -86,7 +89,6 @@ export function InlineTextArea({
       ref={ref}
       value={value}
       placeholder={placeholder}
-      disabled={isPending}
       rows={1}
       onChange={(e) => setValue(e.target.value)}
       onBlur={(e) => save(e.target.value)}
@@ -106,13 +108,12 @@ export function InlineNumber({
   step = "0.01",
   testId,
 }: BaseProps & { value: number; step?: string }) {
-  const { value, setValue, save, isPending } = useSavable(String(initial), onSave);
+  const { value, setValue, save } = useSavable(String(initial), onSave);
   return (
     <Input
       type="number"
       step={step}
       value={value}
-      disabled={isPending}
       onChange={(e) => setValue(e.target.value)}
       onBlur={(e) => save(e.target.value)}
       data-testid={testId}
@@ -135,13 +136,12 @@ export function InlineDate({
   className,
   testId,
 }: BaseProps & { value: string }) {
-  const { save, isPending } = useSavable(initial, onSave);
+  const { save } = useSavable(initial, onSave);
   return (
     <Input
       key={initial}
       type="date"
       defaultValue={initial}
-      disabled={isPending}
       onBlur={(e) => save(e.target.value)}
       data-testid={testId}
       className={cn("h-8 border-transparent bg-transparent hover:border-input focus:border-input", className)}
@@ -157,9 +157,9 @@ export function InlineSelect({
   placeholder,
   testId,
 }: BaseProps & { value: string; options: { value: string; label: string }[] }) {
-  const { value, save, isPending } = useSavable(initial, onSave);
+  const { value, save } = useSavable(initial, onSave);
   return (
-    <Select value={value} onValueChange={(v) => save(v ?? "")} disabled={isPending} items={options}>
+    <Select value={value} onValueChange={(v) => save(v ?? "")} items={options}>
       <SelectTrigger data-testid={testId} className={cn("h-8 border-transparent bg-transparent hover:border-input", className)}>
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
