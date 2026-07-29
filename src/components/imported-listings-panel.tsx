@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { RefreshCw, Check, X, Ticket, ClipboardPaste } from "lucide-react";
+import { RefreshCw, Check, X, Ticket, ClipboardPaste, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,6 +29,55 @@ import { parseListingText } from "@/lib/actions/claude-import-actions";
 import type { EventOption } from "@/components/sales-table";
 
 type FolderOption = { id: string; name: string };
+
+// À copier-coller dans ChatGPT (ou autre) avec les données brutes de l'utilisateur (captures
+// d'écran retranscrites, emails, etc.) pour qu'il les remette dans un format que le parseur
+// Claude de "Coller un listing" comprend bien et de façon fiable.
+const CHATGPT_FORMAT_PROMPT = `Tu vas recevoir des données de commandes de billets (texte, capture d'écran retranscrite, email...). Reformate-les selon EXACTEMENT ce modèle, un bloc par commande, séparés par une ligne de "=" :
+
+==================================================
+
+Compte
+<email du compte utilisé pour cette commande>
+
+Commande #<numéro> • <date de la commande JJ/MM/AAAA>
+
+<Nom de l'événement>
+<Date de l'événement JJ/MM/AAAA, heure si connue>
+<Lieu / salle>
+
+<Catégorie ou tier, ex: VIP Floor, Cat 1>
+Section <code section si connu>
+Rang <numéro si connu>
+Sièges <premier>-<dernier> (ou un seul numéro, ou rien si places non numérotées)
+
+<quantité> × <prix unitaire><devise d'origine si pas en euros, ex: 295,00 $>
+
+==================================================
+
+Règles :
+- Une commande peut contenir plusieurs événements/billets différents : répète le bloc événement (à partir du nom de l'événement) autant de fois que nécessaire à l'intérieur du même bloc de commande.
+- Si une info n'est pas connue, laisse-la vide ou omets la ligne - n'invente jamais une valeur.
+- Garde les commandes séparées même si elles portent sur le même événement, ne fusionne jamais deux commandes ensemble.
+- Réponds uniquement avec le texte reformaté, sans commentaire.
+
+Voici les données à reformater :
+[COLLE TES DONNÉES ICI]`;
+
+function CopyPromptButton() {
+  function handleCopy() {
+    navigator.clipboard
+      .writeText(CHATGPT_FORMAT_PROMPT)
+      .then(() => toast.success("Prompt copié — colle-le dans ChatGPT avec tes données brutes"))
+      .catch(() => toast.error("Impossible de copier le prompt"));
+  }
+  return (
+    <Button variant="outline" size="sm" onClick={handleCopy}>
+      <Copy />
+      Copier le prompt ChatGPT
+    </Button>
+  );
+}
 
 // Sélecteur "valeur connue / Autre (saisie libre)" réutilisé pour le site d'achat et le
 // dossier événement - mêmes options que create-listing-dialog.tsx pour rester cohérent.
@@ -522,8 +571,9 @@ export function ImportedListingsPanel({
         <p className="text-sm text-muted-foreground">
           {pending.length} listing{pending.length > 1 ? "s" : ""} en attente de validation
         </p>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <PasteImportDialog ticketingSites={ticketingSites} folders={folders} onImported={() => router.refresh()} />
+          <CopyPromptButton />
           <Button variant="outline" size="sm" onClick={handleSync} disabled={isSyncing}>
             <RefreshCw className={isSyncing ? "animate-spin" : ""} />
             Synchroniser Gmail
