@@ -248,6 +248,11 @@ model ImportedListing {
   coutAchatUnit   Decimal               @db.Decimal(12, 2)
   seats           Json
   rawEmailText    String
+  // Site d'achat (nom TicketingSite) et dossier événement suggérés par la source d'import -
+  // seul le flux "coller un listing" (Claude) les renseigne pour l'instant, nullable pour
+  // rester compatible avec les listings Gmail déjà en base.
+  source          String?
+  folderName      String?
   createdStockItemIds String[]          @default([])
   createdAt       DateTime              @default(now())
   validatedAt     DateTime?

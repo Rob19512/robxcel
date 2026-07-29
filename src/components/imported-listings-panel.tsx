@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { RefreshCw, Check, X, Ticket } from "lucide-react";
+import { RefreshCw, Check, X, Ticket, ClipboardPaste } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,7 +25,77 @@ import {
   rejectImportedListing,
   type ImportedListingRow,
 } from "@/lib/actions/import-actions";
+import { parseListingText } from "@/lib/actions/claude-import-actions";
 import type { EventOption } from "@/components/sales-table";
+
+type FolderOption = { id: string; name: string };
+
+// Sélecteur "valeur connue / Autre (saisie libre)" réutilisé pour le site d'achat et le
+// dossier événement - mêmes options que create-listing-dialog.tsx pour rester cohérent.
+function PickOrCustom({
+  label,
+  value,
+  onChange,
+  options,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: string[];
+  placeholder?: string;
+}) {
+  const isCustom = value !== "" && !options.includes(value);
+  const [mode, setMode] = useState<"pick" | "custom">(isCustom ? "custom" : "pick");
+  const [customValue, setCustomValue] = useState(isCustom ? value : "");
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <Label>{label}</Label>
+      <Select
+        value={mode === "custom" ? "CUSTOM" : value || "NONE"}
+        onValueChange={(v) => {
+          if (v === "CUSTOM") {
+            setMode("custom");
+            onChange(customValue);
+          } else {
+            setMode("pick");
+            onChange(v === "NONE" || !v ? "" : v);
+          }
+        }}
+        items={[
+          { value: "NONE", label: "—" },
+          { value: "CUSTOM", label: "Autre (saisie libre)" },
+          ...options.map((o) => ({ value: o, label: o })),
+        ]}
+      >
+        <SelectTrigger className="w-full">
+          <SelectValue placeholder={placeholder} />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="NONE">—</SelectItem>
+          <SelectItem value="CUSTOM">Autre (saisie libre)</SelectItem>
+          {options.map((o) => (
+            <SelectItem key={o} value={o}>
+              {o}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      {mode === "custom" && (
+        <Input
+          className="mt-1.5"
+          placeholder={placeholder}
+          value={customValue}
+          onChange={(e) => {
+            setCustomValue(e.target.value);
+            onChange(e.target.value);
+          }}
+        />
+      )}
+    </div>
+  );
+}
 
 function today() {
   return new Date().toISOString().slice(0, 10);
@@ -48,10 +118,14 @@ function findMatchingEventId(listing: ImportedListingRow, events: EventOption[])
 function ValidateImportDialog({
   listing,
   events,
+  ticketingSites,
+  folders,
   onDone,
 }: {
   listing: ImportedListingRow;
   events: EventOption[];
+  ticketingSites: string[];
+  folders: FolderOption[];
   onDone: (id: string) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -63,11 +137,13 @@ function ValidateImportDialog({
   const [newEventName, setNewEventName] = useState(listing.eventName);
   const [newEventDate, setNewEventDate] = useState(listing.eventDate ? listing.eventDate.slice(0, 10) : "");
   const [newEventLieuSalle, setNewEventLieuSalle] = useState(listing.lieuSalle ?? "");
+  const [newEventFolderName, setNewEventFolderName] = useState(listing.folderName ?? "");
 
   const [dateAchat, setDateAchat] = useState(listing.orderDate ? listing.orderDate.slice(0, 10) : today());
   const [coutAchatUnit, setCoutAchatUnit] = useState(String(listing.coutAchatUnit));
   const [prixCibleVente, setPrixCibleVente] = useState("");
   const [compte, setCompte] = useState(listing.recipientEmail ?? "");
+  const [source, setSource] = useState(listing.source ?? "");
 
   const eventsSorted = [
     ...events.filter((e) => !isEventPast(e.dateEvenement)),
@@ -82,10 +158,12 @@ function ValidateImportDialog({
         newEventName: eventMode === "new" ? newEventName : "",
         newEventDate: eventMode === "new" ? newEventDate || null : null,
         newEventLieuSalle: eventMode === "new" ? newEventLieuSalle || null : null,
+        newEventFolderName: eventMode === "new" ? newEventFolderName || null : null,
         dateAchat,
         coutAchatUnit: Number(coutAchatUnit) || 0,
         prixCibleVente: prixCibleVente.trim() ? Number(prixCibleVente) : null,
         compte,
+        source,
       });
       toast.success(`${count} billet${count > 1 ? "s" : ""} ajouté${count > 1 ? "s" : ""} au stock`);
       setOpen(false);
@@ -189,6 +267,15 @@ function ValidateImportDialog({
                     <Label>Lieu / Salle</Label>
                     <Input value={newEventLieuSalle} onChange={(e) => setNewEventLieuSalle(e.target.value)} />
                   </div>
+                  <div className="col-span-2">
+                    <PickOrCustom
+                      label="Dossier événement (optionnel)"
+                      value={newEventFolderName}
+                      onChange={setNewEventFolderName}
+                      options={folders.map((f) => f.name)}
+                      placeholder="Ex : LA 2028"
+                    />
+                  </div>
                 </div>
               )}
             </section>
@@ -212,6 +299,15 @@ function ValidateImportDialog({
                   <Label>Compte</Label>
                   <Input value={compte} onChange={(e) => setCompte(e.target.value)} />
                 </div>
+                <div className="col-span-2">
+                  <PickOrCustom
+                    label="Site d'achat"
+                    value={source}
+                    onChange={setSource}
+                    options={ticketingSites}
+                    placeholder="Nom du site"
+                  />
+                </div>
               </div>
             </section>
           </div>
@@ -228,12 +324,153 @@ function ValidateImportDialog({
   );
 }
 
+function PasteImportDialog({
+  ticketingSites,
+  folders,
+  onImported,
+}: {
+  ticketingSites: string[];
+  folders: FolderOption[];
+  onImported: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [isPending, setIsPending] = useState(false);
+  const [rawText, setRawText] = useState("");
+  const [isEur, setIsEur] = useState(true);
+  const [exchangeRate, setExchangeRate] = useState("");
+  const [feePct, setFeePct] = useState("");
+  const [defaultSource, setDefaultSource] = useState("");
+  const [defaultFolderName, setDefaultFolderName] = useState("");
+
+  async function handleSubmit() {
+    setIsPending(true);
+    try {
+      const { created, total } = await parseListingText({
+        rawText,
+        isEur,
+        exchangeRate: !isEur && exchangeRate.trim() ? Number(exchangeRate) : null,
+        feePct: !isEur && feePct.trim() ? Number(feePct) : null,
+        defaultSource: defaultSource || null,
+        defaultFolderName: defaultFolderName || null,
+      });
+      toast.success(
+        `${created} listing${created > 1 ? "s" : ""} détecté${created > 1 ? "s" : ""}` +
+          (total > created ? ` (${total - created} ignoré${total - created > 1 ? "s" : ""})` : "") +
+          " — à valider ci-dessous"
+      );
+      setOpen(false);
+      setRawText("");
+      onImported();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Échec de l'analyse du listing");
+    } finally {
+      setIsPending(false);
+    }
+  }
+
+  return (
+    <>
+      <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+        <ClipboardPaste />
+        Coller un listing
+      </Button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Coller un listing</DialogTitle>
+            <DialogDescription>
+              Colle le texte (commandes, billets, prix...) — Claude l&apos;analyse et crée des listings à
+              valider, comme pour l&apos;import Gmail.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <Label>Texte du listing</Label>
+              <textarea
+                className="min-h-40 w-full resize-y rounded-md border bg-transparent p-2.5 text-sm outline-none focus:border-ring"
+                value={rawText}
+                onChange={(e) => setRawText(e.target.value)}
+                placeholder="Colle ici le texte des commandes..."
+              />
+            </div>
+
+            <div className="flex flex-col gap-3 rounded-lg border p-3">
+              <h3 className="text-sm font-medium">Devise</h3>
+              <div className="flex gap-2">
+                <Button type="button" size="sm" variant={isEur ? "default" : "outline"} onClick={() => setIsEur(true)}>
+                  Euros (€)
+                </Button>
+                <Button type="button" size="sm" variant={!isEur ? "default" : "outline"} onClick={() => setIsEur(false)}>
+                  Autre devise
+                </Button>
+              </div>
+              {!isEur && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-1.5">
+                    <Label>1 € = X (taux)</Label>
+                    <Input
+                      type="number"
+                      step="0.0001"
+                      placeholder="Ex : 1.1393"
+                      value={exchangeRate}
+                      onChange={(e) => setExchangeRate(e.target.value)}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label>Frais de change (%)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      placeholder="Ex : 0.6"
+                      value={feePct}
+                      onChange={(e) => setFeePct(e.target.value)}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <PickOrCustom
+                label="Site d'achat par défaut (optionnel)"
+                value={defaultSource}
+                onChange={setDefaultSource}
+                options={ticketingSites}
+                placeholder="Nom du site"
+              />
+              <PickOrCustom
+                label="Dossier événement (optionnel)"
+                value={defaultFolderName}
+                onChange={setDefaultFolderName}
+                options={folders.map((f) => f.name)}
+                placeholder="Ex : LA 2028"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <DialogClose render={<Button variant="outline" />}>Annuler</DialogClose>
+            <Button onClick={handleSubmit} disabled={!rawText.trim() || isPending}>
+              {isPending ? "Analyse en cours..." : "Analyser"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
 export function ImportedListingsPanel({
   initialPending,
   events,
+  ticketingSites,
+  folders,
 }: {
   initialPending: ImportedListingRow[];
   events: EventOption[];
+  ticketingSites: string[];
+  folders: FolderOption[];
 }) {
   const router = useRouter();
   const [pending, setPending] = useState(initialPending);
@@ -285,10 +522,13 @@ export function ImportedListingsPanel({
         <p className="text-sm text-muted-foreground">
           {pending.length} listing{pending.length > 1 ? "s" : ""} en attente de validation
         </p>
-        <Button variant="outline" size="sm" onClick={handleSync} disabled={isSyncing}>
-          <RefreshCw className={isSyncing ? "animate-spin" : ""} />
-          Synchroniser Gmail
-        </Button>
+        <div className="flex gap-2">
+          <PasteImportDialog ticketingSites={ticketingSites} folders={folders} onImported={() => router.refresh()} />
+          <Button variant="outline" size="sm" onClick={handleSync} disabled={isSyncing}>
+            <RefreshCw className={isSyncing ? "animate-spin" : ""} />
+            Synchroniser Gmail
+          </Button>
+        </div>
       </div>
 
       {pending.length === 0 ? (
@@ -325,7 +565,13 @@ export function ImportedListingsPanel({
                 </ul>
               </div>
               <div className="flex shrink-0 gap-2">
-                <ValidateImportDialog listing={listing} events={events} onDone={handleDone} />
+                <ValidateImportDialog
+                  listing={listing}
+                  events={events}
+                  ticketingSites={ticketingSites}
+                  folders={folders}
+                  onDone={handleDone}
+                />
                 <Button size="sm" variant="outline" onClick={() => handleReject(listing.id)}>
                   <X />
                   Ignorer

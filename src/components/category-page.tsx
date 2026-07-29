@@ -152,7 +152,12 @@ export async function CategoryPageContent({
         )}
         {isGmailImportCategory && (
           <TabsContent value="import-gmail" keepMounted>
-            <ImportedListingsPanel initialPending={pendingImports} events={eventOptions} />
+            <ImportedListingsPanel
+              initialPending={pendingImports}
+              events={eventOptions}
+              ticketingSites={ticketingSites.map((s) => s.name)}
+              folders={eventFolders.map((f) => ({ id: f.id, name: f.name }))}
+            />
           </TabsContent>
         )}
         {!category.isBuiltin && (

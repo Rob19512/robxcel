@@ -23,6 +23,8 @@ export type ImportedListingRow = {
   qty: number;
   coutAchatUnit: number;
   seats: TicketmasterSeat[];
+  source: string | null;
+  folderName: string | null;
   createdAt: string;
 };
 
@@ -44,6 +46,8 @@ export async function listPendingImports(): Promise<ImportedListingRow[]> {
     qty: r.qty,
     coutAchatUnit: Number(r.coutAchatUnit),
     seats: (r.seats as TicketmasterSeat[]) ?? [],
+    source: r.source,
+    folderName: r.folderName,
     createdAt: r.createdAt.toISOString(),
   }));
 }
@@ -83,6 +87,7 @@ export async function syncTicketmasterImports() {
         coutAchatUnit: parsed.coutAchatUnit,
         seats: parsed.seats,
         rawEmailText: email.text,
+        source: "Ticketmaster",
       },
     });
     created++;
@@ -97,11 +102,26 @@ export type ValidateImportOverrides = {
   newEventName: string;
   newEventDate: string | null;
   newEventLieuSalle: string | null;
+  newEventFolderName: string | null;
   dateAchat: string;
   coutAchatUnit: number;
   prixCibleVente: number | null;
   compte: string;
+  source: string;
 };
+
+async function resolveFolderId(name: string | null): Promise<string | null> {
+  const trimmed = name?.trim();
+  if (!trimmed) return null;
+  const existing = await prisma.eventFolder.findFirst({
+    where: { categoryId: BILLETS_CATEGORY_ID, name: trimmed },
+  });
+  if (existing) return existing.id;
+  const created = await prisma.eventFolder.create({
+    data: { categoryId: BILLETS_CATEGORY_ID, name: trimmed },
+  });
+  return created.id;
+}
 
 export async function validateImportedListing(id: string, overrides: ValidateImportOverrides) {
   const listing = await prisma.importedListing.findUniqueOrThrow({ where: { id } });
@@ -113,7 +133,7 @@ export async function validateImportedListing(id: string, overrides: ValidateImp
       name: overrides.newEventName,
       dateEvenement: overrides.newEventDate,
       lieuSalle: overrides.newEventLieuSalle,
-      folderId: null,
+      folderId: await resolveFolderId(overrides.newEventFolderName),
     });
   }
 
@@ -126,10 +146,12 @@ export async function validateImportedListing(id: string, overrides: ValidateImp
     return parts.filter(Boolean).join(", ");
   };
 
+  const source = overrides.source.trim() || listing.source || "Ticketmaster";
+
   const rows: BulkStockRowInput[] = (seats.length > 0 ? seats : [null]).map((seat) => ({
     dateAchat: overrides.dateAchat,
     description: "",
-    source: "Ticketmaster",
+    source,
     eventId,
     qty: 1,
     coutAchatUnit: overrides.coutAchatUnit,
