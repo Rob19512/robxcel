@@ -13,19 +13,28 @@ Réponds UNIQUEMENT avec un tableau JSON (pas de texte autour, pas de balises ma
   {
     "numeroCommande": string | null,
     "compte": string | null,
+    "orderDate": string | null,
     "eventName": string,
     "eventDate": string | null,
     "lieuSalle": string | null,
     "categorie": string | null,
+    "section": string | null,
+    "rang": string | null,
+    "seatFrom": string | null,
+    "seatTo": string | null,
     "qty": number,
     "unitPrice": number,
     "source": string | null
   }
 ]
-- "eventDate" au format YYYY-MM-DD, ou null si absente.
-- "categorie" = la catégorie/tier de placement du billet (ex: "F", "Cat 1"), pas une catégorie métier.
-- "qty" = nombre de billets identiques dans cette ligne précise.
-- "unitPrice" = prix unitaire brut, dans la devise d'origine du texte, sans symbole.
+- "orderDate" = date de la commande/confirmation (pas la date de l'événement), format YYYY-MM-DD, ou null.
+- "eventDate" = date de l'événement lui-même, format YYYY-MM-DD, ou null.
+- "categorie" = le tier/la catégorie de placement globale (ex: "VIP Floor", "Golden Circle", "Cat 1"), pas une catégorie métier.
+- "section" = le code/nom de section si mentionné (ex: "A2", "GC1"), sinon null.
+- "rang" = le numéro de rangée si mentionné (ex: "4"), sinon null.
+- "seatFrom"/"seatTo" = bornes numériques d'une plage de sièges si mentionnée (ex: "Seats 11-18" → seatFrom "11", seatTo "18"). Si un seul siège précis est donné, mets-le dans seatFrom et laisse seatTo à null. Si aucun numéro de siège n'est donné, laisse les deux à null.
+- "qty" = nombre de billets identiques dans cette ligne précise (doit correspondre à la taille de la plage de sièges quand il y en a une).
+- "unitPrice" = prix unitaire brut, dans la devise d'origine du texte, sans symbole (si seul un total pour la ligne est donné, divise par qty).
 - "source" = site/billetterie d'achat si mentionné explicitement, sinon null.
 Si plusieurs commandes contiennent le même événement, NE LES FUSIONNE JAMAIS : garde une ligne séparée par commande, même si événement et prix sont identiques.
 Si le texte demande explicitement d'ignorer/exclure une commande ou un billet, ne l'inclus pas dans le résultat.
@@ -34,14 +43,45 @@ Si aucune ligne exploitable n'est trouvée, réponds avec un tableau vide [].`;
 export type ParsedClaudeRow = {
   numeroCommande: string | null;
   compte: string | null;
+  orderDate: string | null;
   eventName: string;
   eventDate: string | null;
   lieuSalle: string | null;
   categorie: string | null;
+  section: string | null;
+  rang: string | null;
+  seatFrom: string | null;
+  seatTo: string | null;
   qty: number;
   unitPrice: number;
   source: string | null;
 };
+
+// Expansion déterministe des plages de sièges (ex: "Seats 11-18") en sièges individuels -
+// plus fiable que de demander à Claude d'énumérer lui-même chaque numéro (risque d'erreur
+// sur de grandes plages). Si la plage ne correspond pas à qty, ou qu'il n'y a pas de plage,
+// on retombe sur des places génériques (section/rang connus, pas de numéro précis).
+function expandSeats(row: ParsedClaudeRow): TicketmasterSeat[] {
+  const section = row.section?.trim() || "";
+  const rang = row.rang?.trim() || null;
+
+  if (row.seatFrom && row.seatTo) {
+    const from = Number(row.seatFrom);
+    const to = Number(row.seatTo);
+    if (Number.isInteger(from) && Number.isInteger(to) && to >= from && to - from + 1 === row.qty) {
+      return Array.from({ length: row.qty }, (_, i) => ({
+        section,
+        rang,
+        place: String(from + i),
+        tag: null,
+      }));
+    }
+  }
+  if (row.seatFrom && !row.seatTo && row.qty === 1) {
+    return [{ section, rang, place: row.seatFrom.trim(), tag: null }];
+  }
+  return Array.from({ length: row.qty }, () => ({ section, rang, place: null, tag: null }));
+}
 
 async function callClaude(rawText: string): Promise<ParsedClaudeRow[]> {
   const apiKey = process.env.anthropic_api_key;
@@ -111,15 +151,7 @@ export async function parseListingText(input: ParseListingTextInput) {
   for (const row of rows) {
     if (!row.eventName || !row.qty || row.qty < 1) continue;
     const coutAchatUnit = convertToEur(Number(row.unitPrice) || 0, input);
-    // section reste vide : la catégorie/tier est déjà portée par listing.categorie et
-    // combinée avec seat.section dans placementFor() (import-actions.ts) - la dupliquer
-    // ici donnerait "X - Catégorie X" dans le champ Catégorie/Placement du stock.
-    const seats: TicketmasterSeat[] = Array.from({ length: row.qty }, () => ({
-      section: "",
-      rang: null,
-      place: null,
-      tag: null,
-    }));
+    const seats = expandSeats(row);
 
     await prisma.importedListing.create({
       data: {
@@ -127,7 +159,7 @@ export async function parseListingText(input: ParseListingTextInput) {
         gmailMessageId: `paste-${crypto.randomUUID()}`,
         numeroCommande: row.numeroCommande ?? null,
         recipientEmail: row.compte ?? null,
-        orderDate: null,
+        orderDate: row.orderDate ? new Date(`${row.orderDate}T00:00:00.000Z`) : null,
         eventName: row.eventName,
         eventDate: row.eventDate ? new Date(`${row.eventDate}T00:00:00.000Z`) : null,
         lieuSalle: row.lieuSalle ?? null,
