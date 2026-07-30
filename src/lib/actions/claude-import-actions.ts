@@ -13,6 +13,7 @@ Réponds UNIQUEMENT avec un tableau JSON (pas de texte autour, pas de balises ma
   {
     "numeroCommande": string | null,
     "compte": string | null,
+    "motDePasse": string | null,
     "orderDate": string | null,
     "eventName": string,
     "eventDate": string | null,
@@ -36,6 +37,7 @@ Réponds UNIQUEMENT avec un tableau JSON (pas de texte autour, pas de balises ma
 - "qty" = nombre de billets identiques dans cette ligne précise (doit correspondre à la taille de la plage de sièges quand il y en a une).
 - "unitPrice" = prix unitaire brut, dans la devise d'origine du texte, sans symbole (si seul un total pour la ligne est donné, divise par qty).
 - "source" = site/billetterie d'achat si mentionné explicitement, sinon null.
+- "motDePasse" = le mot de passe du compte si mentionné dans le texte, sinon null.
 Si plusieurs commandes contiennent le même événement, NE LES FUSIONNE JAMAIS : garde une ligne séparée par commande, même si événement et prix sont identiques.
 Si le texte demande explicitement d'ignorer/exclure une commande ou un billet, ne l'inclus pas dans le résultat.
 Si aucune ligne exploitable n'est trouvée, réponds avec un tableau vide [].`;
@@ -43,6 +45,7 @@ Si aucune ligne exploitable n'est trouvée, réponds avec un tableau vide [].`;
 export type ParsedClaudeRow = {
   numeroCommande: string | null;
   compte: string | null;
+  motDePasse: string | null;
   orderDate: string | null;
   eventName: string;
   eventDate: string | null;
@@ -152,13 +155,21 @@ export async function parseListingText(input: ParseListingTextInput) {
     if (!row.eventName || !row.qty || row.qty < 1) continue;
     const coutAchatUnit = convertToEur(Number(row.unitPrice) || 0, input);
     const seats = expandSeats(row);
+    // Le mot de passe est accolé à l'email dans recipientEmail (pas de colonne dédiée) pour
+    // remonter automatiquement partout où le compte s'affiche déjà (dialogue de validation,
+    // customValues.compte du StockItem final) sans toucher au reste du flux d'import.
+    const recipientEmail = row.compte
+      ? row.motDePasse
+        ? `${row.compte} / ${row.motDePasse}`
+        : row.compte
+      : null;
 
     await prisma.importedListing.create({
       data: {
         provider: "CLAUDE_PASTE",
         gmailMessageId: `paste-${crypto.randomUUID()}`,
         numeroCommande: row.numeroCommande ?? null,
-        recipientEmail: row.compte ?? null,
+        recipientEmail,
         orderDate: row.orderDate ? new Date(`${row.orderDate}T00:00:00.000Z`) : null,
         eventName: row.eventName,
         eventDate: row.eventDate ? new Date(`${row.eventDate}T00:00:00.000Z`) : null,

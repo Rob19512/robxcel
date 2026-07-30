@@ -43,6 +43,7 @@ const CHATGPT_FORMAT_PROMPT = `Tu vas recevoir des données de commandes de bill
 
 Compte
 <email du compte utilisé pour cette commande>
+Mot de passe <mot de passe du compte si connu>
 
 Commande #<numéro> • <date de la commande JJ/MM/AAAA>
 
