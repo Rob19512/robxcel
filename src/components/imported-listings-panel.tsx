@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { RefreshCw, Check, X, Ticket, ClipboardPaste, Copy } from "lucide-react";
+import { RefreshCw, Check, X, Ticket, ClipboardPaste, Copy, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,7 +26,11 @@ import {
   type ImportedListingRow,
 } from "@/lib/actions/import-actions";
 import { parseListingText } from "@/lib/actions/claude-import-actions";
+import { createEventFolder } from "@/lib/actions/event-actions";
 import type { EventOption } from "@/components/sales-table";
+
+const BILLETS_CATEGORY_ID = "cat-billets";
+const BILLETS_PATH = "/billets";
 
 type FolderOption = { id: string; name: string };
 
@@ -87,16 +91,33 @@ function PickOrCustom({
   onChange,
   options,
   placeholder,
+  onCreate,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   options: string[];
   placeholder?: string;
+  onCreate?: (value: string) => Promise<void>;
 }) {
   const isCustom = value !== "" && !options.includes(value);
   const [mode, setMode] = useState<"pick" | "custom">(isCustom ? "custom" : "pick");
   const [customValue, setCustomValue] = useState(isCustom ? value : "");
+  const [isCreating, setIsCreating] = useState(false);
+  const alreadyExists = options.includes(customValue.trim());
+
+  async function handleCreate() {
+    if (!customValue.trim() || alreadyExists) return;
+    setIsCreating(true);
+    try {
+      await onCreate!(customValue.trim());
+      toast.success(`"${customValue.trim()}" créé`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Impossible de créer");
+    } finally {
+      setIsCreating(false);
+    }
+  }
 
   return (
     <div className="flex flex-col gap-1.5">
@@ -132,15 +153,28 @@ function PickOrCustom({
         </SelectContent>
       </Select>
       {mode === "custom" && (
-        <Input
-          className="mt-1.5"
-          placeholder={placeholder}
-          value={customValue}
-          onChange={(e) => {
-            setCustomValue(e.target.value);
-            onChange(e.target.value);
-          }}
-        />
+        <div className="mt-1.5 flex gap-2">
+          <Input
+            placeholder={placeholder}
+            value={customValue}
+            onChange={(e) => {
+              setCustomValue(e.target.value);
+              onChange(e.target.value);
+            }}
+          />
+          {onCreate && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={!customValue.trim() || alreadyExists || isCreating}
+              onClick={handleCreate}
+            >
+              <Plus />
+              Créer
+            </Button>
+          )}
+        </div>
       )}
     </div>
   );
@@ -382,6 +416,7 @@ function PasteImportDialog({
   folders: FolderOption[];
   onImported: () => void;
 }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [isPending, setIsPending] = useState(false);
   const [rawText, setRawText] = useState("");
@@ -390,6 +425,13 @@ function PasteImportDialog({
   const [feePct, setFeePct] = useState("");
   const [defaultSource, setDefaultSource] = useState("");
   const [defaultFolderName, setDefaultFolderName] = useState("");
+  const [localFolders, setLocalFolders] = useState(folders);
+
+  async function handleCreateFolder(name: string) {
+    await createEventFolder(BILLETS_CATEGORY_ID, BILLETS_PATH, name);
+    setLocalFolders((prev) => [...prev, { id: name, name }]);
+    router.refresh();
+  }
 
   async function handleSubmit() {
     setIsPending(true);
@@ -492,8 +534,9 @@ function PasteImportDialog({
                 label="Dossier événement (optionnel)"
                 value={defaultFolderName}
                 onChange={setDefaultFolderName}
-                options={folders.map((f) => f.name)}
+                options={localFolders.map((f) => f.name)}
                 placeholder="Ex : LA 2028"
+                onCreate={handleCreateFolder}
               />
             </div>
           </div>
