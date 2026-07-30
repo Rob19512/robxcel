@@ -565,6 +565,21 @@ export function ImportedListingsPanel({
     router.refresh();
   }
 
+  // Un débit bancaire correspond à une commande entière, qui peut contenir plusieurs lignes
+  // événement (ex: LA2028) - on regroupe par numéro de commande pour afficher un total retail
+  // par commande, comparable directement à ce qui a été débité. Les listings sans numéro de
+  // commande restent seuls (pas de fusion arbitraire entre eux).
+  const groups: { key: string; numeroCommande: string | null; listings: ImportedListingRow[] }[] = [];
+  const groupIndexByOrder = new Map<string, number>();
+  for (const listing of pending) {
+    if (listing.numeroCommande && groupIndexByOrder.has(listing.numeroCommande)) {
+      groups[groupIndexByOrder.get(listing.numeroCommande)!].listings.push(listing);
+    } else {
+      if (listing.numeroCommande) groupIndexByOrder.set(listing.numeroCommande, groups.length);
+      groups.push({ key: listing.id, numeroCommande: listing.numeroCommande, listings: [listing] });
+    }
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
@@ -587,48 +602,66 @@ export function ImportedListingsPanel({
           Aucun listing en attente. Clique sur &quot;Synchroniser Gmail&quot; pour vérifier les nouveaux mails.
         </div>
       ) : (
-        <div className="flex flex-col gap-3">
-          {pending.map((listing) => (
-            <div key={listing.id} className="flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-start sm:justify-between">
-              <div className="flex flex-col gap-1.5">
-                <div className="flex items-center gap-2">
-                  <span className="font-medium">{listing.eventName}</span>
-                  <Badge variant="outline">{listing.provider}</Badge>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  {listing.eventDate ? new Date(listing.eventDate).toLocaleString("fr-FR") : "Date inconnue"}
-                  {listing.lieuSalle ? ` · ${listing.lieuSalle}` : ""}
-                  {listing.categorie ? ` · Catégorie ${listing.categorie}` : ""}
-                  {listing.numeroCommande ? ` · Commande n°${listing.numeroCommande}` : ""}
-                  {listing.recipientEmail ? ` · ${listing.recipientEmail}` : ""}
-                  {` · ${listing.qty} billet${listing.qty > 1 ? "s" : ""}`}
-                  {` · ${listing.coutAchatUnit.toFixed(2)} €/billet`}
-                </p>
-                <ul className="flex flex-col gap-0.5 text-sm">
-                  {listing.seats.map((s, i) => (
-                    <li key={i} className="text-muted-foreground">
-                      {[s.section, s.rang ? `Rang ${s.rang}` : null, s.place ? `Place ${s.place}` : null, s.tag]
-                        .filter(Boolean)
-                        .join(" - ")}
-                    </li>
+        <div className="flex flex-col gap-4">
+          {groups.map((group) => {
+            const groupTotal = group.listings.reduce((sum, l) => sum + l.qty * l.coutAchatUnit, 0);
+            return (
+              <div key={group.key} className="flex flex-col gap-2">
+                {group.numeroCommande && (
+                  <div className="flex items-center justify-between px-1 text-sm">
+                    <span className="font-medium">Commande n°{group.numeroCommande}</span>
+                    <span className="tabular-nums text-muted-foreground">
+                      Total retail : <span className="font-medium text-foreground">{groupTotal.toFixed(2)} €</span>
+                    </span>
+                  </div>
+                )}
+                <div className="flex flex-col gap-3">
+                  {group.listings.map((listing) => (
+                    <div key={listing.id} className="flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="flex flex-col gap-1.5">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{listing.eventName}</span>
+                          <Badge variant="outline">{listing.provider}</Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          {listing.eventDate ? new Date(listing.eventDate).toLocaleString("fr-FR") : "Date inconnue"}
+                          {listing.lieuSalle ? ` · ${listing.lieuSalle}` : ""}
+                          {listing.categorie ? ` · Catégorie ${listing.categorie}` : ""}
+                          {!group.numeroCommande && listing.numeroCommande ? ` · Commande n°${listing.numeroCommande}` : ""}
+                          {listing.recipientEmail ? ` · ${listing.recipientEmail}` : ""}
+                          {` · ${listing.qty} billet${listing.qty > 1 ? "s" : ""}`}
+                          {` · ${listing.coutAchatUnit.toFixed(2)} €/billet`}
+                          {` · total ${(listing.qty * listing.coutAchatUnit).toFixed(2)} €`}
+                        </p>
+                        <ul className="flex flex-col gap-0.5 text-sm">
+                          {listing.seats.map((s, i) => (
+                            <li key={i} className="text-muted-foreground">
+                              {[s.section, s.rang ? `Rang ${s.rang}` : null, s.place ? `Place ${s.place}` : null, s.tag]
+                                .filter(Boolean)
+                                .join(" - ")}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div className="flex shrink-0 gap-2">
+                        <ValidateImportDialog
+                          listing={listing}
+                          events={events}
+                          ticketingSites={ticketingSites}
+                          folders={folders}
+                          onDone={handleDone}
+                        />
+                        <Button size="sm" variant="outline" onClick={() => handleReject(listing.id)}>
+                          <X />
+                          Ignorer
+                        </Button>
+                      </div>
+                    </div>
                   ))}
-                </ul>
+                </div>
               </div>
-              <div className="flex shrink-0 gap-2">
-                <ValidateImportDialog
-                  listing={listing}
-                  events={events}
-                  ticketingSites={ticketingSites}
-                  folders={folders}
-                  onDone={handleDone}
-                />
-                <Button size="sm" variant="outline" onClick={() => handleReject(listing.id)}>
-                  <X />
-                  Ignorer
-                </Button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
