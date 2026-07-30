@@ -56,6 +56,7 @@ export async function CategoryPageContent({
     id: e.id,
     label: [e.name, e.dateEvenement?.toLocaleDateString("fr-FR"), e.lieuSalle].filter(Boolean).join(" — "),
     dateEvenement: e.dateEvenement ? e.dateEvenement.toISOString().slice(0, 10) : null,
+    folderId: e.folderId,
   }));
 
   return (

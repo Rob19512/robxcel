@@ -112,7 +112,12 @@ const statutDotColor: Record<SaleRow["statut"], string> = {
 
 const tvaOptions = TVA_RATES.map((r) => ({ value: String(r), label: r === 0 ? "0 % (exo)" : `${r} %` }));
 
-export type EventOption = { id: string; label: string; dateEvenement: string | null };
+export type EventOption = {
+  id: string;
+  label: string;
+  dateEvenement: string | null;
+  folderId: string | null;
+};
 
 export function SalesTable({
   categoryId,

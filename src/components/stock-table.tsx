@@ -175,6 +175,7 @@ export function StockTable({
   const [dateSearch, setDateSearch] = useState("");
   const [showSold, setShowSold] = useState(false);
   const [sortMode, setSortMode] = useState<"date" | "evenement">("evenement");
+  const [selectedFolderIds, setSelectedFolderIds] = useState<string[]>([]);
   const [viewMode, setViewMode] = useTableViewMode();
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -377,6 +378,7 @@ export function StockTable({
   const sourceOptions = useMemo(() => sources.map((s) => ({ value: s, label: s })), [sources]);
   const eventLabelById = useMemo(() => new Map((events ?? []).map((e) => [e.id, e.label])), [events]);
   const eventDateById = useMemo(() => new Map((events ?? []).map((e) => [e.id, e.dateEvenement])), [events]);
+  const eventFolderIdById = useMemo(() => new Map((events ?? []).map((e) => [e.id, e.folderId])), [events]);
 
   function sortValueFor(key: string, it: StockRow): string | number | null {
     if (key.startsWith("custom:")) {
@@ -440,6 +442,10 @@ export function StockTable({
     const result = items.filter((it) => {
       if (!showSold && it.statut === "VENDU") return false;
       if (dateSearch && it.dateAchat !== dateSearch) return false;
+      if (selectedFolderIds.length > 0) {
+        const folderId = it.eventId ? eventFolderIdById.get(it.eventId) : null;
+        if (!folderId || !selectedFolderIds.includes(folderId)) return false;
+      }
       if (!search.trim()) return true;
       const haystack = normalizeForSearch(
         [
@@ -505,7 +511,21 @@ export function StockTable({
       return [...fresh, ...rest];
     }
     return result;
-  }, [items, showSold, dateSearch, search, eventLabelById, eventDateById, events, sortMode, newIds, columnSort, fields]);
+  }, [
+    items,
+    showSold,
+    dateSearch,
+    search,
+    eventLabelById,
+    eventDateById,
+    eventFolderIdById,
+    events,
+    sortMode,
+    selectedFolderIds,
+    newIds,
+    columnSort,
+    fields,
+  ]);
 
   // Rendre 50 lignes à la fois au lieu de centaines d'un coup évite de monter
   // des centaines de champs éditables en même temps (lent).
@@ -516,7 +536,7 @@ export function StockTable({
   // coincé au milieu d'un nouveau résultat de recherche.
   useEffect(() => {
     setPage(0);
-  }, [search, dateSearch, showSold, sortMode]);
+  }, [search, dateSearch, showSold, sortMode, selectedFolderIds]);
   const paginated = useMemo(
     () => filtered.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE),
     [filtered, currentPage]
@@ -967,6 +987,22 @@ export function StockTable({
           >
             <ToggleGroupItem value="date">Trier par date</ToggleGroupItem>
             <ToggleGroupItem value="evenement">Trier par événement</ToggleGroupItem>
+          </ToggleGroup>
+        )}
+        {folders && folders.length > 0 && (
+          // Multi-sélection : on peut cumuler plusieurs dossiers ou n'en garder qu'un
+          // seul, aucun dossier sélectionné = pas de filtre (tout s'affiche).
+          <ToggleGroup
+            value={selectedFolderIds}
+            onValueChange={(v) => setSelectedFolderIds(v as string[])}
+            variant="outline"
+            size="sm"
+          >
+            {folders.map((f) => (
+              <ToggleGroupItem key={f.id} value={f.id}>
+                {f.name}
+              </ToggleGroupItem>
+            ))}
           </ToggleGroup>
         )}
         <Button variant="outline" size="sm" onClick={handleExport}>
