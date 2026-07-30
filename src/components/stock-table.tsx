@@ -6,6 +6,7 @@ import { useColumnPrefs, type ColumnDef } from "@/lib/use-column-visibility";
 import { useColumnSort, compareValues } from "@/lib/use-column-sort";
 import { isEventPast } from "@/lib/event-utils";
 import { ColumnVisibilityMenu } from "@/components/column-visibility-menu";
+import { FolderFilterMenu } from "@/components/folder-filter-menu";
 import { toast } from "sonner";
 import { Plus, MoreVertical, Copy, Trash2, PackageCheck, CheckCircle2, Download, ChevronDown, ArrowUp, ArrowDown, Table2, LayoutGrid, Grid3x3 } from "lucide-react";
 import { useTableViewMode } from "@/lib/use-table-view-mode";
@@ -990,20 +991,7 @@ export function StockTable({
           </ToggleGroup>
         )}
         {folders && folders.length > 0 && (
-          // Multi-sélection : on peut cumuler plusieurs dossiers ou n'en garder qu'un
-          // seul, aucun dossier sélectionné = pas de filtre (tout s'affiche).
-          <ToggleGroup
-            value={selectedFolderIds}
-            onValueChange={(v) => setSelectedFolderIds(v as string[])}
-            variant="outline"
-            size="sm"
-          >
-            {folders.map((f) => (
-              <ToggleGroupItem key={f.id} value={f.id}>
-                {f.name}
-              </ToggleGroupItem>
-            ))}
-          </ToggleGroup>
+          <FolderFilterMenu folders={folders} selectedIds={selectedFolderIds} onChange={setSelectedFolderIds} />
         )}
         <Button variant="outline" size="sm" onClick={handleExport}>
           <Download />
