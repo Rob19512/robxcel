@@ -10,7 +10,9 @@ import { listTicketingSites } from "@/lib/actions/ticketing-site-actions";
 import { PersistentTabs } from "@/components/persistent-tabs";
 import { TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-const GMAIL_IMPORT_CATEGORY_ID = "cat-billets";
+// Les deux catégories "Billets" (Pro et Perso) partagent la même file d'attente d'import
+// (Gmail + Claude) - étendre cette liste suffit pour l'activer sur une future catégorie.
+const IMPORT_ELIGIBLE_CATEGORY_IDS = ["cat-billets", "cat-perso-billets"];
 
 export async function CategoryPageContent({
   categoryId,
@@ -25,7 +27,7 @@ export async function CategoryPageContent({
   // (sortMode="evenement"), donc l'ordre exact renvoyé ici n'a pas besoin d'attendre
   // category.trackEvents/hasStock : les 4 requêtes partent en parallèle sans dépendance,
   // au lieu d'un aller-retour "category" puis un second aller-retour pour le reste.
-  const isGmailImportCategory = categoryId === GMAIL_IMPORT_CATEGORY_ID;
+  const isGmailImportCategory = IMPORT_ELIGIBLE_CATEGORY_IDS.includes(categoryId);
 
   const [category, sales, stockItems, events, eventFolders, pendingImports, ticketingSites] = await Promise.all([
     prisma.category.findUniqueOrThrow({
@@ -154,6 +156,8 @@ export async function CategoryPageContent({
         {isGmailImportCategory && (
           <TabsContent value="import-gmail" keepMounted>
             <ImportedListingsPanel
+              categoryId={categoryId}
+              path={path}
               initialPending={pendingImports}
               events={eventOptions}
               ticketingSites={ticketingSites.map((s) => s.name)}

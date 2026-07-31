@@ -29,9 +29,6 @@ import { parseListingText } from "@/lib/actions/claude-import-actions";
 import { createEventFolder } from "@/lib/actions/event-actions";
 import type { EventOption } from "@/components/sales-table";
 
-const BILLETS_CATEGORY_ID = "cat-billets";
-const BILLETS_PATH = "/billets";
-
 type FolderOption = { id: string; name: string };
 
 // À copier-coller dans ChatGPT (ou autre) avec les données brutes de l'utilisateur (captures
@@ -201,12 +198,16 @@ function findMatchingEventId(listing: ImportedListingRow, events: EventOption[])
 
 function ValidateImportDialog({
   listing,
+  categoryId,
+  path,
   events,
   ticketingSites,
   folders,
   onDone,
 }: {
   listing: ImportedListingRow;
+  categoryId: string;
+  path: string;
   events: EventOption[];
   ticketingSites: string[];
   folders: FolderOption[];
@@ -237,7 +238,7 @@ function ValidateImportDialog({
   async function handleValidate() {
     setIsPending(true);
     try {
-      const { count } = await validateImportedListing(listing.id, {
+      const { count } = await validateImportedListing(listing.id, categoryId, path, {
         eventId: eventMode === "existing" ? selectedEventId || null : null,
         newEventName: eventMode === "new" ? newEventName : "",
         newEventDate: eventMode === "new" ? newEventDate || null : null,
@@ -409,10 +410,14 @@ function ValidateImportDialog({
 }
 
 function PasteImportDialog({
+  categoryId,
+  path,
   ticketingSites,
   folders,
   onImported,
 }: {
+  categoryId: string;
+  path: string;
   ticketingSites: string[];
   folders: FolderOption[];
   onImported: () => void;
@@ -429,7 +434,7 @@ function PasteImportDialog({
   const [localFolders, setLocalFolders] = useState(folders);
 
   async function handleCreateFolder(name: string) {
-    await createEventFolder(BILLETS_CATEGORY_ID, BILLETS_PATH, name);
+    await createEventFolder(categoryId, path, name);
     setLocalFolders((prev) => [...prev, { id: name, name }]);
     router.refresh();
   }
@@ -555,11 +560,15 @@ function PasteImportDialog({
 }
 
 export function ImportedListingsPanel({
+  categoryId,
+  path,
   initialPending,
   events,
   ticketingSites,
   folders,
 }: {
+  categoryId: string;
+  path: string;
   initialPending: ImportedListingRow[];
   events: EventOption[];
   ticketingSites: string[];
@@ -631,7 +640,13 @@ export function ImportedListingsPanel({
           {pending.length} listing{pending.length > 1 ? "s" : ""} en attente de validation
         </p>
         <div className="flex flex-wrap gap-2">
-          <PasteImportDialog ticketingSites={ticketingSites} folders={folders} onImported={() => router.refresh()} />
+          <PasteImportDialog
+            categoryId={categoryId}
+            path={path}
+            ticketingSites={ticketingSites}
+            folders={folders}
+            onImported={() => router.refresh()}
+          />
           <CopyPromptButton />
           <Button variant="outline" size="sm" onClick={handleSync} disabled={isSyncing}>
             <RefreshCw className={isSyncing ? "animate-spin" : ""} />
@@ -690,6 +705,8 @@ export function ImportedListingsPanel({
                       <div className="flex shrink-0 gap-2">
                         <ValidateImportDialog
                           listing={listing}
+                          categoryId={categoryId}
+                          path={path}
                           events={events}
                           ticketingSites={ticketingSites}
                           folders={folders}

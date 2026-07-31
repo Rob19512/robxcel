@@ -4,7 +4,9 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import type { TicketmasterSeat } from "@/lib/gmail/ticketmaster-parser";
 
-const BILLETS_PATH = "/billets";
+// File d'attente partagée entre Billets Pro et Perso - les deux pages doivent voir la
+// liste se rafraîchir, quel que soit l'onglet depuis lequel le texte a été collé.
+const IMPORT_PAGES = ["/billets", "/perso/billets"];
 const CLAUDE_MODEL = "claude-sonnet-5";
 
 const SYSTEM_PROMPT = `Tu extrais des listings de billets à partir d'un texte collé par l'utilisateur (confirmations de commande, listes de billets, etc.).
@@ -186,6 +188,6 @@ export async function parseListingText(input: ParseListingTextInput) {
     created++;
   }
 
-  revalidatePath(BILLETS_PATH);
+  for (const p of IMPORT_PAGES) revalidatePath(p);
   return { created, total: rows.length };
 }
