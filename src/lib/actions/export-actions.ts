@@ -6,6 +6,8 @@ type BaseRow = {
   Type: string;
   Catégorie: string;
   Événement: string;
+  Dossier: string;
+  "Lieu / Salle": string;
   Description: string;
   "Date achat": string;
   "Date vente": string;
@@ -25,6 +27,7 @@ type BaseRow = {
   Montant: string;
   Notes: string;
   "Créé le": string;
+  "Modifié le": string;
 };
 
 export type ExportRow = BaseRow & Record<string, string>;
@@ -34,6 +37,8 @@ function baseEmptyRow(): BaseRow {
     Type: "",
     Catégorie: "",
     Événement: "",
+    Dossier: "",
+    "Lieu / Salle": "",
     Description: "",
     "Date achat": "",
     "Date vente": "",
@@ -53,6 +58,7 @@ function baseEmptyRow(): BaseRow {
     Montant: "",
     Notes: "",
     "Créé le": "",
+    "Modifié le": "",
   };
 }
 
@@ -65,14 +71,16 @@ export async function exportScopeData(scope: "PRO" | "PERSO"): Promise<ExportRow
   const categoryIds = categories.map((c) => c.id);
   const categoryNameById = new Map(categories.map((c) => [c.id, c.name]));
 
-  const [stockItems, sales, events, achatsPro, chargesPerso, categoryFields] = await Promise.all([
+  const [stockItems, sales, events, achatsPro, chargesPerso, categoryFields, eventFolders] = await Promise.all([
     prisma.stockItem.findMany({ where: { categoryId: { in: categoryIds }, deletedAt: null } }),
     prisma.sale.findMany({ where: { categoryId: { in: categoryIds }, deletedAt: null } }),
     prisma.event.findMany({ where: { categoryId: { in: categoryIds } } }),
     scope === "PRO" ? prisma.achatPro.findMany({ where: { deletedAt: null } }) : Promise.resolve([]),
     scope === "PERSO" ? prisma.chargePerso.findMany({ where: { deletedAt: null } }) : Promise.resolve([]),
     prisma.categoryField.findMany({ where: { categoryId: { in: categoryIds } } }),
+    prisma.eventFolder.findMany({ where: { categoryId: { in: categoryIds } } }),
   ]);
+  const folderNameById = new Map(eventFolders.map((f) => [f.id, f.name]));
 
   // Chaque catégorie (Billets, Merch...) définit ses propres champs personnalisés
   // (Catégorie/Placement, Listing site, Infos vente...), stockés dans customValues (JSON) -
@@ -108,6 +116,12 @@ export async function exportScopeData(scope: "PRO" | "PERSO"): Promise<ExportRow
     if (!e) return "";
     return [e.name, d(e.dateEvenement), e.lieuSalle].filter(Boolean).join(" — ");
   };
+  const folderLabel = (eventId: string | null) => {
+    if (!eventId) return "";
+    const e = eventById.get(eventId);
+    if (!e?.folderId) return "";
+    return folderNameById.get(e.folderId) ?? "";
+  };
 
   const rows: ExportRow[] = [];
 
@@ -117,6 +131,7 @@ export async function exportScopeData(scope: "PRO" | "PERSO"): Promise<ExportRow
       Type: "Stock",
       Catégorie: categoryNameById.get(it.categoryId) ?? "",
       Événement: eventLabel(it.eventId),
+      Dossier: folderLabel(it.eventId),
       Description: it.description ?? "",
       "Date achat": d(it.dateAchat),
       "Date vente": d(it.dateVente),
@@ -133,6 +148,7 @@ export async function exportScopeData(scope: "PRO" | "PERSO"): Promise<ExportRow
       "Email compte (intégré)": it.compteEmail ?? "",
       Notes: it.notes ?? "",
       "Créé le": d(it.createdAt),
+      "Modifié le": d(it.updatedAt),
     });
     applyCustomValues(row, it.customValues);
     rows.push(row);
@@ -144,6 +160,7 @@ export async function exportScopeData(scope: "PRO" | "PERSO"): Promise<ExportRow
       Type: "Vente",
       Catégorie: categoryNameById.get(s.categoryId) ?? "",
       Événement: eventLabel(s.eventId),
+      Dossier: folderLabel(s.eventId),
       Description: s.description ?? "",
       "Date vente": d(s.dateVente),
       "Date encaissement": d(s.dateEncaissement),
@@ -156,6 +173,7 @@ export async function exportScopeData(scope: "PRO" | "PERSO"): Promise<ExportRow
       "Site / Source": s.source ?? "",
       Notes: s.notes ?? "",
       "Créé le": d(s.createdAt),
+      "Modifié le": d(s.updatedAt),
     });
     applyCustomValues(row, s.customValues);
     rows.push(row);
@@ -167,9 +185,12 @@ export async function exportScopeData(scope: "PRO" | "PERSO"): Promise<ExportRow
       Type: "Événement",
       Catégorie: categoryNameById.get(e.categoryId) ?? "",
       Événement: e.name,
+      Dossier: e.folderId ? folderNameById.get(e.folderId) ?? "" : "",
+      "Lieu / Salle": e.lieuSalle ?? "",
       "Date achat": d(e.dateEvenement),
-      Notes: [e.lieuSalle, e.notes].filter(Boolean).join(" — "),
+      Notes: e.notes ?? "",
       "Créé le": d(e.createdAt),
+      "Modifié le": d(e.updatedAt),
     });
     rows.push(row);
   }
@@ -186,6 +207,7 @@ export async function exportScopeData(scope: "PRO" | "PERSO"): Promise<ExportRow
       "TVA (%)": String(a.tauxTva),
       Notes: a.notes ?? "",
       "Créé le": d(a.createdAt),
+      "Modifié le": d(a.updatedAt),
     });
     rows.push(row);
   }
@@ -201,6 +223,7 @@ export async function exportScopeData(scope: "PRO" | "PERSO"): Promise<ExportRow
       Montant: String(c.montant),
       Notes: c.notes ?? "",
       "Créé le": d(c.createdAt),
+      "Modifié le": d(c.updatedAt),
     });
     rows.push(row);
   }
