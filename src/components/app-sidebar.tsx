@@ -14,6 +14,7 @@ import {
   CalendarDays,
   Layers,
   CreditCard,
+  Download,
 } from "lucide-react";
 import {
   Sidebar,
@@ -48,6 +49,7 @@ const navGestion: { href: string; label: string; icon: typeof Receipt; color?: s
   { href: "/categories", label: "Catégories", icon: Layers },
   { href: "/achats-pro", label: "Achats pro", icon: Receipt },
   { href: "/tva", label: "TVA & IS", icon: Landmark },
+  { href: "/export", label: "Export", icon: Download },
   { href: "/aide", label: "Mode d'emploi", icon: BookOpen },
 ];
 
