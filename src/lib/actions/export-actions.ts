@@ -2,7 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 
-export type ExportRow = {
+type BaseRow = {
   Type: string;
   Catégorie: string;
   Événement: string;
@@ -11,14 +11,15 @@ export type ExportRow = {
   "Date vente": string;
   "Date encaissement": string;
   Statut: string;
+  Priorité: string;
+  Reçu: string;
   Quantité: string;
   "Coût achat unitaire (TTC)": string;
   "TVA achat (%)": string;
   "Prix vente unitaire (TTC)": string;
   "TVA vente (%)": string;
   "Site / Source": string;
-  Compte: string;
-  "Numéro de commande": string;
+  "Email compte (intégré)": string;
   "Montant HT": string;
   "TVA (%)": string;
   Montant: string;
@@ -26,7 +27,9 @@ export type ExportRow = {
   "Créé le": string;
 };
 
-function emptyRow(): ExportRow {
+export type ExportRow = BaseRow & Record<string, string>;
+
+function baseEmptyRow(): BaseRow {
   return {
     Type: "",
     Catégorie: "",
@@ -36,14 +39,15 @@ function emptyRow(): ExportRow {
     "Date vente": "",
     "Date encaissement": "",
     Statut: "",
+    Priorité: "",
+    Reçu: "",
     Quantité: "",
     "Coût achat unitaire (TTC)": "",
     "TVA achat (%)": "",
     "Prix vente unitaire (TTC)": "",
     "TVA vente (%)": "",
     "Site / Source": "",
-    Compte: "",
-    "Numéro de commande": "",
+    "Email compte (intégré)": "",
     "Montant HT": "",
     "TVA (%)": "",
     Montant: "",
@@ -61,13 +65,41 @@ export async function exportScopeData(scope: "PRO" | "PERSO"): Promise<ExportRow
   const categoryIds = categories.map((c) => c.id);
   const categoryNameById = new Map(categories.map((c) => [c.id, c.name]));
 
-  const [stockItems, sales, events, achatsPro, chargesPerso] = await Promise.all([
+  const [stockItems, sales, events, achatsPro, chargesPerso, categoryFields] = await Promise.all([
     prisma.stockItem.findMany({ where: { categoryId: { in: categoryIds }, deletedAt: null } }),
     prisma.sale.findMany({ where: { categoryId: { in: categoryIds }, deletedAt: null } }),
     prisma.event.findMany({ where: { categoryId: { in: categoryIds } } }),
     scope === "PRO" ? prisma.achatPro.findMany({ where: { deletedAt: null } }) : Promise.resolve([]),
     scope === "PERSO" ? prisma.chargePerso.findMany({ where: { deletedAt: null } }) : Promise.resolve([]),
+    prisma.categoryField.findMany({ where: { categoryId: { in: categoryIds } } }),
   ]);
+
+  // Chaque catégorie (Billets, Merch...) définit ses propres champs personnalisés
+  // (Catégorie/Placement, Listing site, Infos vente...), stockés dans customValues (JSON) -
+  // un export figé sur 2-3 clés en dur en oubliait la moitié. On construit ici la liste
+  // complète des colonnes dynamiques (dédupliquées par clé) à partir de ce qui existe
+  // réellement pour ce périmètre, pour que chaque ligne ait toujours le même jeu de
+  // colonnes (obligatoire pour que le writer CSV ne tronque rien).
+  const customFieldEntries: [string, string][] = [];
+  const seenKeys = new Set<string>();
+  for (const f of categoryFields) {
+    if (seenKeys.has(f.key)) continue;
+    seenKeys.add(f.key);
+    customFieldEntries.push([f.key, f.label]);
+  }
+
+  function emptyRow(): ExportRow {
+    const row = baseEmptyRow() as ExportRow;
+    for (const [, label] of customFieldEntries) row[label] = "";
+    return row;
+  }
+
+  function applyCustomValues(row: ExportRow, customValues: unknown) {
+    const cv = (customValues as Record<string, string>) ?? {};
+    for (const [key, label] of customFieldEntries) {
+      if (cv[key] !== undefined && cv[key] !== null && cv[key] !== "") row[label] = String(cv[key]);
+    }
+  }
 
   const eventById = new Map(events.map((e) => [e.id, e]));
   const eventLabel = (eventId: string | null) => {
@@ -80,9 +112,8 @@ export async function exportScopeData(scope: "PRO" | "PERSO"): Promise<ExportRow
   const rows: ExportRow[] = [];
 
   for (const it of stockItems) {
-    const cv = (it.customValues as Record<string, string>) ?? {};
-    rows.push({
-      ...emptyRow(),
+    const row = emptyRow();
+    Object.assign(row, {
       Type: "Stock",
       Catégorie: categoryNameById.get(it.categoryId) ?? "",
       Événement: eventLabel(it.eventId),
@@ -91,23 +122,25 @@ export async function exportScopeData(scope: "PRO" | "PERSO"): Promise<ExportRow
       "Date vente": d(it.dateVente),
       "Date encaissement": d(it.dateEncaissement),
       Statut: it.statut,
+      Priorité: it.priorite ?? "",
+      Reçu: it.recu === null ? "" : it.recu ? "Oui" : "Non",
       Quantité: String(it.qty),
       "Coût achat unitaire (TTC)": String(it.coutAchatUnit),
       "TVA achat (%)": String(it.tauxTvaAchat),
       "Prix vente unitaire (TTC)": it.prixCibleVente !== null ? String(it.prixCibleVente) : "",
       "TVA vente (%)": String(it.tauxTvaVente),
       "Site / Source": it.source ?? "",
-      Compte: cv.compte ?? it.compteEmail ?? "",
-      "Numéro de commande": cv.numeroCommande ?? "",
+      "Email compte (intégré)": it.compteEmail ?? "",
       Notes: it.notes ?? "",
       "Créé le": d(it.createdAt),
     });
+    applyCustomValues(row, it.customValues);
+    rows.push(row);
   }
 
   for (const s of sales) {
-    const cv = (s.customValues as Record<string, string>) ?? {};
-    rows.push({
-      ...emptyRow(),
+    const row = emptyRow();
+    Object.assign(row, {
       Type: "Vente",
       Catégorie: categoryNameById.get(s.categoryId) ?? "",
       Événement: eventLabel(s.eventId),
@@ -121,16 +154,16 @@ export async function exportScopeData(scope: "PRO" | "PERSO"): Promise<ExportRow
       "Prix vente unitaire (TTC)": String(s.prixVenteUnit),
       "TVA vente (%)": String(s.tauxTvaVente),
       "Site / Source": s.source ?? "",
-      Compte: cv.compte ?? "",
-      "Numéro de commande": cv.numeroCommande ?? "",
       Notes: s.notes ?? "",
       "Créé le": d(s.createdAt),
     });
+    applyCustomValues(row, s.customValues);
+    rows.push(row);
   }
 
   for (const e of events) {
-    rows.push({
-      ...emptyRow(),
+    const row = emptyRow();
+    Object.assign(row, {
       Type: "Événement",
       Catégorie: categoryNameById.get(e.categoryId) ?? "",
       Événement: e.name,
@@ -138,11 +171,12 @@ export async function exportScopeData(scope: "PRO" | "PERSO"): Promise<ExportRow
       Notes: [e.lieuSalle, e.notes].filter(Boolean).join(" — "),
       "Créé le": d(e.createdAt),
     });
+    rows.push(row);
   }
 
   for (const a of achatsPro) {
-    rows.push({
-      ...emptyRow(),
+    const row = emptyRow();
+    Object.assign(row, {
       Type: "Achat pro",
       Catégorie: a.categorie ?? "",
       Description: a.description,
@@ -153,11 +187,12 @@ export async function exportScopeData(scope: "PRO" | "PERSO"): Promise<ExportRow
       Notes: a.notes ?? "",
       "Créé le": d(a.createdAt),
     });
+    rows.push(row);
   }
 
   for (const c of chargesPerso) {
-    rows.push({
-      ...emptyRow(),
+    const row = emptyRow();
+    Object.assign(row, {
       Type: "Charge perso",
       Catégorie: c.categorie ?? "",
       Description: c.description,
@@ -167,6 +202,7 @@ export async function exportScopeData(scope: "PRO" | "PERSO"): Promise<ExportRow
       Notes: c.notes ?? "",
       "Créé le": d(c.createdAt),
     });
+    rows.push(row);
   }
 
   rows.sort((a, b) => {
