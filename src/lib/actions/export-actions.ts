@@ -66,6 +66,13 @@ function d(date: Date | null): string {
   return date ? date.toISOString().slice(0, 10) : "";
 }
 
+// Les champs Decimal de Prisma ne se convertissent pas forcément proprement en texte via un
+// simple String() direct - passer par Number() d'abord est la convention déjà utilisée partout
+// ailleurs dans le projet (serialize.ts, tva-quarterly.tsx...), on l'applique ici aussi.
+function n(value: unknown): string {
+  return value === null || value === undefined ? "" : String(Number(value));
+}
+
 export async function exportScopeData(scope: "PRO" | "PERSO"): Promise<ExportRow[]> {
   const categories = await prisma.category.findMany({ where: { scope } });
   const categoryIds = categories.map((c) => c.id);
@@ -140,10 +147,10 @@ export async function exportScopeData(scope: "PRO" | "PERSO"): Promise<ExportRow
       Priorité: it.priorite ?? "",
       Reçu: it.recu === null ? "" : it.recu ? "Oui" : "Non",
       Quantité: String(it.qty),
-      "Coût achat unitaire (TTC)": String(it.coutAchatUnit),
-      "TVA achat (%)": String(it.tauxTvaAchat),
-      "Prix vente unitaire (TTC)": it.prixCibleVente !== null ? String(it.prixCibleVente) : "",
-      "TVA vente (%)": String(it.tauxTvaVente),
+      "Coût achat unitaire (TTC)": n(it.coutAchatUnit),
+      "TVA achat (%)": n(it.tauxTvaAchat),
+      "Prix vente unitaire (TTC)": n(it.prixCibleVente),
+      "TVA vente (%)": n(it.tauxTvaVente),
       "Site / Source": it.source ?? "",
       "Email compte (intégré)": it.compteEmail ?? "",
       Notes: it.notes ?? "",
@@ -166,10 +173,10 @@ export async function exportScopeData(scope: "PRO" | "PERSO"): Promise<ExportRow
       "Date encaissement": d(s.dateEncaissement),
       Statut: s.statut,
       Quantité: String(s.qty),
-      "Coût achat unitaire (TTC)": String(s.coutAchatUnit),
-      "TVA achat (%)": String(s.tauxTvaAchat),
-      "Prix vente unitaire (TTC)": String(s.prixVenteUnit),
-      "TVA vente (%)": String(s.tauxTvaVente),
+      "Coût achat unitaire (TTC)": n(s.coutAchatUnit),
+      "TVA achat (%)": n(s.tauxTvaAchat),
+      "Prix vente unitaire (TTC)": n(s.prixVenteUnit),
+      "TVA vente (%)": n(s.tauxTvaVente),
       "Site / Source": s.source ?? "",
       Notes: s.notes ?? "",
       "Créé le": d(s.createdAt),
@@ -203,8 +210,8 @@ export async function exportScopeData(scope: "PRO" | "PERSO"): Promise<ExportRow
       Description: a.description,
       "Date achat": d(a.dateAchat),
       Quantité: String(a.qty),
-      "Montant HT": String(a.montantHt),
-      "TVA (%)": String(a.tauxTva),
+      "Montant HT": n(a.montantHt),
+      "TVA (%)": n(a.tauxTva),
       Notes: a.notes ?? "",
       "Créé le": d(a.createdAt),
       "Modifié le": d(a.updatedAt),
@@ -220,7 +227,7 @@ export async function exportScopeData(scope: "PRO" | "PERSO"): Promise<ExportRow
       Description: c.description,
       "Date achat": d(c.date),
       Quantité: String(c.qty),
-      Montant: String(c.montant),
+      Montant: n(c.montant),
       Notes: c.notes ?? "",
       "Créé le": d(c.createdAt),
       "Modifié le": d(c.updatedAt),
