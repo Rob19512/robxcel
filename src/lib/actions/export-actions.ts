@@ -8,6 +8,7 @@ type BaseRow = {
   Événement: string;
   Dossier: string;
   "Lieu / Salle": string;
+  "Date événement": string;
   Description: string;
   "Date achat": string;
   "Date vente": string;
@@ -39,6 +40,7 @@ function baseEmptyRow(): BaseRow {
     Événement: "",
     Dossier: "",
     "Lieu / Salle": "",
+    "Date événement": "",
     Description: "",
     "Date achat": "",
     "Date vente": "",
@@ -129,6 +131,11 @@ export async function exportScopeData(scope: "PRO" | "PERSO"): Promise<ExportRow
     if (!e?.folderId) return "";
     return folderNameById.get(e.folderId) ?? "";
   };
+  const eventDateOf = (eventId: string | null) => {
+    if (!eventId) return "";
+    const e = eventById.get(eventId);
+    return e ? d(e.dateEvenement) : "";
+  };
 
   const rows: ExportRow[] = [];
 
@@ -139,6 +146,7 @@ export async function exportScopeData(scope: "PRO" | "PERSO"): Promise<ExportRow
       Catégorie: categoryNameById.get(it.categoryId) ?? "",
       Événement: eventLabel(it.eventId),
       Dossier: folderLabel(it.eventId),
+      "Date événement": eventDateOf(it.eventId),
       Description: it.description ?? "",
       "Date achat": d(it.dateAchat),
       "Date vente": d(it.dateVente),
@@ -168,6 +176,7 @@ export async function exportScopeData(scope: "PRO" | "PERSO"): Promise<ExportRow
       Catégorie: categoryNameById.get(s.categoryId) ?? "",
       Événement: eventLabel(s.eventId),
       Dossier: folderLabel(s.eventId),
+      "Date événement": eventDateOf(s.eventId),
       Description: s.description ?? "",
       "Date vente": d(s.dateVente),
       "Date encaissement": d(s.dateEncaissement),
@@ -194,7 +203,7 @@ export async function exportScopeData(scope: "PRO" | "PERSO"): Promise<ExportRow
       Événement: e.name,
       Dossier: e.folderId ? folderNameById.get(e.folderId) ?? "" : "",
       "Lieu / Salle": e.lieuSalle ?? "",
-      "Date achat": d(e.dateEvenement),
+      "Date événement": d(e.dateEvenement),
       Notes: e.notes ?? "",
       "Créé le": d(e.createdAt),
       "Modifié le": d(e.updatedAt),
@@ -235,7 +244,18 @@ export async function exportScopeData(scope: "PRO" | "PERSO"): Promise<ExportRow
     rows.push(row);
   }
 
+  // Regroupé par événement plutôt que trié uniquement par date : sinon les lignes Événement
+  // (dates futures de concerts) et les lignes Stock/Vente (dates d'achat passées/récentes) se
+  // mélangent dans un ordre chronologique global qui les éloigne les unes des autres, rendant
+  // difficile de vérifier que les billets d'un même événement ont bien leurs prix.
+  const typeOrder: Record<string, number> = { Événement: 0, Stock: 1, Vente: 2, "Achat pro": 3, "Charge perso": 3 };
   rows.sort((a, b) => {
+    const evA = a["Événement"];
+    const evB = b["Événement"];
+    if (evA !== evB) return evA.localeCompare(evB);
+    const ta = typeOrder[a.Type] ?? 9;
+    const tb = typeOrder[b.Type] ?? 9;
+    if (ta !== tb) return ta - tb;
     const da = a["Date achat"] || a["Date vente"] || "";
     const db = b["Date achat"] || b["Date vente"] || "";
     return da.localeCompare(db);
