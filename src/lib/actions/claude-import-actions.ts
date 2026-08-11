@@ -32,6 +32,7 @@ Réponds UNIQUEMENT avec un tableau JSON (pas de texte autour, pas de balises ma
 ]
 - "orderDate" = date de la commande/confirmation (pas la date de l'événement), format YYYY-MM-DD, ou null.
 - "eventDate" = date de l'événement lui-même, format YYYY-MM-DD, ou null.
+- Dates numériques ambiguës (ex: "08/10/2026", où jour et mois sont tous les deux ≤ 12) : les dates de COMMANDE viennent typiquement de billetteries américaines et sont en format américain MM/JJ/AAAA (mois en premier) - interprète-les comme telles sauf indice contraire explicite dans le texte. Les dates d'ÉVÉNEMENT suivent le format international JJ/MM/AAAA (jour en premier) sauf indice contraire. Si un des deux nombres est > 12, il n'y a pas d'ambiguïté : c'est forcément le jour, quel que soit le champ.
 - "categorie" = le tier/la catégorie de placement globale (ex: "VIP Floor", "Golden Circle", "Cat 1"), pas une catégorie métier.
 - "section" = le code/nom de section si mentionné (ex: "A2", "GC1"), sinon null.
 - "rang" = le numéro de rangée si mentionné (ex: "4"), sinon null.
