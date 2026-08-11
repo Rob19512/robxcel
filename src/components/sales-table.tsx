@@ -357,6 +357,8 @@ export function SalesTable({
           String(s.qty),
           String(s.prixVenteUnit),
           String(s.coutAchatUnit),
+          s.dateVente,
+          s.dateEncaissement,
           ...Object.values(s.customValues ?? {}),
         ]
           .join(" ")
