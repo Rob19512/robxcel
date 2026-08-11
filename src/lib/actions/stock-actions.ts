@@ -310,6 +310,13 @@ export async function bulkUpdatePrixCible(ids: string[], path: string, prixCible
   revalidatePath(path);
 }
 
+export async function bulkUpdateDateAchat(ids: string[], path: string, dateAchat: string) {
+  const date = toDate(dateAchat);
+  if (!date) return;
+  await prisma.stockItem.updateMany({ where: { id: { in: ids } }, data: { dateAchat: date } });
+  revalidatePath(path);
+}
+
 export async function duplicateStockItem(id: string, path: string) {
   const item = await prisma.stockItem.findUniqueOrThrow({ where: { id } });
   await prisma.stockItem.create({

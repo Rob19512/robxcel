@@ -28,6 +28,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { BulkDeleteButton } from "@/components/bulk-delete-button";
 import { BulkEncaissementButton } from "@/components/bulk-encaissement-button";
+import { BulkDateAchatButton } from "@/components/bulk-date-achat-button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -54,6 +55,7 @@ import {
   bulkRestoreStockItems,
   bulkUpdateStockDates,
   bulkUpdatePrixCible,
+  bulkUpdateDateAchat,
   duplicateStockItem,
   markStockVenduToday,
   markStockEncaisseToday,
@@ -637,6 +639,18 @@ export function StockTable({
     });
   }
 
+  function handleBulkDateAchat(dateAchat: string) {
+    const ids = Array.from(selectedIds);
+    startTransition(async () => {
+      try {
+        await bulkUpdateDateAchat(ids, path, dateAchat);
+        toast.success(`Date d'achat mise à jour pour ${ids.length} ligne${ids.length > 1 ? "s" : ""}`);
+      } catch {
+        toast.error("Impossible de modifier la date d'achat");
+      }
+    });
+  }
+
   function handleBulkEncaissement(
     prixCibleVente: number | null,
     dateVente: string | null,
@@ -1001,6 +1015,7 @@ export function StockTable({
           Exporter CSV
         </Button>
         <ColumnVisibilityMenu columns={columns} order={order} isVisible={isVisible} toggle={toggleColumn} move={moveColumn} />
+        <BulkDateAchatButton count={selectedIds.size} onConfirm={handleBulkDateAchat} />
         <BulkEncaissementButton count={selectedIds.size} onConfirm={handleBulkEncaissement} />
         <BulkDeleteButton count={selectedIds.size} onConfirm={handleBulkDelete} />
         <ToggleGroup
