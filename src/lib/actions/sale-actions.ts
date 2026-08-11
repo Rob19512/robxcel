@@ -87,7 +87,11 @@ export async function updateSaleField(
   }
 
   await prisma.sale.update({ where: { id }, data });
-  revalidatePath(path);
+  // Pas de revalidatePath(path) ici : la page courante a déjà été mise à jour de façon
+  // optimiste côté client (voir saveField dans sales-table.tsx) - revalider forçait un
+  // refetch complet de toute la page (lourd) à chaque édition de champ, perçu comme un
+  // rechargement. On revalide seulement la page "à encaisser", qu'on ne regarde pas
+  // actuellement, donc sans impact visible immédiat.
   if (field === "dateEncaissement" || field === "statut") revalidatePath(A_ENCAISSER_PATH);
 }
 
@@ -100,12 +104,10 @@ export async function updateSaleCustomValue(
   const sale = await prisma.sale.findUniqueOrThrow({ where: { id } });
   const customValues = { ...(sale.customValues as Record<string, string>), [key]: value };
   await prisma.sale.update({ where: { id }, data: { customValues } });
-  revalidatePath(path);
 }
 
 export async function updateSaleEventId(id: string, path: string, eventId: string | null) {
   await prisma.sale.update({ where: { id }, data: { eventId } });
-  revalidatePath(path);
 }
 
 export async function deleteSale(id: string, path: string) {

@@ -593,8 +593,40 @@ export function SalesTable({
     });
   }
 
+  // Patch local en plus de l'appel serveur : sans ça, les totaux/tri/export dérivés de
+  // `sales` restaient périmés tant que revalidatePath ne forçait pas un refetch complet de
+  // la page (lent, sensation de rechargement à chaque édition - d'où la suppression du
+  // revalidatePath côté serveur pour ces champs simples).
   function saveField(id: string, field: SaleCoreField) {
-    return (value: string) => updateSaleField(id, path, field, value);
+    return async (value: string) => {
+      setSales((prev) =>
+        prev.map((s) => {
+          if (s.id !== id) return s;
+          switch (field) {
+            case "qty":
+              return { ...s, qty: Math.max(1, Number(value) || 1) };
+            case "prixVenteUnit":
+            case "coutAchatUnit":
+            case "tauxTvaVente":
+            case "tauxTvaAchat":
+              return { ...s, [field]: Number(value) || 0 };
+            case "dateVente":
+              return { ...s, dateVente: value };
+            case "dateEncaissement":
+              return { ...s, dateEncaissement: value || null };
+            case "source":
+            case "description":
+            case "notes":
+              return { ...s, [field]: value || null };
+            case "statut":
+              return { ...s, statut: value as SaleRow["statut"] };
+            default:
+              return s;
+          }
+        })
+      );
+      await updateSaleField(id, path, field, value);
+    };
   }
 
   function handleExport() {
@@ -630,11 +662,19 @@ export function SalesTable({
   }
 
   function saveCustom(id: string, key: string) {
-    return (value: string) => updateSaleCustomValue(id, path, key, value);
+    return async (value: string) => {
+      setSales((prev) =>
+        prev.map((s) => (s.id === id ? { ...s, customValues: { ...s.customValues, [key]: value } } : s))
+      );
+      await updateSaleCustomValue(id, path, key, value);
+    };
   }
 
   function saveEvent(id: string) {
-    return (value: string) => updateSaleEventId(id, path, value || null);
+    return async (value: string) => {
+      setSales((prev) => prev.map((s) => (s.id === id ? { ...s, eventId: value || null } : s)));
+      await updateSaleEventId(id, path, value || null);
+    };
   }
 
   // Les événements à venir passent en premier (moins de défilement pour l'usage courant),
