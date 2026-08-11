@@ -138,7 +138,8 @@ export function SalesTable({
 }) {
   const [sales, setSales] = useState(initialSales);
   const [search, setSearch] = useState("");
-  const [dateSearch, setDateSearch] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [statutFilter, setStatutFilter] = useState<string>("ALL");
   const [page, setPage] = useState(0);
   const PAGE_SIZE = 50;
@@ -346,7 +347,8 @@ export function SalesTable({
   const filtered = useMemo(() => {
     const result = sales.filter((s) => {
       if (statutFilter !== "ALL" && s.statut !== statutFilter) return false;
-      if (dateSearch && s.dateVente !== dateSearch) return false;
+      if (dateFrom && s.dateVente < dateFrom) return false;
+      if (dateTo && s.dateVente > dateTo) return false;
       if (!search.trim()) return true;
       const haystack = normalizeForSearch(
         [
@@ -413,7 +415,7 @@ export function SalesTable({
       return [...fresh, ...rest];
     }
     return result;
-  }, [sales, statutFilter, dateSearch, search, eventLabelById, eventDateById, events, sortMode, newIds, columnSort, fields]);
+  }, [sales, statutFilter, dateFrom, dateTo, search, eventLabelById, eventDateById, events, sortMode, newIds, columnSort, fields]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages - 1);
@@ -442,7 +444,7 @@ export function SalesTable({
   // coincé au milieu d'un nouveau résultat de recherche.
   useEffect(() => {
     setPage(0);
-  }, [search, dateSearch, statutFilter, sortMode]);
+  }, [search, dateFrom, dateTo, statutFilter, sortMode]);
 
   // Vue carte : réunit dans une même carte les ventes d'un même bloc de places (même
   // événement + même catégorie/rang, places différentes) plutôt qu'une carte par vente.
@@ -659,14 +661,28 @@ export function SalesTable({
         />
         <Input
           type="date"
-          value={dateSearch}
-          onChange={(e) => setDateSearch(e.target.value)}
-          title="Filtrer par date de vente"
+          value={dateFrom}
+          onChange={(e) => setDateFrom(e.target.value)}
+          title="Date de vente - à partir de"
           className="h-8 w-36"
         />
-        {dateSearch && (
-          <Button variant="ghost" size="sm" onClick={() => setDateSearch("")}>
-            Effacer la date
+        <Input
+          type="date"
+          value={dateTo}
+          onChange={(e) => setDateTo(e.target.value)}
+          title="Date de vente - jusqu'à"
+          className="h-8 w-36"
+        />
+        {(dateFrom || dateTo) && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setDateFrom("");
+              setDateTo("");
+            }}
+          >
+            Effacer la période
           </Button>
         )}
         <Select
