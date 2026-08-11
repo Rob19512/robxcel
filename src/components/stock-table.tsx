@@ -963,13 +963,16 @@ export function StockTable({
           onChange={(e) => setSearch(e.target.value)}
           className="h-8 w-48"
         />
-        <Input
-          type="date"
-          value={dateSearch}
-          onChange={(e) => setDateSearch(e.target.value)}
-          title="Filtrer par date d'achat"
-          className="h-8 w-36"
-        />
+        <label className="flex items-center gap-1.5 text-sm text-muted-foreground">
+          Achat le
+          <Input
+            type="date"
+            value={dateSearch}
+            onChange={(e) => setDateSearch(e.target.value)}
+            title="Filtrer par date d'achat"
+            className="h-8 w-36"
+          />
+        </label>
         {dateSearch && (
           <Button variant="ghost" size="sm" onClick={() => setDateSearch("")}>
             Effacer la date
