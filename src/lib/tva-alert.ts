@@ -19,6 +19,12 @@ function levelFor(pct: number): TvaAlertLevel | null {
 }
 
 export async function getTvaAlerts(): Promise<TvaAlertInfo[]> {
+  // Le seuil de franchise en base n'a plus de sens une fois assujetti à la TVA : la TVA
+  // s'applique déjà sur toutes les ventes, quel que soit le CA - inutile d'alerter sur un
+  // seuil qui ne déclenche plus rien.
+  const settings = await prisma.appSettings.findUnique({ where: { id: "singleton" } });
+  if (settings?.tvaAssujettiDepuis) return [];
+
   const year = new Date().getFullYear();
   const start = new Date(Date.UTC(year, 0, 1));
   const end = new Date(Date.UTC(year + 1, 0, 1));
