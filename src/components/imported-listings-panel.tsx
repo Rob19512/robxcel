@@ -633,11 +633,19 @@ export function ImportedListingsPanel({
     }
   }
 
+  const grandTotal = pending.reduce((sum, l) => sum + l.qty * l.coutAchatUnit, 0);
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
           {pending.length} listing{pending.length > 1 ? "s" : ""} en attente de validation
+          {pending.length > 0 ? (
+            <>
+              {" · Total retail : "}
+              <span className="font-medium text-foreground">{grandTotal.toFixed(2)} €</span>
+            </>
+          ) : null}
         </p>
         <div className="flex flex-wrap gap-2">
           <PasteImportDialog
