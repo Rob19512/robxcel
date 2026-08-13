@@ -29,6 +29,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { BulkDeleteButton } from "@/components/bulk-delete-button";
 import { BulkEncaissementButton } from "@/components/bulk-encaissement-button";
 import { BulkDateAchatButton } from "@/components/bulk-date-achat-button";
+import { BulkEventButton } from "@/components/bulk-event-button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -56,6 +57,7 @@ import {
   bulkUpdateStockDates,
   bulkUpdatePrixCible,
   bulkUpdateDateAchat,
+  bulkUpdateEventId,
   duplicateStockItem,
   markStockVenduToday,
   markStockEncaisseToday,
@@ -651,6 +653,18 @@ export function StockTable({
     });
   }
 
+  function handleBulkEvent(eventId: string) {
+    const ids = Array.from(selectedIds);
+    startTransition(async () => {
+      try {
+        await bulkUpdateEventId(ids, path, eventId || null);
+        toast.success(`Événement mis à jour pour ${ids.length} ligne${ids.length > 1 ? "s" : ""}`);
+      } catch {
+        toast.error("Impossible de modifier l'événement");
+      }
+    });
+  }
+
   function handleBulkEncaissement(
     prixCibleVente: number | null,
     dateVente: string | null,
@@ -1016,6 +1030,7 @@ export function StockTable({
         </Button>
         <ColumnVisibilityMenu columns={columns} order={order} isVisible={isVisible} toggle={toggleColumn} move={moveColumn} />
         <BulkDateAchatButton count={selectedIds.size} onConfirm={handleBulkDateAchat} />
+        {events && <BulkEventButton count={selectedIds.size} events={eventOptionsSorted()} onConfirm={handleBulkEvent} />}
         <BulkEncaissementButton count={selectedIds.size} onConfirm={handleBulkEncaissement} />
         <BulkDeleteButton count={selectedIds.size} onConfirm={handleBulkDelete} />
         <ToggleGroup

@@ -169,6 +169,11 @@ export async function updateStockEventId(id: string, path: string, eventId: stri
   revalidatePath(path);
 }
 
+export async function bulkUpdateEventId(ids: string[], path: string, eventId: string | null) {
+  await prisma.stockItem.updateMany({ where: { id: { in: ids } }, data: { eventId } });
+  revalidatePath(path);
+}
+
 export async function updateStockCustomValue(
   id: string,
   path: string,
