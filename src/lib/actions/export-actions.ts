@@ -178,6 +178,7 @@ export async function exportScopeData(scope: "PRO" | "PERSO"): Promise<ExportRow
       Dossier: folderLabel(s.eventId),
       "Date événement": eventDateOf(s.eventId),
       Description: s.description ?? "",
+      "Date achat": d(s.dateAchat),
       "Date vente": d(s.dateVente),
       "Date encaissement": d(s.dateEncaissement),
       Statut: s.statut,

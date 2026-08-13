@@ -22,6 +22,7 @@ export type CategoryLite = { id: string; name: string };
 
 export type SaleLite = {
   categoryId: string;
+  dateAchat: string | null;
   dateVente: string;
   dateEncaissement: string | null;
   statut: "EN_ATTENTE" | "ENCAISSE" | "LITIGE";
@@ -113,7 +114,7 @@ export function TvaQuarterly({
       .reduce((sum, s) => sum + tvaFromTtc(s.qty * s.coutAchatUnit, s.tauxTvaAchat), 0);
 
     const saleAchatDeductible = sales
-      .filter((s) => !s.hasStockOrigin && inQuarter(s.dateVente, year, q))
+      .filter((s) => !s.hasStockOrigin && inQuarter(s.dateAchat ?? s.dateVente, year, q))
       .reduce((sum, s) => sum + tvaFromTtc(s.qty * s.coutAchatUnit, s.tauxTvaAchat), 0);
 
     // montantHt est déjà hors taxe (contrairement aux montants TTC de Sale/StockItem) :

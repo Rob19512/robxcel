@@ -34,6 +34,7 @@ export default async function TvaPage() {
 
   const salesLite: SaleLite[] = sales.map((s) => ({
     categoryId: s.categoryId,
+    dateAchat: s.dateAchat ? s.dateAchat.toISOString().slice(0, 10) : null,
     dateVente: s.dateVente.toISOString().slice(0, 10),
     dateEncaissement: s.dateEncaissement ? s.dateEncaissement.toISOString().slice(0, 10) : null,
     statut: s.statut,

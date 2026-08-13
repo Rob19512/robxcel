@@ -13,6 +13,7 @@ function toDateString(date: Date | null) {
 export function serializeSale(sale: Sale): SaleRow {
   return {
     id: sale.id,
+    dateAchat: toDateString(sale.dateAchat),
     dateVente: toDateString(sale.dateVente) ?? "",
     dateEncaissement: toDateString(sale.dateEncaissement),
     source: sale.source,

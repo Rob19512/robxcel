@@ -66,6 +66,7 @@ import {
 
 export type SaleRow = {
   id: string;
+  dateAchat: string | null;
   dateVente: string;
   dateEncaissement: string | null;
   source: string | null;
@@ -154,6 +155,7 @@ export function SalesTable({
   const scrollRef = useHorizontalWheelScroll<HTMLDivElement>();
   const columnKeys = useMemo(
     () => [
+      "dateAchat",
       "dateEncaissement",
       "statut",
       "source",
@@ -178,6 +180,7 @@ export function SalesTable({
   const { sort: columnSort, toggleSort } = useColumnSort();
   const columns: ColumnDef[] = useMemo(
     () => [
+      { key: "dateAchat", label: "Date achat" },
       { key: "dateEncaissement", label: "Date encaissement" },
       { key: "statut", label: "Statut" },
       { key: "source", label: "Source" },
@@ -203,6 +206,7 @@ export function SalesTable({
   function headClassName(key: string) {
     if (key.startsWith("custom:")) return "min-w-36";
     const widths: Record<string, string> = {
+      dateAchat: "min-w-32",
       dateEncaissement: "min-w-32",
       statut: "min-w-36",
       source: "min-w-36",
@@ -240,6 +244,8 @@ export function SalesTable({
       );
     }
     switch (key) {
+      case "dateAchat":
+        return <InlineDate value={s.dateAchat ?? ""} onSave={saveField(s.id, "dateAchat")} />;
       case "dateEncaissement":
         return (
           <div className="flex items-center gap-1">
@@ -307,6 +313,8 @@ export function SalesTable({
     }
     const calc = computeSale(s);
     switch (key) {
+      case "dateAchat":
+        return s.dateAchat;
       case "dateVente":
         return s.dateVente;
       case "dateEncaissement":
@@ -361,6 +369,7 @@ export function SalesTable({
           String(s.qty),
           String(s.prixVenteUnit),
           String(s.coutAchatUnit),
+          s.dateAchat,
           s.dateVente,
           s.dateEncaissement,
           ...Object.values(s.customValues ?? {}),
@@ -636,6 +645,8 @@ export function SalesTable({
             case "tauxTvaVente":
             case "tauxTvaAchat":
               return { ...s, [field]: Number(value) || 0 };
+            case "dateAchat":
+              return { ...s, dateAchat: value || null };
             case "dateVente":
               return { ...s, dateVente: value };
             case "dateEncaissement":
@@ -661,6 +672,7 @@ export function SalesTable({
       filtered.map((s) => {
         const calc = computeSale(s);
         const row: Record<string, unknown> = {
+          "Date achat": s.dateAchat ?? "",
           "Date vente": s.dateVente,
           "Date encaissement": s.dateEncaissement ?? "",
           Statut: s.statut,
@@ -1044,6 +1056,9 @@ export function SalesTable({
                             />
                           )}
                           <div className="grid grid-cols-2 gap-2">
+                            <Field label="Date achat">
+                              <InlineDate value={s.dateAchat ?? ""} onSave={saveField(s.id, "dateAchat")} />
+                            </Field>
                             <Field label="Date vente">
                               <InlineDate value={s.dateVente} onSave={saveField(s.id, "dateVente")} />
                             </Field>

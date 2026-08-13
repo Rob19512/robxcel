@@ -206,6 +206,9 @@ model Sale {
   id               String      @id @default(cuid())
   categoryId       String
   category         Category    @relation(fields: [categoryId], references: [id])
+  // Nullable pour rester compatible avec les ventes déjà en base créées avant ce champ -
+  // pour celles-là, le calcul de TVA déductible (ventes directes) retombe sur dateVente.
+  dateAchat        DateTime?
   dateVente        DateTime
   dateEncaissement DateTime?
   source           String?

@@ -220,6 +220,7 @@ export async function updateStockDate(
       const sale = await prisma.sale.create({
         data: {
           categoryId: item.categoryId,
+          dateAchat: item.dateAchat,
           dateVente,
           dateEncaissement: date,
           source: item.source,

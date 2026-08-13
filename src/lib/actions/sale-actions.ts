@@ -6,6 +6,7 @@ import { A_ENCAISSER_PATH } from "@/lib/category-routes";
 import { effectiveTauxTva } from "@/lib/tva-defaults";
 
 export type SaleCoreField =
+  | "dateAchat"
   | "dateVente"
   | "dateEncaissement"
   | "source"
@@ -33,6 +34,7 @@ export async function createSale(categoryId: string, path: string) {
   const sale = await prisma.sale.create({
     data: {
       categoryId,
+      dateAchat: today,
       dateVente: today,
       dateEncaissement: today,
       statut: "ENCAISSE",
@@ -59,6 +61,10 @@ export async function updateSaleField(
   const data: Record<string, unknown> = {};
 
   switch (field) {
+    case "dateAchat":
+      if (value && !toDate(value)) return;
+      data.dateAchat = toDate(value);
+      break;
     case "dateVente":
       if (value && !toDate(value)) return; // date invalide reçue du client : on ignore plutôt que d'écraser la vraie date
       data.dateVente = toDate(value) ?? new Date();
@@ -152,6 +158,7 @@ export async function duplicateSale(id: string, path: string) {
   await prisma.sale.create({
     data: {
       categoryId: sale.categoryId,
+      dateAchat: sale.dateAchat,
       dateVente: sale.dateVente,
       dateEncaissement: sale.dateEncaissement,
       source: sale.source,
