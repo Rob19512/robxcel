@@ -15,6 +15,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { eur } from "@/lib/format";
 import { calculIS, SEUIL_IS_REDUIT, TAUX_IS_REDUIT, TAUX_IS_NORMAL } from "@/lib/is-tax";
 
@@ -66,6 +68,11 @@ function inQuarter(dateStr: string, year: number, quarter: number) {
   return q === quarter;
 }
 
+// Comparaison lexicographique valide car les dates sont des chaînes ISO (AAAA-MM-JJ).
+function inRange(dateStr: string, from: string, to: string) {
+  return dateStr >= from && dateStr <= to;
+}
+
 export function TvaQuarterly({
   categories,
   sales,
@@ -79,6 +86,8 @@ export function TvaQuarterly({
 }) {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
 
   const years = useMemo(() => {
     const set = new Set<number>([now.getFullYear()]);
@@ -138,6 +147,56 @@ export function TvaQuarterly({
     };
   });
 
+  // Même calcul que les trimestres, mais sur une plage de dates libre plutôt que calée sur
+  // un trimestre calendaire - utile pour vérifier un montant à mi-trimestre ou sur une
+  // période à cheval sur deux trimestres.
+  const customRange = useMemo(() => {
+    if (!customFrom || !customTo) return null;
+
+    const rangeSales = sales.filter(
+      (s) => s.statut === "ENCAISSE" && s.dateEncaissement && inRange(s.dateEncaissement, customFrom, customTo)
+    );
+
+    const parCategorie = new Map<string, { caHt: number; tvaCollectee: number }>();
+    let totalTvaCollectee = 0;
+    for (const s of rangeSales) {
+      const total = s.qty * s.prixVenteUnit;
+      const tva = tvaFromTtc(total, s.tauxTvaVente);
+      const caHt = total - tva;
+      const cat = categoryById.get(s.categoryId);
+      const key = cat?.name ?? "Autre";
+      const entry = parCategorie.get(key) ?? { caHt: 0, tvaCollectee: 0 };
+      entry.caHt += caHt;
+      entry.tvaCollectee += tva;
+      parCategorie.set(key, entry);
+      totalTvaCollectee += tva;
+    }
+
+    const stockDeductible = stockItems
+      .filter((s) => inRange(s.dateAchat, customFrom, customTo))
+      .reduce((sum, s) => sum + tvaFromTtc(s.qty * s.coutAchatUnit, s.tauxTvaAchat), 0);
+
+    const saleAchatDeductible = sales
+      .filter((s) => !s.hasStockOrigin && inRange(s.dateAchat ?? s.dateVente, customFrom, customTo))
+      .reduce((sum, s) => sum + tvaFromTtc(s.qty * s.coutAchatUnit, s.tauxTvaAchat), 0);
+
+    const achatProDeductible = achatsPro
+      .filter((a) => inRange(a.dateAchat, customFrom, customTo))
+      .reduce((sum, a) => sum + a.qty * a.montantHt * (a.tauxTva / 100), 0);
+
+    const tvaDeductible = stockDeductible + saleAchatDeductible + achatProDeductible;
+
+    return {
+      parCategorie: Array.from(parCategorie.entries()),
+      totalTvaCollectee,
+      tvaDeductible,
+      stockDeductible,
+      saleAchatDeductible,
+      achatProDeductible,
+      tvaNette: totalTvaCollectee - tvaDeductible,
+    };
+  }, [customFrom, customTo, sales, stockItems, achatsPro, categoryById]);
+
   // IS : sur le bénéfice imposable HT de l'année entière (encaissé, Pro), pas trimestre par trimestre.
   const anneeSales = sales.filter(
     (s) => s.statut === "ENCAISSE" && s.dateEncaissement && new Date(`${s.dateEncaissement}T00:00:00.000Z`).getFullYear() === year
@@ -178,6 +237,77 @@ export function TvaQuarterly({
           </SelectContent>
         </Select>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Période personnalisée</CardTitle>
+          <CardDescription>
+            Même calcul que les trimestres (sur les encaissements), mais sur une plage de
+            dates libre — pratique pour vérifier un montant à mi-trimestre.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="flex flex-col gap-1.5">
+              <Label>Du</Label>
+              <Input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} className="h-8 w-36" />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>Au</Label>
+              <Input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} className="h-8 w-36" />
+            </div>
+            {(customFrom || customTo) && (
+              <button
+                type="button"
+                className="h-8 text-sm text-muted-foreground hover:text-foreground"
+                onClick={() => {
+                  setCustomFrom("");
+                  setCustomTo("");
+                }}
+              >
+                Effacer
+              </button>
+            )}
+          </div>
+          {customRange && (
+            <div className="flex flex-col gap-3 border-t pt-3">
+              <div className="flex flex-col gap-1">
+                {customRange.parCategorie.length === 0 && (
+                  <p className="text-sm text-muted-foreground">Aucun encaissement sur cette période.</p>
+                )}
+                {customRange.parCategorie.map(([name, v]) => (
+                  <div key={name} className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">{name} — CA HT {eur.format(v.caHt)}</span>
+                    <span className="tabular-nums">{eur.format(v.tvaCollectee)}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="flex items-center justify-between border-t pt-2 text-sm">
+                <span className="text-muted-foreground">TVA collectée</span>
+                <span className="font-medium tabular-nums">{eur.format(customRange.totalTvaCollectee)}</span>
+              </div>
+              <div className="flex flex-col gap-1 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">TVA déductible (stock)</span>
+                  <span className="tabular-nums">{eur.format(customRange.stockDeductible)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">TVA déductible (ventes directes)</span>
+                  <span className="tabular-nums">{eur.format(customRange.saleAchatDeductible)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">TVA déductible (achats pro)</span>
+                  <span className="tabular-nums">{eur.format(customRange.achatProDeductible)}</span>
+                </div>
+              </div>
+              <div className="flex items-center justify-between rounded-md bg-muted px-3 py-2">
+                <span className="text-sm font-medium">TVA nette à reverser</span>
+                <span className="text-lg font-semibold tabular-nums">{eur.format(customRange.tvaNette)}</span>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid gap-4 lg:grid-cols-2">
         {quarters.map((q) => (
