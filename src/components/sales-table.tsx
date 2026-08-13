@@ -347,8 +347,8 @@ export function SalesTable({
   const filtered = useMemo(() => {
     const result = sales.filter((s) => {
       if (statutFilter !== "ALL" && s.statut !== statutFilter) return false;
-      if (dateFrom && s.dateVente < dateFrom) return false;
-      if (dateTo && s.dateVente > dateTo) return false;
+      if (dateFrom && (!s.dateEncaissement || s.dateEncaissement < dateFrom)) return false;
+      if (dateTo && (!s.dateEncaissement || s.dateEncaissement > dateTo)) return false;
       if (!search.trim()) return true;
       const haystack = normalizeForSearch(
         [
@@ -699,20 +699,26 @@ export function SalesTable({
           onChange={(e) => setSearch(e.target.value)}
           className="h-8 w-48"
         />
-        <Input
-          type="date"
-          value={dateFrom}
-          onChange={(e) => setDateFrom(e.target.value)}
-          title="Date de vente - à partir de"
-          className="h-8 w-36"
-        />
-        <Input
-          type="date"
-          value={dateTo}
-          onChange={(e) => setDateTo(e.target.value)}
-          title="Date de vente - jusqu'à"
-          className="h-8 w-36"
-        />
+        <label className="flex items-center gap-1.5 text-sm text-muted-foreground">
+          Encaissé du
+          <Input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => setDateFrom(e.target.value)}
+            title="Date d'encaissement - à partir de"
+            className="h-8 w-36"
+          />
+        </label>
+        <label className="flex items-center gap-1.5 text-sm text-muted-foreground">
+          au
+          <Input
+            type="date"
+            value={dateTo}
+            onChange={(e) => setDateTo(e.target.value)}
+            title="Date d'encaissement - jusqu'à"
+            className="h-8 w-36"
+          />
+        </label>
         {(dateFrom || dateTo) && (
           <Button
             variant="ghost"
