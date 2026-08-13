@@ -122,6 +122,19 @@ export async function restoreSale(id: string, path: string) {
   revalidatePath(A_ENCAISSER_PATH);
 }
 
+export async function bulkUpdateSaleTva(
+  ids: string[],
+  path: string,
+  tauxTvaVente: number | null,
+  tauxTvaAchat: number | null
+) {
+  const data: Record<string, number> = {};
+  if (tauxTvaVente !== null) data.tauxTvaVente = tauxTvaVente;
+  if (tauxTvaAchat !== null) data.tauxTvaAchat = tauxTvaAchat;
+  if (Object.keys(data).length === 0) return;
+  await prisma.sale.updateMany({ where: { id: { in: ids } }, data });
+}
+
 export async function bulkDeleteSales(ids: string[], path: string) {
   await prisma.sale.updateMany({ where: { id: { in: ids } }, data: { deletedAt: new Date() } });
   revalidatePath(path);

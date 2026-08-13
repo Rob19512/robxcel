@@ -42,6 +42,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { BulkDeleteButton } from "@/components/bulk-delete-button";
 import { BulkEncaissementButton } from "@/components/bulk-encaissement-button";
+import { BulkTvaButton } from "@/components/bulk-tva-button";
 import { TablePagination } from "@/components/table-pagination";
 import { eur, TVA_RATES, prixHt } from "@/lib/format";
 import { computeSale } from "@/lib/calc";
@@ -57,6 +58,7 @@ import {
   bulkDeleteSales,
   bulkRestoreSales,
   bulkUpdateSaleDates,
+  bulkUpdateSaleTva,
   duplicateSale,
   markSaleEncaisseToday,
   type SaleCoreField,
@@ -514,6 +516,30 @@ export function SalesTable({
     });
   }
 
+  function handleBulkTva(tauxTvaVente: number | null, tauxTvaAchat: number | null) {
+    const ids = Array.from(selectedIds);
+    const idSet = new Set(ids);
+    setSales((prev) =>
+      prev.map((s) =>
+        idSet.has(s.id)
+          ? {
+              ...s,
+              ...(tauxTvaVente !== null ? { tauxTvaVente } : {}),
+              ...(tauxTvaAchat !== null ? { tauxTvaAchat } : {}),
+            }
+          : s
+      )
+    );
+    startTransition(async () => {
+      try {
+        await bulkUpdateSaleTva(ids, path, tauxTvaVente, tauxTvaAchat);
+        toast.success(`TVA mise à jour pour ${ids.length} vente${ids.length > 1 ? "s" : ""}`);
+      } catch {
+        toast.error("Impossible de modifier la TVA");
+      }
+    });
+  }
+
   function handleBulkDelete() {
     const ids = Array.from(selectedIds);
     startTransition(async () => {
@@ -765,6 +791,7 @@ export function SalesTable({
         </Button>
         <ColumnVisibilityMenu columns={columns} order={order} isVisible={isVisible} toggle={toggleColumn} move={moveColumn} />
         <BulkEncaissementButton count={selectedIds.size} onConfirm={handleBulkEncaissement} showPrixCible={false} />
+        <BulkTvaButton count={selectedIds.size} tvaOptions={tvaOptions} onConfirm={handleBulkTva} />
         <BulkDeleteButton count={selectedIds.size} onConfirm={handleBulkDelete} />
         <ToggleGroup
           value={[viewMode]}
