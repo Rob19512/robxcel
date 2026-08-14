@@ -75,20 +75,27 @@ function n(value: unknown): string {
   return value === null || value === undefined ? "" : String(Number(value));
 }
 
-export async function exportScopeData(scope: "PRO" | "PERSO"): Promise<ExportRow[]> {
-  const categories = await prisma.category.findMany({ where: { scope } });
-  const categoryIds = categories.map((c) => c.id);
-  const categoryNameById = new Map(categories.map((c) => [c.id, c.name]));
+// Coeur commun aux deux modes d'export (par périmètre Pro/Perso, ou par catégorie unique) -
+// tout ce qui touche Stock/Vente/Événement passe par ici, pour ne jamais avoir deux versions
+// de la même logique à maintenir en parallèle.
+async function buildRowsForCategories(
+  categoryIds: string[],
+  achatsProFilter: boolean,
+  chargesPersoFilter: boolean
+): Promise<ExportRow[]> {
+  const [categories, stockItems, sales, events, achatsPro, chargesPerso, categoryFields, eventFolders] =
+    await Promise.all([
+      prisma.category.findMany({ where: { id: { in: categoryIds } } }),
+      prisma.stockItem.findMany({ where: { categoryId: { in: categoryIds }, deletedAt: null } }),
+      prisma.sale.findMany({ where: { categoryId: { in: categoryIds }, deletedAt: null } }),
+      prisma.event.findMany({ where: { categoryId: { in: categoryIds } } }),
+      achatsProFilter ? prisma.achatPro.findMany({ where: { deletedAt: null } }) : Promise.resolve([]),
+      chargesPersoFilter ? prisma.chargePerso.findMany({ where: { deletedAt: null } }) : Promise.resolve([]),
+      prisma.categoryField.findMany({ where: { categoryId: { in: categoryIds } } }),
+      prisma.eventFolder.findMany({ where: { categoryId: { in: categoryIds } } }),
+    ]);
 
-  const [stockItems, sales, events, achatsPro, chargesPerso, categoryFields, eventFolders] = await Promise.all([
-    prisma.stockItem.findMany({ where: { categoryId: { in: categoryIds }, deletedAt: null } }),
-    prisma.sale.findMany({ where: { categoryId: { in: categoryIds }, deletedAt: null } }),
-    prisma.event.findMany({ where: { categoryId: { in: categoryIds } } }),
-    scope === "PRO" ? prisma.achatPro.findMany({ where: { deletedAt: null } }) : Promise.resolve([]),
-    scope === "PERSO" ? prisma.chargePerso.findMany({ where: { deletedAt: null } }) : Promise.resolve([]),
-    prisma.categoryField.findMany({ where: { categoryId: { in: categoryIds } } }),
-    prisma.eventFolder.findMany({ where: { categoryId: { in: categoryIds } } }),
-  ]);
+  const categoryNameById = new Map(categories.map((c) => [c.id, c.name]));
   const folderNameById = new Map(eventFolders.map((f) => [f.id, f.name]));
 
   // Chaque catégorie (Billets, Merch...) définit ses propres champs personnalisés
@@ -263,4 +270,31 @@ export async function exportScopeData(scope: "PRO" | "PERSO"): Promise<ExportRow
   });
 
   return rows;
+}
+
+export async function exportScopeData(scope: "PRO" | "PERSO"): Promise<ExportRow[]> {
+  const categories = await prisma.category.findMany({ where: { scope }, select: { id: true } });
+  return buildRowsForCategories(
+    categories.map((c) => c.id),
+    scope === "PRO",
+    scope === "PERSO"
+  );
+}
+
+export type ExportableCategory = { id: string; name: string };
+
+export async function listExportableCategories(scope: "PRO" | "PERSO"): Promise<ExportableCategory[]> {
+  const categories = await prisma.category.findMany({
+    where: { scope },
+    select: { id: true, name: true },
+    orderBy: { sortOrder: "asc" },
+  });
+  return categories;
+}
+
+// Achats pro / Charges perso ne sont pas rattachés à une Category précise (modèles à part,
+// catégorie en texte libre) - un export "une seule catégorie" ne peut donc pas les inclure
+// sans fausser le résultat en y mettant tous les achats pro de toutes les catégories.
+export async function exportCategoryData(categoryId: string): Promise<ExportRow[]> {
+  return buildRowsForCategories([categoryId], false, false);
 }
