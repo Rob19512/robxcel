@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { exportScopeData, exportCategoryData, type ExportableCategory } from "@/lib/actions/export-actions";
+import { exportBilletsTemplate } from "@/lib/actions/billets-template-export";
 import { downloadCsv } from "@/lib/export-csv";
 
 function today() {
@@ -64,8 +65,45 @@ export function ExportPanel({
     }
   }
 
+  async function handleBilletsTemplateExport() {
+    setLoadingKey("billets-template");
+    try {
+      const rows = await exportBilletsTemplate();
+      if (rows.length === 0) {
+        toast.error("Aucune donnée à exporter");
+        return;
+      }
+      // Virgule (standard CSV) et pas point-virgule : ce fichier est fait pour être
+      // ré-importé dans un autre logiciel, pas ouvert par toi dans Excel.
+      downloadCsv(`robxcel-billets-template-${today()}.csv`, rows, ",");
+      toast.success(`Export Billets (template) téléchargé (${rows.length} lignes)`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Échec de l'export");
+    } finally {
+      setLoadingKey(null);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-4">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Export Billets (format template)</CardTitle>
+          <CardDescription>
+            Une ligne par lot d&apos;achat (regroupé par commande + événement + prix), colonnes
+            au format du template externe fourni — Pro uniquement. Certains champs du template
+            n&apos;ont pas d&apos;équivalent chez nous (acheteur, nom du client, type de billet)
+            et restent vides.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-wrap gap-3">
+          <Button variant="outline" onClick={handleBilletsTemplateExport} disabled={loadingKey !== null}>
+            <Download />
+            {loadingKey === "billets-template" ? "Export en cours..." : "Exporter CSV Billets (template)"}
+          </Button>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Export complet</CardTitle>
