@@ -77,15 +77,33 @@ function splitCategoriePlacement(value: string) {
   const category = dashIdx >= 0 ? categorie.slice(0, dashIdx).trim() : categorie;
   const section = dashIdx >= 0 ? categorie.slice(dashIdx + 3).trim() : "";
 
+  // Sur certains listings, une plage de sièges ("45-48") a été saisie dans le champ Rang
+  // au lieu de Place - une rangée n'est quasiment jamais une plage numérique, donc on la
+  // traite comme des sièges plutôt que comme un vrai numéro de rangée.
+  if (/^\d+\s*-\s*\d+$/.test(rang) && !place) {
+    place = rang;
+    rang = "";
+  }
+
   return { category, section, rang, place };
 }
 
-// account_email/account_password sont stockés fusionnés ("email / motdepasse") dans
-// customValues.compte (voir claude-import-actions.ts) - on les sépare pour ce template.
-function splitCompte(value: string) {
-  const idx = value.indexOf(" / ");
-  if (idx === -1) return { email: value.trim(), password: "" };
-  return { email: value.slice(0, idx).trim(), password: value.slice(idx + 3).trim() };
+// account_email/account_password sont stockés fusionnés dans customValues.compte, sous
+// deux formats possibles : "email / motdepasse" (import Claude, voir claude-import-
+// actions.ts) ou "email:motdepasse" (listes collées telles quelles). Pour le 2e format,
+// l'utilisateur préfère garder le mot de passe visible dans Notes plutôt que dans la
+// colonne dédiée du template.
+function splitCompte(value: string): { email: string; password: string; extraNote: string } {
+  const slashIdx = value.indexOf(" / ");
+  if (slashIdx !== -1) {
+    return { email: value.slice(0, slashIdx).trim(), password: value.slice(slashIdx + 3).trim(), extraNote: "" };
+  }
+  const colonIdx = value.indexOf(":");
+  if (colonIdx !== -1) {
+    const after = value.slice(colonIdx + 1).trim();
+    return { email: value.slice(0, colonIdx).trim(), password: "", extraNote: after };
+  }
+  return { email: value.trim(), password: "", extraNote: "" };
 }
 
 export async function exportBilletsTemplate(): Promise<TemplateRow[]> {
@@ -117,17 +135,21 @@ export async function exportBilletsTemplate(): Promise<TemplateRow[]> {
     const cv = (first.customValues as Record<string, string>) ?? {};
     const event = first.eventId ? eventById.get(first.eventId) : null;
     const placement = splitCategoriePlacement(cv.categoriePlacement ?? "");
-    const { email, password } = splitCompte(cv.compte ?? "");
+    const { email, password, extraNote } = splitCompte(cv.compte ?? "");
+    const notes = [first.notes, extraNote].filter(Boolean).join(" — ");
 
     const seats = groupItems
       .map((it) => splitCategoriePlacement((it.customValues as Record<string, string>)?.categoriePlacement ?? "").place)
       .filter(Boolean);
 
     const soldItems = groupItems.filter((it) => it.statut === "VENDU" && it.sale);
+    const pendingItems = groupItems.filter((it) => it.statut === "EN_ATTENTE");
     const firstSold = soldItems[0]?.sale ?? null;
-    // Le template n'a que 2 statuts connus (listing/received) - un lot partiellement vendu
-    // (mélange de statuts) retombe sur "listing" faute de valeur intermédiaire confirmée.
-    const saleStatus = soldItems.length === groupItems.length ? "received" : "listing";
+    const firstPending = pendingItems[0] ?? null;
+    // received = tout le lot est vendu ET encaissé ; pending = au moins un billet vendu
+    // mais pas (encore) encaissé pour tout le lot ; listing = rien de vendu du tout.
+    const saleStatus =
+      soldItems.length === groupItems.length ? "received" : pendingItems.length > 0 ? "pending" : "listing";
 
     rows.push({
       title: event?.name ?? first.description ?? "",
@@ -139,15 +161,21 @@ export async function exportBilletsTemplate(): Promise<TemplateRow[]> {
       tax_per_ticket: "",
       purchase_vat_rate: num(first.tauxTvaAchat),
       sale_vat_rate: num(first.tauxTvaVente),
-      notes: first.notes ?? "",
+      notes,
       quantity: String(groupItems.length),
       sold_quantity: String(soldItems.length),
       category: placement.category,
       purchase_type: "Société",
       account_email: email,
       account_password: password,
-      sale_price: firstSold ? num(firstSold.prixVenteUnit) : first.prixCibleVente !== null ? num(first.prixCibleVente) : "",
-      sale_date: firstSold ? d(firstSold.dateVente) : "",
+      sale_price: firstSold
+        ? num(firstSold.prixVenteUnit)
+        : firstPending
+          ? num(firstPending.prixCibleVente)
+          : first.prixCibleVente !== null
+            ? num(first.prixCibleVente)
+            : "",
+      sale_date: firstSold ? d(firstSold.dateVente) : firstPending ? d(firstPending.dateVente) : "",
       sale_status: saleStatus,
       payout_date: firstSold ? d(firstSold.dateEncaissement) : "",
       buyer_email: "",
