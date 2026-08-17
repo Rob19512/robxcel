@@ -158,6 +158,7 @@ export function Dashboard({
 }) {
   const now = new Date();
   const [scope, setScope] = useState<"PRO" | "PERSO" | "ALL">("PRO");
+  const [categoryFilter, setCategoryFilter] = useState<string>("ALL");
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState<number | null>(now.getMonth());
   const [viewMode, setViewMode] = useState<"vendu" | "encaisse" | "both">("both");
@@ -196,10 +197,11 @@ export function Dashboard({
     return sales.filter((s) => {
       const cat = categoryById.get(s.categoryId);
       if (!cat) return false;
+      if (categoryFilter !== "ALL" && s.categoryId !== categoryFilter) return false;
       if (scope === "ALL") return true;
       return cat.scope === scope;
     });
-  }, [sales, categoryById, scope]);
+  }, [sales, categoryById, scope, categoryFilter]);
 
   // Vendu = toutes les ventes de la période (peu importe si encaissé), performance commerciale.
   function inVenduPeriod(s: SaleLite) {
@@ -305,7 +307,10 @@ export function Dashboard({
       .reduce((sum, a) => sum + a.qty * a.montant, 0);
   }, [achatsPro, year, month]);
 
-  const achatsProDeduction = scope !== "PERSO" ? totalAchatsPro : 0;
+  // Les achats pro ne sont pas rattachés à une catégorie précise (dépenses de la SASU en
+  // général) - les déduire du bénéfice d'une seule catégorie filtrée fausserait sa vraie
+  // rentabilité en lui imputant des frais qui ne lui appartiennent pas forcément.
+  const achatsProDeduction = scope !== "PERSO" && categoryFilter === "ALL" ? totalAchatsPro : 0;
   const beneficeVenduNet = beneficeVendu - achatsProDeduction;
   const beneficeNetTotalNet = beneficeNetTotal - achatsProDeduction;
 
@@ -408,6 +413,26 @@ export function Dashboard({
             <ToggleGroupItem value="PERSO">Perso</ToggleGroupItem>
             <ToggleGroupItem value="ALL">Tout</ToggleGroupItem>
           </ToggleGroup>
+          <Select
+            value={categoryFilter}
+            onValueChange={(v) => setCategoryFilter(v || "ALL")}
+            items={[
+              { value: "ALL", label: "Toutes catégories" },
+              ...categories.map((c) => ({ value: c.id, label: c.name })),
+            ]}
+          >
+            <SelectTrigger className="h-8 w-40">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">Toutes catégories</SelectItem>
+              {categories.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <ToggleGroup
             value={[viewMode]}
             onValueChange={(v) => v[0] && setViewMode(v[0] as typeof viewMode)}
