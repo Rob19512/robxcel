@@ -105,12 +105,19 @@ function splitCompte(value: string): { email: string; password: string; extraNot
 }
 
 export async function exportBilletsTemplate(categoryId: string): Promise<TemplateRow[]> {
-  const [category, items, events] = await Promise.all([
+  const [category, items, directSales, events] = await Promise.all([
     prisma.category.findUniqueOrThrow({ where: { id: categoryId } }),
     prisma.stockItem.findMany({
       where: { categoryId, deletedAt: null },
       include: { sale: true },
       orderBy: { dateAchat: "asc" },
+    }),
+    // Ventes créées directement dans l'onglet Ventes, jamais passées par le Stock - la
+    // boucle ci-dessous (groupée à partir des StockItem) ne les voit jamais, donc sans ça
+    // elles disparaissaient complètement de cet export.
+    prisma.sale.findMany({
+      where: { categoryId, deletedAt: null, stockItem: null },
+      orderBy: { dateVente: "asc" },
     }),
     prisma.event.findMany({ where: { categoryId } }),
   ]);
@@ -189,6 +196,55 @@ export async function exportBilletsTemplate(categoryId: string): Promise<Templat
       section: placement.section,
       row: placement.rang,
       seats: seats.join(", "),
+      ticket_type: "",
+      order_number: cv.numeroCommande ?? "",
+      currency: "EUR",
+    });
+  }
+
+  // Ventes directes (jamais passées par le Stock) : chaque Sale est déjà sa propre unité
+  // (avec sa propre qty), pas besoin de les regrouper entre elles comme pour le Stock.
+  for (const s of directSales) {
+    const cv = (s.customValues as Record<string, string>) ?? {};
+    const event = s.eventId ? eventById.get(s.eventId) : null;
+    const placement = splitCategoriePlacement(cv.categoriePlacement ?? "");
+    const { email, password, extraNote } = splitCompte(cv.compte ?? "");
+    const notes = [s.notes, extraNote].filter(Boolean).join(" — ");
+
+    let saleStatus: string;
+    if (s.statut === "ENCAISSE") saleStatus = "received";
+    else if (s.statut === "EN_ATTENTE") saleStatus = "pending";
+    else saleStatus = "pending"; // LITIGE : pas de valeur dédiée côté template, "pending" reste le plus proche
+
+    rows.push({
+      title: event?.name ?? s.description ?? "",
+      platform: "",
+      event_date: d(event?.dateEvenement),
+      purchase_date: d(s.dateAchat),
+      location: event?.lieuSalle ?? "",
+      purchase_price: num(s.coutAchatUnit),
+      tax_per_ticket: "",
+      purchase_vat_rate: num(s.tauxTvaAchat),
+      sale_vat_rate: num(s.tauxTvaVente),
+      notes,
+      quantity: String(s.qty),
+      sold_quantity: String(s.qty),
+      category: placement.category,
+      purchase_type: purchaseType,
+      account_email: email,
+      account_password: password,
+      sale_price: num(s.prixVenteUnit),
+      sale_date: d(s.dateVente),
+      sale_status: saleStatus,
+      payout_date: d(s.dateEncaissement),
+      buyer_email: "",
+      client_name: "",
+      listing_platform: "",
+      sale_platform: s.source ?? "",
+      sale_number: "",
+      section: placement.section,
+      row: placement.rang,
+      seats: [placement.place].filter(Boolean).join(", "),
       ticket_type: "",
       order_number: cv.numeroCommande ?? "",
       currency: "EUR",
