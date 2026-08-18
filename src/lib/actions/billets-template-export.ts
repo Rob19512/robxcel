@@ -115,7 +115,7 @@ export async function exportBilletsTemplate(categoryId: string): Promise<Templat
     prisma.event.findMany({ where: { categoryId } }),
   ]);
   const eventById = new Map(events.map((e) => [e.id, e]));
-  const purchaseType = category.scope === "PRO" ? "Société" : "Particulier";
+  const purchaseType = category.scope === "PRO" ? "Société" : "Perso";
 
   type Group = {
     items: typeof items;
