@@ -65,24 +65,31 @@ export function ExportPanel({
     }
   }
 
-  async function handleBilletsTemplateExport() {
-    setLoadingKey("billets-template");
+  async function handleBilletsTemplateExport(category: ExportableCategory) {
+    const key = `template-${category.id}`;
+    setLoadingKey(key);
     try {
-      const rows = await exportBilletsTemplate();
+      const rows = await exportBilletsTemplate(category.id);
       if (rows.length === 0) {
-        toast.error("Aucune donnée à exporter");
+        toast.error(`Aucune donnée à exporter pour ${category.name}`);
         return;
       }
       // Virgule (standard CSV) et pas point-virgule : ce fichier est fait pour être
       // ré-importé dans un autre logiciel, pas ouvert par toi dans Excel.
-      downloadCsv(`robxcel-billets-template-${today()}.csv`, rows, ",");
-      toast.success(`Export Billets (template) téléchargé (${rows.length} lignes)`);
+      downloadCsv(`robxcel-${slugify(category.name)}-template-${today()}.csv`, rows, ",");
+      toast.success(`Export ${category.name} (template) téléchargé (${rows.length} lignes)`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Échec de l'export");
     } finally {
       setLoadingKey(null);
     }
   }
+
+  // Le template (section/row/seats, account_email/password...) n'a de sens que pour les
+  // billets - retrouvé par nom plutôt qu'un id en dur, pour rester correct si la catégorie
+  // est un jour recréée avec un autre id.
+  const proBillets = proCategories.find((c) => c.name.toLowerCase().includes("billet"));
+  const persoBillets = persoCategories.find((c) => c.name.toLowerCase().includes("billet"));
 
   return (
     <div className="flex flex-col gap-4">
@@ -91,16 +98,32 @@ export function ExportPanel({
           <CardTitle className="text-base">Export Billets (format template)</CardTitle>
           <CardDescription>
             Une ligne par lot d&apos;achat (regroupé par commande + événement + prix), colonnes
-            au format du template externe fourni — Pro uniquement. Certains champs du template
-            n&apos;ont pas d&apos;équivalent chez nous (acheteur, nom du client, type de billet)
-            et restent vides.
+            au format du template externe fourni. Certains champs du template n&apos;ont pas
+            d&apos;équivalent chez nous (acheteur, nom du client, type de billet) et restent
+            vides.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-3">
-          <Button variant="outline" onClick={handleBilletsTemplateExport} disabled={loadingKey !== null}>
-            <Download />
-            {loadingKey === "billets-template" ? "Export en cours..." : "Exporter CSV Billets (template)"}
-          </Button>
+          {proBillets && (
+            <Button
+              variant="outline"
+              onClick={() => handleBilletsTemplateExport(proBillets)}
+              disabled={loadingKey !== null}
+            >
+              <Download />
+              {loadingKey === `template-${proBillets.id}` ? "Export en cours..." : "Exporter CSV Billets Pro (template)"}
+            </Button>
+          )}
+          {persoBillets && (
+            <Button
+              variant="outline"
+              onClick={() => handleBilletsTemplateExport(persoBillets)}
+              disabled={loadingKey !== null}
+            >
+              <Download />
+              {loadingKey === `template-${persoBillets.id}` ? "Export en cours..." : "Exporter CSV Billets Perso (template)"}
+            </Button>
+          )}
         </CardContent>
       </Card>
 

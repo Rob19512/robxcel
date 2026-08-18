@@ -2,8 +2,6 @@
 
 import { prisma } from "@/lib/prisma";
 
-const BILLETS_CATEGORY_ID = "cat-billets";
-
 export type TemplateRow = {
   title: string;
   platform: string;
@@ -106,16 +104,18 @@ function splitCompte(value: string): { email: string; password: string; extraNot
   return { email: value.trim(), password: "", extraNote: "" };
 }
 
-export async function exportBilletsTemplate(): Promise<TemplateRow[]> {
-  const [items, events] = await Promise.all([
+export async function exportBilletsTemplate(categoryId: string): Promise<TemplateRow[]> {
+  const [category, items, events] = await Promise.all([
+    prisma.category.findUniqueOrThrow({ where: { id: categoryId } }),
     prisma.stockItem.findMany({
-      where: { categoryId: BILLETS_CATEGORY_ID, deletedAt: null },
+      where: { categoryId, deletedAt: null },
       include: { sale: true },
       orderBy: { dateAchat: "asc" },
     }),
-    prisma.event.findMany({ where: { categoryId: BILLETS_CATEGORY_ID } }),
+    prisma.event.findMany({ where: { categoryId } }),
   ]);
   const eventById = new Map(events.map((e) => [e.id, e]));
+  const purchaseType = category.scope === "PRO" ? "Société" : "Particulier";
 
   type Group = {
     items: typeof items;
@@ -165,7 +165,7 @@ export async function exportBilletsTemplate(): Promise<TemplateRow[]> {
       quantity: String(groupItems.length),
       sold_quantity: String(soldItems.length),
       category: placement.category,
-      purchase_type: "Société",
+      purchase_type: purchaseType,
       account_email: email,
       account_password: password,
       sale_price: firstSold
