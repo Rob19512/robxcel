@@ -163,7 +163,10 @@ export async function exportBilletsTemplate(categoryId: string): Promise<Templat
       sale_vat_rate: num(first.tauxTvaVente),
       notes,
       quantity: String(groupItems.length),
-      sold_quantity: String(soldItems.length),
+      // "Vendu" = a un acheteur, peu importe si déjà payé - compte aussi les billets en
+      // attente d'encaissement, pas seulement ceux déjà reçus (sinon un lot vendu mais pas
+      // encore payé affichait sold_quantity=0, alors qu'il est bien vendu).
+      sold_quantity: String(soldItems.length + pendingItems.length),
       category: placement.category,
       purchase_type: purchaseType,
       account_email: email,
